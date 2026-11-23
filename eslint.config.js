@@ -29,7 +29,7 @@ export default defineConfig(
   },
   {
     // The core is framework-free: no React and no DOM.
-    files: ['src/core/**/*.ts'],
+    files: ['src/core/**/*.{ts,tsx}'],
     languageOptions: { globals: {} },
     rules: {
       'no-restricted-imports': [

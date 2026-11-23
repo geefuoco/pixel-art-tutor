@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSPARENT, applyCommand, createDrawing, getPixel } from './drawing';
+import { TRANSPARENT, applyCommand, createDrawing, getPixel, type Drawing } from './drawing';
 
 const palette = ['#000000', '#ffffff', '#ff0000'];
 
-function allPixels(d: ReturnType<typeof createDrawing>) {
+function allPixels(d: Drawing) {
   const out: number[] = [];
   for (let y = 0; y < d.height; y++) for (let x = 0; x < d.width; x++) out.push(getPixel(d, x, y));
   return out;
@@ -88,7 +88,7 @@ describe('drawing document', () => {
       ],
     });
     expect([0, 1, 2, 3].map((x) => getPixel(d, x, 1))).toEqual([TRANSPARENT, TRANSPARENT, 0, 0]);
-    expect(d.pixels.filter((p) => p !== TRANSPARENT)).toHaveLength(2);
+    expect(allPixels(d).filter((p) => p !== TRANSPARENT)).toHaveLength(2);
   });
 
   it('rejects a pencil color that is not in the palette', () => {

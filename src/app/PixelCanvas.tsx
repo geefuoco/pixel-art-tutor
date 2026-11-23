@@ -69,8 +69,8 @@ export function PixelCanvas({
         last.current = p;
         onStroke([from, p]);
       }}
-      onPointerUp={() => (last.current = null)}
-      onPointerCancel={() => (last.current = null)}
+      // Fires after pointerup and pointercancel too, so every way a stroke can end lands here.
+      onLostPointerCapture={() => (last.current = null)}
     />
   );
 }

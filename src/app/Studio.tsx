@@ -60,7 +60,11 @@ export function Studio() {
           ))}
         </div>
         <div className="stage">
-          <PixelCanvas drawing={drawing} onStroke={stroke} label="Studio canvas, 16 by 16 pixels" />
+          <PixelCanvas
+            drawing={drawing}
+            onStroke={stroke}
+            label={`Studio canvas, ${STUDIO_SIZE} by ${STUDIO_SIZE} pixels`}
+          />
         </div>
         <div className="pill palette-pill" role="group" aria-label="Palette">
           {drawing.palette.map((c, i) => (

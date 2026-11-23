@@ -83,13 +83,13 @@ a {
   padding: 24px;
 }
 
-.home-card h1 {
+.message-card h1 {
   margin: 0 0 8px;
   font-size: 28px;
   line-height: 1.1;
 }
 
-.home-card p {
+.message-card p {
   margin: 0 0 16px;
   color: #5d5478;
 }

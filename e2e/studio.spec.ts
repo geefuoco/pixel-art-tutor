@@ -42,7 +42,9 @@ test('draw and erase pixels in the Studio from a deep link', async ({ page }) =>
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 2 });
   await page.mouse.up();
-  for (let x = 2; x <= 9; x++) expect(await pixelAt(canvas, x, 9)).toEqual([0xe9, 0x45, 0x60, 255]);
+  for (let x = 2; x <= 9; x++) {
+    await expect.poll(() => pixelAt(canvas, x, 9)).toEqual([0xe9, 0x45, 0x60, 255]);
+  }
 
   await page.getByRole('button', { name: 'Eraser' }).click();
   await page.mouse.click(at.x, at.y);
