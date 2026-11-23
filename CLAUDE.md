@@ -1,3 +1,7 @@
+## React
+
+- Never use `useEffect`. Derive values during render, do work in event handlers, and subscribe to external stores (the editor core, persistence) with `useSyncExternalStore`. Lint enforces this.
+
 ## Agent skills
 
 ### Issue tracker
