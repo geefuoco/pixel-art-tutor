@@ -400,3 +400,6 @@ a {
   flex-wrap: wrap;
   padding: 12px 0;
 }
+.confirm-restore p {
+  flex-basis: 100%;
+}

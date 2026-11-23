@@ -1,4 +1,4 @@
-import { DatabaseBackup, FileUp } from 'lucide-react';
+import { DatabaseBackup, FileUp, TriangleAlert } from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import { readBackup } from '../persistence/backup';
 import { downloadFile } from './download';
@@ -129,7 +129,8 @@ export function Settings() {
             </form>
           )}
           {notice?.kind === 'error' && (
-            <div className="notice" role="alert">
+            <div className="warning-banner" role="alert">
+              <TriangleAlert aria-hidden size={20} />
               <p>{notice.text}</p>
             </div>
           )}
