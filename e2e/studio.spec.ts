@@ -360,3 +360,59 @@ test('says so when the browser will not store drawings, and still lets you draw'
   await clickPixel(page, studioCanvas(page), 2, 2);
   await expect.poll(() => pixelAt(studioCanvas(page), 2, 2)).toEqual(RED);
 });
+
+test('back up drawings, then restore them after making changes, refusing a bad file', async ({
+  page,
+}) => {
+  await openStudio(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, studioCanvas(page), 3, 5);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download backup' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^pixel-art-tutor-backup-.*\.json$/);
+  const backup = await readFile((await download.path())!);
+
+  await page.getByRole('link', { name: 'Studio' }).click();
+  await expect(studioCanvas(page)).toBeVisible();
+  await page.keyboard.press('n');
+  const form = page.getByRole('form', { name: 'New drawing' });
+  await form.getByLabel('Width').fill('8');
+  await form.getByLabel('Height').fill('8');
+  await form.getByRole('button', { name: 'Create' }).click();
+  const small = page.getByRole('img', { name: 'Studio canvas, 8 by 8 pixels' });
+  const dot = await pixelPosition(small, 1, 1, { width: 8, height: 8 });
+  await page.mouse.click(dot.x, dot.y);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'broken.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(backup.toString().slice(0, 40)),
+  });
+  await expect(page.getByRole('alert')).toContainText('not a Pixel Art Tutor backup');
+  await expect(page.getByRole('alert')).toContainText('current data has not changed');
+
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: backup,
+  });
+  const confirm = page.getByRole('form', { name: 'Restore backup' });
+  await expect(confirm).toContainText('1 drawing in backup.json');
+  await confirm.getByRole('button', { name: 'Replace my drawings' }).click();
+  await expect(page.getByRole('status')).toContainText('Restored 1 drawing');
+  await expect(page.getByRole('alert')).toBeHidden();
+
+  await page.getByRole('link', { name: 'Open the Studio' }).click();
+  await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 16 by 16 pixels');
+  await expect.poll(() => pixelAt(studioCanvas(page), 3, 5)).toEqual(RED);
+  await page.keyboard.press('d');
+  await expect(page.getByRole('region', { name: 'Drawings' }).getByRole('button')).toHaveText([
+    /16x16/,
+    'Close',
+  ]);
+});

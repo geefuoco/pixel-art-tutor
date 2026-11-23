@@ -1,5 +1,6 @@
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
+import { createBackup, readBackup } from './backup';
 import { StorageError, type SavedDrawing, type Store, type StorageProblem } from './store';
 
 export interface CurrentDrawing {
@@ -23,7 +24,13 @@ export interface Studio {
   create(drawing: Drawing): void;
   open(id: string): void;
   flush(): Promise<void>;
+  backup(): Promise<string>;
+  restore(backup: string): Promise<RestoreOutcome>;
 }
+
+export type RestoreOutcome =
+  | { readonly ok: true; readonly drawings: number }
+  | { readonly ok: false; readonly message: string };
 
 export function createStudio(options: {
   store: Store;
@@ -88,30 +95,36 @@ export function createStudio(options: {
     return { id, editor };
   }
 
+  async function flush() {
+    while (pending.size > 0) await Promise.all(pending);
+  }
+
+  function load() {
+    loading ??= (async () => {
+      let drawings: SavedDrawing[] = [];
+      let problem: StorageProblem | null = null;
+      try {
+        drawings = await store.listStudioDrawings();
+      } catch (error) {
+        problem = problemOf(error);
+      }
+      const latest = drawings[0];
+      const current = latest
+        ? startEditing(latest.id, latest.drawing)
+        : startEditing(crypto.randomUUID(), firstDrawing);
+      state = { status: 'ready', current, drawings, problem };
+      publish();
+    })();
+    return loading;
+  }
+
   return {
     getState: () => state,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    load() {
-      loading ??= (async () => {
-        let drawings: SavedDrawing[] = [];
-        let problem: StorageProblem | null = null;
-        try {
-          drawings = await store.listStudioDrawings();
-        } catch (error) {
-          problem = problemOf(error);
-        }
-        const latest = drawings[0];
-        const current = latest
-          ? startEditing(latest.id, latest.drawing)
-          : startEditing(crypto.randomUUID(), firstDrawing);
-        state = { status: 'ready', current, drawings, problem };
-        publish();
-      })();
-      return loading;
-    },
+    load,
     create(drawing) {
       const current = startEditing(crypto.randomUUID(), drawing);
       update({ current });
@@ -124,11 +137,33 @@ export function createStudio(options: {
       update({ current: startEditing(id, entry.drawing) });
       keep(id, entry.drawing);
     },
-    async flush() {
-      while (pending.size > 0) await Promise.all(pending);
+    flush,
+    async backup() {
+      await flush();
+      return createBackup(store);
+    },
+    async restore(backup) {
+      const reading = readBackup(backup);
+      if (!reading.ok) return reading;
+      await flush();
+      try {
+        await store.replaceAll(reading.contents);
+      } catch (error) {
+        return { ok: false, message: `${RESTORE_FAILED[problemOf(error)]} Nothing was restored.` };
+      }
+      failed.clear();
+      newest.clear();
+      loading = undefined;
+      await load();
+      return { ok: true, drawings: reading.contents.studioDrawings.length };
     },
   };
 }
+
+const RESTORE_FAILED: Record<StorageProblem, string> = {
+  unavailable: 'Browser storage is unavailable.',
+  full: 'Browser storage is too full to hold this backup.',
+};
 
 function problemOf(error: unknown): StorageProblem {
   return error instanceof StorageError ? error.problem : 'unavailable';
