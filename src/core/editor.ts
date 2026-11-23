@@ -24,21 +24,29 @@ export interface Editor {
   subscribe(listener: () => void): () => void;
 }
 
-function samePixels(a: Drawing, b: Drawing): boolean {
-  return a.pixels.every((p, i) => p === b.pixels[i]);
+/**
+ * One undo step: only the pixels it changed, by index, with their values before
+ * and after it. Commands only ever change pixels, so this is the whole difference.
+ */
+type Step = Map<number, { before: number; after: number }>;
+
+function withPixels(drawing: Drawing, step: Step, side: 'before' | 'after'): Drawing {
+  const pixels = drawing.pixels.slice();
+  for (const [i, change] of step) pixels[i] = change[side];
+  return { ...drawing, pixels };
 }
 
 export function createEditor(initial: Drawing): Editor {
   let drawing = initial;
-  // Each history entry is the drawing as it was before (undo) or after (redo) one step.
-  const undoStack: Drawing[] = [];
-  const redoStack: Drawing[] = [];
-  // The step the last apply started: the drawing before it, and whether it has changed anything yet.
-  let openStep: { before: Drawing; recorded: boolean } | null = null;
+  const undoStack: Step[] = [];
+  const redoStack: Step[] = [];
+  // The step the last apply started, which a merged apply adds to. It is on the
+  // undo stack once it has changed a pixel.
+  let openStep: { step: Step; recorded: boolean } | null = null;
   let state: EditorState = { drawing, canUndo: false, canRedo: false };
   const listeners = new Set<() => void>();
 
-  function changed() {
+  function publish() {
     state = { drawing, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0 };
     for (const listener of listeners) listener();
   }
@@ -47,31 +55,40 @@ export function createEditor(initial: Drawing): Editor {
     getState: () => state,
     apply(command, options) {
       const next = applyCommand(drawing, command);
-      if (!options?.mergeWithLast || !openStep) openStep = { before: drawing, recorded: false };
-      if (samePixels(drawing, next)) return;
+      if (!options?.mergeWithLast || !openStep) openStep = { step: new Map(), recorded: false };
+      const { step } = openStep;
+      let changed = false;
+      next.pixels.forEach((after, i) => {
+        const before = drawing.pixels[i]!;
+        if (after === before) return;
+        changed = true;
+        // Keep the value from before the step's first change to this pixel.
+        step.set(i, { before: step.get(i)?.before ?? before, after });
+      });
+      if (!changed) return;
       if (!openStep.recorded) {
-        undoStack.push(openStep.before);
+        undoStack.push(step);
         redoStack.length = 0;
         openStep.recorded = true;
       }
       drawing = next;
-      changed();
+      publish();
     },
     undo() {
       openStep = null;
-      const previous = undoStack.pop();
-      if (!previous) return;
-      redoStack.push(drawing);
-      drawing = previous;
-      changed();
+      const step = undoStack.pop();
+      if (!step) return;
+      redoStack.push(step);
+      drawing = withPixels(drawing, step, 'before');
+      publish();
     },
     redo() {
       openStep = null;
-      const next = redoStack.pop();
-      if (!next) return;
-      undoStack.push(drawing);
-      drawing = next;
-      changed();
+      const step = redoStack.pop();
+      if (!step) return;
+      undoStack.push(step);
+      drawing = withPixels(drawing, step, 'after');
+      publish();
     },
     subscribe(listener) {
       listeners.add(listener);

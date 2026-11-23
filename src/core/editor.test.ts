@@ -120,6 +120,20 @@ describe('editor', () => {
     expect(row(editor.getState().drawing)).toEqual([0, T, T]);
   });
 
+  it('a pixel changed twice in one step undoes to its value from before the step', () => {
+    const editor = createEditor(createDrawing({ width: 2, height: 1, palette }));
+    editor.apply({ type: 'pencil', color: 2, points: [{ x: 0, y: 0 }] });
+    editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
+    editor.apply({ type: 'pencil', color: 1, points: [{ x: 0, y: 0 }] }, { mergeWithLast: true });
+    editor.apply({ type: 'eraser', points: [{ x: 0, y: 0 }] }, { mergeWithLast: true });
+    expect(row(editor.getState().drawing)).toEqual([T, T]);
+
+    editor.undo();
+    expect(row(editor.getState().drawing)).toEqual([2, T]);
+    editor.redo();
+    expect(row(editor.getState().drawing)).toEqual([T, T]);
+  });
+
   it('commands that change nothing add no undo step', () => {
     const editor = createEditor(createDrawing({ width: 2, height: 1, palette }));
     editor.apply({ type: 'eraser', points: [{ x: 0, y: 0 }] });
