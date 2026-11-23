@@ -1,4 +1,4 @@
-import { useCallback, useRef, type PointerEvent } from 'react';
+import { useCallback, useRef, type CSSProperties, type PointerEvent } from 'react';
 import { getPixel, TRANSPARENT, type Drawing, type Point } from '../core/drawing';
 
 const CELL = 24;
@@ -17,16 +17,22 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
 }
 
 /**
- * Renders a Drawing on a plain canvas and reports mouse strokes as drawing-pixel
- * points. Each call to onStroke continues the stroke from the previous point.
+ * Renders a Drawing on a plain canvas and reports the mouse in drawing pixels:
+ * onPress with the pressed pixel, then onDrag for each pixel the drag moves to
+ * (drag points can be outside the canvas). Sized by its parent; showGrid draws
+ * a line around every pixel.
  */
 export function PixelCanvas({
   drawing,
-  onStroke,
+  onPress,
+  onDrag,
+  showGrid,
   label,
 }: {
   drawing: Drawing;
-  onStroke: (points: readonly Point[]) => void;
+  onPress: (at: Point) => void;
+  onDrag: (from: Point, to: Point) => void;
+  showGrid: boolean;
   label: string;
 }) {
   const last = useRef<Point | null>(null);
@@ -47,30 +53,41 @@ export function PixelCanvas({
   }
 
   return (
-    <canvas
-      ref={ref}
-      className="pixel-canvas"
-      role="img"
-      aria-label={label}
-      width={drawing.width * CELL}
-      height={drawing.height * CELL}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        const p = toPixel(e);
-        last.current = p;
-        onStroke([p]);
-      }}
-      onPointerMove={(e) => {
-        const from = last.current;
-        if (!from) return;
-        const p = toPixel(e);
-        if (p.x === from.x && p.y === from.y) return;
-        last.current = p;
-        onStroke([from, p]);
-      }}
-      // Fires after pointerup and pointercancel too, so every way a stroke can end lands here.
-      onLostPointerCapture={() => (last.current = null)}
-    />
+    <div className="pixel-canvas-wrap">
+      <canvas
+        ref={ref}
+        className="pixel-canvas"
+        role="img"
+        aria-label={label}
+        width={drawing.width * CELL}
+        height={drawing.height * CELL}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          // A press exactly on the right or bottom edge rounds to one past the last pixel.
+          const { x, y } = toPixel(e);
+          const p = { x: Math.min(x, drawing.width - 1), y: Math.min(y, drawing.height - 1) };
+          last.current = p;
+          onPress(p);
+        }}
+        onPointerMove={(e) => {
+          const from = last.current;
+          if (!from) return;
+          const p = toPixel(e);
+          if (p.x === from.x && p.y === from.y) return;
+          last.current = p;
+          onDrag(from, p);
+        }}
+        // Fires after pointerup and pointercancel too, so every way a stroke can end lands here.
+        onLostPointerCapture={() => (last.current = null)}
+      />
+      {showGrid && (
+        <div
+          className="pixel-grid"
+          aria-hidden
+          style={{ '--cols': drawing.width, '--rows': drawing.height } as CSSProperties}
+        />
+      )}
+    </div>
   );
 }

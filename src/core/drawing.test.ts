@@ -18,6 +18,23 @@ describe('drawing document', () => {
     expect(allPixels(d).every((p) => p === TRANSPARENT)).toBe(true);
   });
 
+  it('can be any size from 1x1 up to 64x64, not necessarily square', () => {
+    const wide = createDrawing({ width: 64, height: 3, palette });
+    expect([wide.width, wide.height]).toEqual([64, 3]);
+    expect(getPixel(wide, 63, 2)).toBe(TRANSPARENT);
+    expect(allPixels(createDrawing({ width: 1, height: 1, palette }))).toEqual([TRANSPARENT]);
+    for (const [width, height] of [
+      [65, 16],
+      [16, 65],
+      [0, 8],
+      [8, -1],
+      [7.5, 8],
+      [Number.NaN, 8],
+    ]) {
+      expect(() => createDrawing({ width: width!, height: height!, palette })).toThrow(RangeError);
+    }
+  });
+
   it('pencil paints a pixel with the chosen palette color without changing the original', () => {
     const before = createDrawing({ width: 4, height: 4, palette });
     const after = applyCommand(before, { type: 'pencil', color: 2, points: [{ x: 1, y: 2 }] });
@@ -89,6 +106,80 @@ describe('drawing document', () => {
     });
     expect([0, 1, 2, 3].map((x) => getPixel(d, x, 1))).toEqual([TRANSPARENT, TRANSPARENT, 0, 0]);
     expect(allPixels(d).filter((p) => p !== TRANSPARENT)).toHaveLength(2);
+  });
+
+  it('fill paints the 4-connected region of the clicked color and stops at other colors', () => {
+    // A ring of color 0 in a 5x5 canvas; its inside and outside are both transparent.
+    // . . . . .
+    // . 0 0 0 .
+    // . 0 . 0 .
+    // . 0 0 0 .
+    // . . . . .
+    let d = createDrawing({ width: 5, height: 5, palette });
+    d = applyCommand(d, {
+      type: 'pencil',
+      color: 0,
+      points: [
+        { x: 1, y: 1 },
+        { x: 3, y: 1 },
+        { x: 3, y: 3 },
+        { x: 1, y: 3 },
+        { x: 1, y: 1 },
+      ],
+    });
+    const inside = applyCommand(d, { type: 'fill', color: 2, at: { x: 2, y: 2 } });
+    const T = TRANSPARENT;
+    // prettier-ignore
+    expect(allPixels(inside)).toEqual([
+      T, T, T, T, T,
+      T, 0, 0, 0, T,
+      T, 0, 2, 0, T,
+      T, 0, 0, 0, T,
+      T, T, T, T, T,
+    ]);
+
+    // The outside wraps around the ring without getting in.
+    const outside = applyCommand(d, { type: 'fill', color: 1, at: { x: 0, y: 0 } });
+    // prettier-ignore
+    expect(allPixels(outside)).toEqual([
+      1, 1, 1, 1, 1,
+      1, 0, 0, 0, 1,
+      1, 0, T, 0, 1,
+      1, 0, 0, 0, 1,
+      1, 1, 1, 1, 1,
+    ]);
+  });
+
+  it('fill does not leak through a diagonal gap', () => {
+    // 0 .
+    // . 0   filling the top-right corner must not reach the bottom-left one.
+    let d = createDrawing({ width: 2, height: 2, palette });
+    d = applyCommand(d, { type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
+    d = applyCommand(d, { type: 'pencil', color: 0, points: [{ x: 1, y: 1 }] });
+    d = applyCommand(d, { type: 'fill', color: 2, at: { x: 1, y: 0 } });
+    expect(allPixels(d)).toEqual([0, 2, TRANSPARENT, 0]);
+  });
+
+  it('fill recolors a whole same-colored shape, and outside the canvas does nothing', () => {
+    let d = createDrawing({ width: 3, height: 1, palette });
+    d = applyCommand(d, {
+      type: 'pencil',
+      color: 0,
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+    });
+    d = applyCommand(d, { type: 'fill', color: 1, at: { x: 0, y: 0 } });
+    expect(allPixels(d)).toEqual([1, 1, TRANSPARENT]);
+    expect(allPixels(applyCommand(d, { type: 'fill', color: 2, at: { x: 5, y: 0 } }))).toEqual([
+      1,
+      1,
+      TRANSPARENT,
+    ]);
+    expect(() => applyCommand(d, { type: 'fill', color: 9, at: { x: 0, y: 0 } })).toThrow(
+      RangeError,
+    );
   });
 
   it('rejects a pencil color that is not in the palette', () => {
