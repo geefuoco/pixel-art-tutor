@@ -193,7 +193,7 @@ describe('editor', () => {
     expect(row(editor.getState().drawing)).toEqual([T, 0, 1, 2]);
   });
 
-  it('replacing a step with one that changes nothing leaves no undo step', () => {
+  it('a replacement that ends up where the step started leaves no undo step', () => {
     const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
     const from = { x: 0, y: 0, width: 3, height: 1 };
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });

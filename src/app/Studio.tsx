@@ -144,6 +144,8 @@ export function Studio() {
   const [clip, setClip] = useState<Clip | null>(null);
   const [floating, setFloating] = useState<Floating | null>(null);
   const placed = floating?.state === editorState ? floating : null;
+  // A selection can hang off the canvas after a move; copy and paste use the part on it.
+  const visibleSelection = selection && rectOnCanvas(drawing, selection);
   const gesture = useRef<SelectGesture | null>(null);
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
   const wheelScroll = useRef(0);
@@ -213,8 +215,8 @@ export function Studio() {
       label: 'Copy',
       Icon: Copy,
       chords: [{ key: 'c', mod: true }],
-      run: () => selection && setClip(copyPixels(drawing, selection)),
-      disabled: !selection,
+      run: () => visibleSelection && setClip(copyPixels(drawing, visibleSelection)),
+      disabled: !visibleSelection,
     },
     {
       label: 'Paste',
@@ -288,7 +290,7 @@ export function Studio() {
   function pasteClip() {
     if (!clip) return;
     // Over the current selection, so copy then paste lands on the original, ready to drag off.
-    const at = selection ? { x: selection.x, y: selection.y } : { x: 0, y: 0 };
+    const at = visibleSelection ? { x: visibleSelection.x, y: visibleSelection.y } : { x: 0, y: 0 };
     const place = (p: Point): Command => ({ type: 'paste', clip, at: p });
     editor.apply(place(at));
     const rect = { ...at, width: clip.width, height: clip.height };
@@ -382,9 +384,10 @@ export function Studio() {
       return;
     }
     const control = [...tools, ...actions].find((c) => c.chords.some((chord) => matches(chord, e)));
-    if (!control) return;
+    // A disabled control leaves the key to the browser, so Ctrl+C with no selection still copies page text.
+    if (!control || control.disabled) return;
     e.preventDefault();
-    if (!control.disabled) control.run();
+    control.run();
   }
 
   // Studio-wide keyboard shortcuts. A ref callback with cleanup (not an effect):
@@ -509,7 +512,7 @@ export function Studio() {
                 onPress={press}
                 onDrag={drag}
                 showGrid={showGrid}
-                selection={selection && rectOnCanvas(drawing, selection)}
+                selection={visibleSelection}
                 showMirrorAxis={mirror}
                 label={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
               />

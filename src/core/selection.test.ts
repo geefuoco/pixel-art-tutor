@@ -101,7 +101,7 @@ describe('copy and paste', () => {
       [2, 0],
     ]);
     const clip = copyPixels(before, { x: 1, y: -1, width: 3, height: 2 });
-    expect(clip).toMatchObject({ width: 1, height: 1 });
+    expect(clip).toEqual({ width: 1, height: 1, pixels: [1] });
     const pasted = applyCommand(before, {
       type: 'paste',
       clip: copyPixels(before, { x: 0, y: 0, width: 2, height: 2 }),
