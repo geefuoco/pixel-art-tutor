@@ -44,6 +44,7 @@ import { createSelectTool, type SelectTool } from '../core/select';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
 import type { CurrentDrawing } from '../persistence/studio';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
+import { downloadFile } from './download';
 import { Nav } from './Nav';
 import { PixelCanvas } from './PixelCanvas';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
@@ -108,14 +109,10 @@ const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
 function downloadPng(drawing: Drawing, scale: number) {
   const bytes = exportPng(drawing, scale);
-  const url = URL.createObjectURL(
+  downloadFile(
     new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
+    `drawing-${drawing.width * scale}x${drawing.height * scale}.png`,
   );
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `drawing-${drawing.width * scale}x${drawing.height * scale}.png`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url));
 }
 
 async function readPng(file: File): Promise<Drawing> {

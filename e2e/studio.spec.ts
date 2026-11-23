@@ -393,7 +393,7 @@ test('back up drawings, then restore them after making changes, refusing a bad f
     mimeType: 'application/json',
     buffer: Buffer.from(backup.toString().slice(0, 40)),
   });
-  await expect(page.getByRole('alert')).toContainText('not a Pixel Art Tutor backup');
+  await expect(page.getByRole('alert')).toContainText('could not be read as a backup');
   await expect(page.getByRole('alert')).toContainText('current data has not changed');
 
   await page.getByLabel('Backup file').setInputFiles({

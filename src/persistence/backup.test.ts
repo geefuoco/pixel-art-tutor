@@ -45,7 +45,7 @@ describe('backup and restore', () => {
     const file = await createBackup(source.store);
 
     const target = await openStudio(new IDBFactory());
-    expect(await target.studio.restore(file)).toEqual({ ok: true, drawings: 2 });
+    expect(await target.studio.restore(file)).toEqual({ ok: true, drawingCount: 2 });
 
     const expected = [
       { width: 1, height: 2, palette: PALETTE, pixels: [0, _] },
@@ -88,7 +88,7 @@ describe('backup and restore', () => {
     JSON.stringify({ ...valid, studioDrawings: [{ ...valid.studioDrawings[0], drawing }] });
 
   it.each([
-    ['not JSON', '{"format": "pixel-art-tutor-backup", "vers', /not a Pixel Art Tutor backup/],
+    ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
     ['from a newer app', JSON.stringify({ ...valid, version: 2 }), /newer version/],
     ['missing its drawings', JSON.stringify({ format: valid.format, version: 1 }), /damaged/],
@@ -137,7 +137,7 @@ describe('backup and restore', () => {
 
   it('accepts the hand-written valid file the rejected ones are variations of', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
-    expect(await studio.restore(JSON.stringify(valid))).toEqual({ ok: true, drawings: 1 });
+    expect(await studio.restore(JSON.stringify(valid))).toEqual({ ok: true, drawingCount: 1 });
     expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
   });
 
@@ -154,7 +154,7 @@ describe('backup and restore', () => {
 
     expect(outcome).toEqual({
       ok: false,
-      message: expect.stringMatching(/full.*Nothing was restored/),
+      message: expect.stringMatching(/too full/),
     });
     expect(await store.listStudioDrawings()).toEqual(before);
   });
@@ -174,5 +174,31 @@ describe('backup and restore', () => {
       _,
       1,
     ]);
+  });
+
+  it('does not save an edit to the replaced drawing that lands while a restore runs', async () => {
+    const backup = await createBackup((await twoDrawings()).store);
+    const store = openStore(new IDBFactory());
+    let editDuringRestore = () => {};
+    const studio = createStudio({
+      store: {
+        ...store,
+        replaceAll(contents) {
+          const replacing = store.replaceAll(contents);
+          editDuringRestore();
+          return replacing;
+        },
+      },
+      firstDrawing: blank(3, 2),
+    });
+    await studio.load();
+    const replaced = ready(studio).current.editor;
+    editDuringRestore = () =>
+      replaced.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
+
+    await studio.restore(backup);
+    await studio.flush();
+
+    expect((await store.listStudioDrawings()).map((d) => d.drawing.width)).toEqual([1, 3]);
   });
 });

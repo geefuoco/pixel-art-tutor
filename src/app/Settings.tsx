@@ -1,29 +1,25 @@
 import { DatabaseBackup, FileUp } from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import { readBackup } from '../persistence/backup';
+import { downloadFile } from './download';
 import { Nav } from './Nav';
 import { routeHref } from './router';
 import { studio } from './studio-store';
 
-type Outcome = { readonly kind: 'error' | 'done'; readonly text: string };
+type Notice = { readonly kind: 'error' | 'done'; readonly text: string };
 
 interface ChosenBackup {
   readonly name: string;
   readonly text: string;
-  readonly drawings: number;
+  readonly drawingCount: number;
 }
 
 function plural(n: number, noun: string) {
   return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }
 
-function download(text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `pixel-art-tutor-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url));
+function refused(reason: string): Notice {
+  return { kind: 'error', text: `${reason} Your current data has not changed.` };
 }
 
 function messageOf(error: unknown) {
@@ -33,15 +29,18 @@ function messageOf(error: unknown) {
 export function Settings() {
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [chosen, setChosen] = useState<ChosenBackup | null>(null);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function downloadBackup() {
-    setOutcome(null);
+    setNotice(null);
     try {
-      download(await studio.backup());
+      downloadFile(
+        new Blob([await studio.backup()], { type: 'application/json' }),
+        `pixel-art-tutor-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      );
     } catch (error) {
-      setOutcome({ kind: 'error', text: `The backup could not be made. ${messageOf(error)}.` });
+      setNotice({ kind: 'error', text: `The backup could not be made. ${messageOf(error)}.` });
     }
   }
 
@@ -49,18 +48,21 @@ export function Settings() {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = '';
     setChosen(null);
-    setOutcome(null);
+    setNotice(null);
     if (!file) return;
-    const text = await file.text();
-    const reading = readBackup(text);
-    if (!reading.ok) {
-      setOutcome({
-        kind: 'error',
-        text: `${reading.message} Your current data has not changed.`,
-      });
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setNotice(refused(`${file.name} could not be read.`));
       return;
     }
-    setChosen({ name: file.name, text, drawings: reading.contents.studioDrawings.length });
+    const reading = readBackup(text);
+    if (!reading.ok) {
+      setNotice(refused(reading.message));
+      return;
+    }
+    setChosen({ name: file.name, text, drawingCount: reading.contents.studioDrawings.length });
   }
 
   async function restoreChosen(backup: ChosenBackup) {
@@ -68,13 +70,13 @@ export function Settings() {
     const result = await studio.restore(backup.text);
     setBusy(false);
     setChosen(null);
-    setOutcome(
+    setNotice(
       result.ok
         ? {
             kind: 'done',
-            text: `Restored ${plural(result.drawings, 'drawing')} from ${backup.name}.`,
+            text: `Restored ${plural(result.drawingCount, 'drawing')} from ${backup.name}.`,
           }
-        : { kind: 'error', text: `${result.message} Your current data has not changed.` },
+        : refused(result.message),
     );
   }
 
@@ -116,7 +118,7 @@ export function Settings() {
             >
               <p>
                 Restoring replaces all your current drawings with the{' '}
-                {plural(chosen.drawings, 'drawing')} in {chosen.name}.
+                {plural(chosen.drawingCount, 'drawing')} in {chosen.name}.
               </p>
               <button type="submit" className="btn primary" disabled={busy}>
                 Replace my drawings
@@ -126,14 +128,14 @@ export function Settings() {
               </button>
             </form>
           )}
-          {outcome?.kind === 'error' && (
+          {notice?.kind === 'error' && (
             <div className="notice" role="alert">
-              <p>{outcome.text}</p>
+              <p>{notice.text}</p>
             </div>
           )}
-          {outcome?.kind === 'done' && (
+          {notice?.kind === 'done' && (
             <div className="notice" role="status">
-              <p>{outcome.text}</p>
+              <p>{notice.text}</p>
               <a className="btn" href={routeHref.studio}>
                 Open the Studio
               </a>

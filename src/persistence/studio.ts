@@ -29,7 +29,7 @@ export interface Studio {
 }
 
 export type RestoreOutcome =
-  | { readonly ok: true; readonly drawings: number }
+  | { readonly ok: true; readonly drawingCount: number }
   | { readonly ok: false; readonly message: string };
 
 export function createStudio(options: {
@@ -80,8 +80,10 @@ export function createStudio(options: {
     void done.finally(() => pending.delete(done));
   }
 
+  let restoring = false;
+
   function keep(id: string, drawing: Drawing) {
-    if (state.status !== 'ready') return;
+    if (state.status !== 'ready' || restoring) return;
     lastStamp = Math.max(now(), lastStamp + 1);
     const entry = { id, drawing, updatedAt: lastStamp };
     update({ drawings: [entry, ...state.drawings.filter((d) => d.id !== id)] });
@@ -145,17 +147,20 @@ export function createStudio(options: {
     async restore(backup) {
       const reading = readBackup(backup);
       if (!reading.ok) return reading;
-      await flush();
+      restoring = true;
       try {
+        await flush();
         await store.replaceAll(reading.contents);
       } catch (error) {
-        return { ok: false, message: `${RESTORE_FAILED[problemOf(error)]} Nothing was restored.` };
+        return { ok: false, message: RESTORE_FAILED[problemOf(error)] };
+      } finally {
+        restoring = false;
       }
       failed.clear();
       newest.clear();
       loading = undefined;
       await load();
-      return { ok: true, drawings: reading.contents.studioDrawings.length };
+      return { ok: true, drawingCount: reading.contents.studioDrawings.length };
     },
   };
 }
