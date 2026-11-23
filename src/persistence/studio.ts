@@ -1,5 +1,6 @@
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
+import type { CustomPalette } from '../core/palettes';
 import { createBackup, readBackup } from './backup';
 import { StorageError, type SavedDrawing, type Store, type StorageProblem } from './store';
 
@@ -14,6 +15,7 @@ export type StudioState =
       readonly status: 'ready';
       readonly current: CurrentDrawing;
       readonly drawings: readonly SavedDrawing[];
+      readonly palettes: readonly CustomPalette[];
       readonly problem: StorageProblem | null;
     };
 
@@ -23,13 +25,15 @@ export interface Studio {
   load(): Promise<void>;
   create(drawing: Drawing): void;
   open(id: string): void;
+  savePalette(palette: CustomPalette): Promise<void>;
+  deletePalette(id: string): Promise<void>;
   flush(): Promise<void>;
   backup(): Promise<string>;
   restore(backup: string): Promise<RestoreOutcome>;
 }
 
 export type RestoreOutcome =
-  | { readonly ok: true; readonly drawingCount: number }
+  | { readonly ok: true; readonly drawingCount: number; readonly paletteCount: number }
   | { readonly ok: false; readonly message: string };
 
 export function createStudio(options: {
@@ -104,9 +108,13 @@ export function createStudio(options: {
   function load() {
     loading ??= (async () => {
       let drawings: SavedDrawing[] = [];
+      let palettes: CustomPalette[] = [];
       let problem: StorageProblem | null = null;
       try {
-        drawings = await store.listStudioDrawings();
+        [drawings, palettes] = await Promise.all([
+          store.listStudioDrawings(),
+          store.listCustomPalettes(),
+        ]);
       } catch (error) {
         problem = problemOf(error);
       }
@@ -114,7 +122,7 @@ export function createStudio(options: {
       const current = latest
         ? startEditing(latest.id, latest.drawing)
         : startEditing(crypto.randomUUID(), firstDrawing);
-      state = { status: 'ready', current, drawings, problem };
+      state = { status: 'ready', current, drawings, palettes, problem };
       publish();
     })();
     return loading;
@@ -139,6 +147,14 @@ export function createStudio(options: {
       update({ current: startEditing(id, entry.drawing) });
       keep(id, entry.drawing);
     },
+    async savePalette(palette) {
+      await store.putCustomPalette(palette);
+      update({ palettes: await store.listCustomPalettes() });
+    },
+    async deletePalette(id) {
+      await store.deleteCustomPalette(id);
+      update({ palettes: await store.listCustomPalettes() });
+    },
     flush,
     async backup() {
       await flush();
@@ -160,7 +176,11 @@ export function createStudio(options: {
       newest.clear();
       loading = undefined;
       await load();
-      return { ok: true, drawingCount: reading.contents.studioDrawings.length };
+      return {
+        ok: true,
+        drawingCount: reading.contents.studioDrawings.length,
+        paletteCount: reading.contents.customPalettes.length,
+      };
     },
   };
 }

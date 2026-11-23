@@ -416,3 +416,53 @@ test('back up drawings, then restore them after making changes, refusing a bad f
     'Close',
   ]);
 });
+
+test('make a custom palette in Settings, then start drawings from it and from a bundled one', async ({
+  page,
+}) => {
+  await page.goto('#/settings');
+  const palettes = page.getByRole('region', { name: 'Palettes' });
+  await expect(palettes.getByRole('listitem').filter({ hasText: 'PICO-8' })).toContainText(
+    'by Lexaloffle Games',
+  );
+
+  await palettes.getByRole('button', { name: 'New palette' }).click();
+  const editor = page.getByRole('form', { name: 'Edit palette' });
+  await editor.getByLabel('Name').fill('Moss');
+  await editor.getByLabel('Color 1', { exact: true }).fill('#334422');
+  await editor.getByLabel('New color').fill('#667744');
+  await editor.getByRole('button', { name: 'Add color' }).click();
+  await expect(editor).toContainText('2 of 32 colors');
+  await editor.getByRole('button', { name: 'Save palette' }).click();
+  await expect(editor).toBeHidden();
+
+  await page.reload();
+  const moss = page
+    .getByRole('region', { name: 'Palettes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Moss' });
+  await expect(moss).toContainText('2 colors');
+
+  await page.getByRole('link', { name: 'Studio' }).click();
+  await expect(studioCanvas(page)).toBeVisible();
+  await page.keyboard.press('n');
+  const form = page.getByRole('form', { name: 'New drawing' });
+  await form.getByLabel('Palette').selectOption({ label: 'Moss' });
+  await form.getByRole('button', { name: 'Create' }).click();
+  const palette = page.getByRole('group', { name: 'Palette' });
+  await expect(palette.getByRole('button')).toHaveCount(2);
+  await palette.getByRole('button', { name: 'Color #667744' }).click();
+  await clickPixel(page, studioCanvas(page), 4, 4);
+  await expect.poll(() => pixelAt(studioCanvas(page), 4, 4)).toEqual([0x66, 0x77, 0x44, 255]);
+
+  await page.keyboard.press('n');
+  await expect(form.getByLabel('Palette')).toHaveValue(/Moss|custom:/);
+  await form.getByLabel('Palette').selectOption({ label: 'PICO-8 by Lexaloffle Games' });
+  await form.getByRole('button', { name: 'Create' }).click();
+  await expect(palette.getByRole('button')).toHaveCount(16);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await moss.getByRole('button', { name: 'Delete' }).click();
+  await moss.getByRole('button', { name: 'Delete Moss' }).click();
+  await expect(moss).toBeHidden();
+});

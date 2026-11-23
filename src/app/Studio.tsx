@@ -42,11 +42,15 @@ import type { Editor } from '../core/editor';
 import { checkImageSize, drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
 import { createSelectTool, type SelectTool } from '../core/select';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
+import type { CustomPalette } from '../core/palettes';
 import type { CurrentDrawing } from '../persistence/studio';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { downloadFile } from './download';
 import { Nav } from './Nav';
+import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
+import { PaletteSwatches } from './PaletteSwatches';
 import { PixelCanvas } from './PixelCanvas';
+import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
@@ -183,16 +187,25 @@ export function Studio() {
       </div>
     );
   }
-  return <StudioEditor current={state.current} drawings={state.drawings} problem={state.problem} />;
+  return (
+    <StudioEditor
+      current={state.current}
+      drawings={state.drawings}
+      palettes={state.palettes}
+      problem={state.problem}
+    />
+  );
 }
 
 function StudioEditor({
   current,
   drawings,
+  palettes,
   problem,
 }: {
   current: CurrentDrawing;
   drawings: readonly SavedDrawing[];
+  palettes: readonly CustomPalette[];
   problem: StorageProblem | null;
 }) {
   const { editor } = current;
@@ -417,12 +430,6 @@ function StudioEditor({
     else setPanel(null);
   }
 
-  function createNewDrawing(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    startDrawing(blankStudioDrawing(Number(form.get('width')), Number(form.get('height'))));
-  }
-
   async function openPng(e: ChangeEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = '';
@@ -601,47 +608,12 @@ function StudioEditor({
             </form>
           )}
           {panel === 'new-drawing' && (
-            <form
-              className="card new-drawing"
-              aria-label="New drawing"
-              onSubmit={createNewDrawing}
-              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
-            >
-              <label>
-                Width
-                <input
-                  name="width"
-                  type="number"
-                  required
-                  min={1}
-                  max={MAX_DRAWING_SIZE}
-                  step={1}
-                  defaultValue={drawing.width}
-                  autoFocus
-                />
-              </label>
-              <label>
-                Height
-                <input
-                  name="height"
-                  type="number"
-                  required
-                  min={1}
-                  max={MAX_DRAWING_SIZE}
-                  step={1}
-                  defaultValue={drawing.height}
-                />
-              </label>
-              <button type="submit" className="btn primary">
-                Create
-              </button>
-              <button type="button" className="btn" onClick={() => setPanel(null)}>
-                Cancel
-              </button>
-              <p className="hint">
-                Up to {MAX_DRAWING_SIZE}x{MAX_DRAWING_SIZE}. The current drawing stays in Drawings.
-              </p>
-            </form>
+            <NewDrawingForm
+              drawing={drawing}
+              palettes={palettes}
+              onCreate={startDrawing}
+              onCancel={() => setPanel(null)}
+            />
           )}
           <div
             ref={listenForWheel}
@@ -700,5 +672,103 @@ function StudioEditor({
         </div>
       </main>
     </div>
+  );
+}
+
+function NewDrawingForm({
+  drawing,
+  palettes,
+  onCreate,
+  onCancel,
+}: {
+  drawing: Drawing;
+  palettes: readonly CustomPalette[];
+  onCreate: (drawing: Drawing) => void;
+  onCancel: () => void;
+}) {
+  const ownChoices = customChoices(palettes);
+  const paletteChoices = [STARTER_CHOICE, ...BUNDLED_CHOICES, ...ownChoices];
+  const [newPaletteValue, setNewPaletteValue] = useState(
+    () => choiceMatching(paletteChoices, drawing.palette).value,
+  );
+  const newPalette = paletteChoices.find((c) => c.value === newPaletteValue) ?? STARTER_CHOICE;
+
+  function create(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    onCreate(
+      blankStudioDrawing(Number(form.get('width')), Number(form.get('height')), newPalette.colors),
+    );
+  }
+
+  return (
+    <form
+      className="card new-drawing"
+      aria-label="New drawing"
+      onSubmit={create}
+      onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+    >
+      <label>
+        Width
+        <input
+          name="width"
+          type="number"
+          required
+          min={1}
+          max={MAX_DRAWING_SIZE}
+          step={1}
+          defaultValue={drawing.width}
+          autoFocus
+        />
+      </label>
+      <label>
+        Height
+        <input
+          name="height"
+          type="number"
+          required
+          min={1}
+          max={MAX_DRAWING_SIZE}
+          step={1}
+          defaultValue={drawing.height}
+        />
+      </label>
+      <label className="palette-choice">
+        Palette
+        <select
+          value={newPalette.value}
+          onChange={(e) => setNewPaletteValue(e.currentTarget.value)}
+        >
+          <option value={STARTER_CHOICE.value}>{STARTER_CHOICE.label}</option>
+          <optgroup label="Bundled">
+            {BUNDLED_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </optgroup>
+          {ownChoices.length > 0 && (
+            <optgroup label="Yours">
+              {ownChoices.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+      </label>
+      <PaletteSwatches colors={newPalette.colors} />
+      <button type="submit" className="btn primary">
+        Create
+      </button>
+      <button type="button" className="btn" onClick={onCancel}>
+        Cancel
+      </button>
+      <p className="hint">
+        Up to {MAX_DRAWING_SIZE}x{MAX_DRAWING_SIZE}. The current drawing stays in Drawings.{' '}
+        <a href={routeHref.settings}>Make your own palette in Settings.</a>
+      </p>
+    </form>
   );
 }

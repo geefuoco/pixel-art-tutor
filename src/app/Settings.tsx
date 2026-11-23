@@ -3,6 +3,7 @@ import { useState, type ChangeEvent } from 'react';
 import { readBackup } from '../persistence/backup';
 import { downloadFile } from './download';
 import { Nav } from './Nav';
+import { Palettes } from './Palettes';
 import { routeHref } from './router';
 import { studio } from './studio-store';
 
@@ -12,10 +13,17 @@ interface ChosenBackup {
   readonly name: string;
   readonly text: string;
   readonly drawingCount: number;
+  readonly paletteCount: number;
 }
 
 function plural(n: number, noun: string) {
   return `${n} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+function contentsOf({ drawingCount, paletteCount }: Omit<ChosenBackup, 'name' | 'text'>) {
+  return paletteCount === 0
+    ? plural(drawingCount, 'drawing')
+    : `${plural(drawingCount, 'drawing')} and ${plural(paletteCount, 'palette')}`;
 }
 
 function refused(reason: string): Notice {
@@ -62,7 +70,12 @@ export function Settings() {
       setNotice(refused(reading.message));
       return;
     }
-    setChosen({ name: file.name, text, drawingCount: reading.contents.studioDrawings.length });
+    setChosen({
+      name: file.name,
+      text,
+      drawingCount: reading.contents.studioDrawings.length,
+      paletteCount: reading.contents.customPalettes.length,
+    });
   }
 
   async function restoreChosen(backup: ChosenBackup) {
@@ -74,7 +87,7 @@ export function Settings() {
       result.ok
         ? {
             kind: 'done',
-            text: `Restored ${plural(result.drawingCount, 'drawing')} from ${backup.name}.`,
+            text: `Restored ${contentsOf(result)} from ${backup.name}.`,
           }
         : refused(result.message),
     );
@@ -88,8 +101,8 @@ export function Settings() {
         <section aria-labelledby="backup-heading" className="settings-section">
           <h2 id="backup-heading">Backup</h2>
           <p className="hint">
-            Your drawings are kept only in this browser. Download a backup file to keep them safe if
-            site data is cleared, or to move them to another browser.
+            Your drawings and palettes are kept only in this browser. Download a backup file to keep
+            them safe if site data is cleared, or to move them to another browser.
           </p>
           <div className="settings-actions">
             <button type="button" className="btn primary" onClick={downloadBackup}>
@@ -117,8 +130,8 @@ export function Settings() {
               }}
             >
               <p>
-                Restoring replaces all your current drawings with the{' '}
-                {plural(chosen.drawingCount, 'drawing')} in {chosen.name}.
+                Restoring replaces all your current drawings and palettes with the{' '}
+                {contentsOf(chosen)} in {chosen.name}.
               </p>
               <button type="submit" className="btn primary" disabled={busy}>
                 Replace my drawings
@@ -143,6 +156,7 @@ export function Settings() {
             </div>
           )}
         </section>
+        <Palettes />
       </main>
     </div>
   );
