@@ -47,6 +47,27 @@ export default defineConfig(
     },
   },
   {
+    // Persistence is framework-free too, but may use browser storage.
+    files: ['src/persistence/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'react-dom', 'react/*', 'react-dom/*'],
+              message: 'src/persistence must not depend on React.',
+            },
+            {
+              group: ['**/app/*', '**/app'],
+              message: 'src/persistence must not depend on the UI.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['*.config.{js,ts}', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },

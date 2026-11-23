@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Grid3x3,
   ImageDown,
+  Images,
   PaintBucket,
   Pencil,
   Pipette,
@@ -37,15 +38,21 @@ import {
   type Drawing,
   type Point,
 } from '../core/drawing';
-import { createEditor } from '../core/editor';
+import type { Editor } from '../core/editor';
 import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
 import { checkImageSize, drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
-import { createSelectTool } from '../core/select';
+import { createSelectTool, type SelectTool } from '../core/select';
+import type { SavedDrawing, StorageProblem } from '../persistence/store';
+import type { CurrentDrawing } from '../persistence/studio';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { Nav } from './Nav';
 import { PixelCanvas } from './PixelCanvas';
+import { studio, useStudio } from './studio-store';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
+
+/** The card open above the canvas, if any. */
+type Panel = 'new-drawing' | 'export' | 'drawings' | null;
 
 /** A key press: `key` is KeyboardEvent.key lowercased. `shift` unset means either. */
 interface Chord {
@@ -68,13 +75,40 @@ interface Control {
 const PAN_STEP = 32;
 /** Wheel scroll, in pixels, that zooms one level; trackpads send many small deltas. */
 const WHEEL_STEP = 40;
-const DEFAULT_SIZE = 16;
 
-/** An Editor for the drawing and the Select tool over it. */
-function editing(drawing: Drawing) {
-  const editor = createEditor(drawing);
-  return { editor, selectTool: createSelectTool(editor) };
+const selectTools = new WeakMap<Editor, SelectTool>();
+
+/** The Select tool over an Editor, the same one each time. */
+function selectToolFor(editor: Editor): SelectTool {
+  let tool = selectTools.get(editor);
+  if (!tool) {
+    tool = createSelectTool(editor);
+    selectTools.set(editor, tool);
+  }
+  return tool;
 }
+
+const STORAGE_MESSAGES: Record<StorageProblem, string> = {
+  unavailable:
+    "This browser isn't letting the site store data, so your drawings won't be kept. Private windows and blocked site data can cause this.",
+  full: "Browser storage is full, so your latest changes aren't saved. Export a PNG to keep a copy, or free up space and keep drawing.",
+};
+
+const thumbnails = new WeakMap<Drawing, string>();
+
+/** A 1x PNG of the drawing as a data URL, for an <img>. */
+function thumbnail(drawing: Drawing): string {
+  let url = thumbnails.get(drawing);
+  if (!url) {
+    let binary = '';
+    for (const byte of exportPng(drawing, 1)) binary += String.fromCharCode(byte);
+    url = `data:image/png;base64,${btoa(binary)}`;
+    thumbnails.set(drawing, url);
+  }
+  return url;
+}
+
+const editedAt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 function blankDrawing(width: number, height: number) {
   return createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE });
@@ -161,9 +195,29 @@ function ControlButton({ control, iconSize }: { control: Control; iconSize: numb
 }
 
 export function Studio() {
-  const [{ editor, selectTool }, setEditing] = useState(() =>
-    editing(blankDrawing(DEFAULT_SIZE, DEFAULT_SIZE)),
-  );
+  const state = useStudio();
+  if (state.status === 'loading') {
+    return (
+      <div className="page studio">
+        <Nav current="studio" />
+        <main className="studio-main" aria-busy="true" />
+      </div>
+    );
+  }
+  return <StudioEditor current={state.current} drawings={state.drawings} problem={state.problem} />;
+}
+
+function StudioEditor({
+  current,
+  drawings,
+  problem,
+}: {
+  current: CurrentDrawing;
+  drawings: readonly SavedDrawing[];
+  problem: StorageProblem | null;
+}) {
+  const { editor } = current;
+  const selectTool = selectToolFor(editor);
   const { drawing, canUndo, canRedo } = useSyncExternalStore(editor.subscribe, editor.getState);
   const { selection, canCopy, canPaste } = useSyncExternalStore(
     selectTool.subscribe,
@@ -174,8 +228,7 @@ export function Studio() {
   const [showGrid, setShowGrid] = useState(false);
   const [view, setView] = useState<View>(FIT_VIEW);
   const [spaceHeld, setSpaceHeld] = useState(false);
-  const [newDrawingOpen, setNewDrawingOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
   const [exportScale, setExportScale] = useState(1);
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
@@ -225,10 +278,14 @@ export function Studio() {
       label: 'New drawing',
       Icon: FilePlus,
       chords: [{ key: 'n' }],
-      run: () => {
-        setExportOpen(false);
-        setNewDrawingOpen(true);
-      },
+      run: () => setPanel('new-drawing'),
+    },
+    {
+      label: 'Drawings',
+      Icon: Images,
+      chords: [{ key: 'd' }],
+      run: () => setPanel((p) => (p === 'drawings' ? null : 'drawings')),
+      pressed: panel === 'drawings',
     },
     {
       label: 'Open PNG',
@@ -240,10 +297,7 @@ export function Studio() {
       label: 'Export PNG',
       Icon: ImageDown,
       chords: [{ key: 'e', mod: true, shift: true }],
-      run: () => {
-        setNewDrawingOpen(false);
-        setExportOpen(true);
-      },
+      run: () => setPanel('export'),
     },
     {
       label: 'Undo',
@@ -371,21 +425,31 @@ export function Studio() {
     }
   }
 
-  /** Starts editing `next` in place of the current drawing, with fresh undo history. */
-  function replaceDrawing(next: Drawing) {
-    setEditing(editing(next));
+  /** Resets the view and color for a different drawing, which starts with fresh undo history. */
+  function switchedTo(next: Drawing) {
     // A different palette's colors don't line up with the old indexes.
     if (next.palette !== drawing.palette) setColor(0);
     setView(FIT_VIEW);
-    setNewDrawingOpen(false);
-    setExportOpen(false);
+    setPanel(null);
     setOpenError(null);
+  }
+
+  /** Starts editing a new drawing; the current one stays in Drawings if it was kept. */
+  function startDrawing(next: Drawing) {
+    studio.create(next);
+    switchedTo(next);
+  }
+
+  function openDrawing(entry: SavedDrawing) {
+    studio.open(entry.id);
+    if (entry.id !== current.id) switchedTo(entry.drawing);
+    else setPanel(null);
   }
 
   function createNewDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    replaceDrawing(blankDrawing(Number(form.get('width')), Number(form.get('height'))));
+    startDrawing(blankDrawing(Number(form.get('width')), Number(form.get('height'))));
   }
 
   async function openPng(e: ChangeEvent<HTMLInputElement>) {
@@ -394,7 +458,7 @@ export function Studio() {
     e.currentTarget.value = '';
     if (!file) return;
     try {
-      replaceDrawing(await readPng(file));
+      startDrawing(await readPng(file));
     } catch (error) {
       setOpenError(error instanceof Error ? error.message : String(error));
     }
@@ -403,7 +467,7 @@ export function Studio() {
   function exportDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     downloadPng(drawing, exportScale);
-    setExportOpen(false);
+    setPanel(null);
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -483,6 +547,11 @@ export function Studio() {
             hidden
             onChange={openPng}
           />
+          {problem && (
+            <div className="card notice" role="alert">
+              <p>{STORAGE_MESSAGES[problem]}</p>
+            </div>
+          )}
           {openError && (
             <div className="card notice" role="alert">
               <p>{openError}</p>
@@ -491,12 +560,50 @@ export function Studio() {
               </button>
             </div>
           )}
-          {exportOpen && (
+          {panel === 'drawings' && (
+            <section
+              className="card drawings"
+              aria-label="Drawings"
+              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
+            >
+              {drawings.length === 0 ? (
+                <p className="hint">Nothing kept yet. A drawing is kept from its first change.</p>
+              ) : (
+                <ul className="drawing-list">
+                  {drawings.map((d, i) => (
+                    <li key={d.id}>
+                      <button
+                        type="button"
+                        className="drawing-item"
+                        aria-current={d.id === current.id ? 'true' : undefined}
+                        onClick={() => openDrawing(d)}
+                        autoFocus={i === 0}
+                      >
+                        <img
+                          src={thumbnail(d.drawing)}
+                          alt=""
+                          style={{ aspectRatio: `${d.drawing.width} / ${d.drawing.height}` }}
+                        />
+                        <span className="drawing-size">
+                          {d.drawing.width}x{d.drawing.height}
+                        </span>
+                        <span className="hint">{editedAt.format(d.updatedAt)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button type="button" className="btn" onClick={() => setPanel(null)}>
+                Close
+              </button>
+            </section>
+          )}
+          {panel === 'export' && (
             <form
               className="card new-drawing export-png"
               aria-label="Export PNG"
               onSubmit={exportDrawing}
-              onKeyDown={(e) => e.key === 'Escape' && setExportOpen(false)}
+              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
             >
               <label>
                 Scale
@@ -515,7 +622,7 @@ export function Studio() {
               <button type="submit" className="btn primary">
                 Export
               </button>
-              <button type="button" className="btn" onClick={() => setExportOpen(false)}>
+              <button type="button" className="btn" onClick={() => setPanel(null)}>
                 Cancel
               </button>
               <p className="hint">
@@ -524,12 +631,12 @@ export function Studio() {
               </p>
             </form>
           )}
-          {newDrawingOpen && (
+          {panel === 'new-drawing' && (
             <form
               className="card new-drawing"
               aria-label="New drawing"
               onSubmit={createNewDrawing}
-              onKeyDown={(e) => e.key === 'Escape' && setNewDrawingOpen(false)}
+              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
             >
               <label>
                 Width
@@ -559,11 +666,11 @@ export function Studio() {
               <button type="submit" className="btn primary">
                 Create
               </button>
-              <button type="button" className="btn" onClick={() => setNewDrawingOpen(false)}>
+              <button type="button" className="btn" onClick={() => setPanel(null)}>
                 Cancel
               </button>
               <p className="hint">
-                Up to {MAX_DRAWING_SIZE}x{MAX_DRAWING_SIZE}. Replaces the current drawing.
+                Up to {MAX_DRAWING_SIZE}x{MAX_DRAWING_SIZE}. The current drawing stays in Drawings.
               </p>
             </form>
           )}

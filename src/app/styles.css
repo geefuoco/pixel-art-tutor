@@ -208,6 +208,51 @@ a {
   border-radius: 10px;
   background: #fff;
 }
+.drawings {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  max-width: 100%;
+}
+.drawing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.drawing-item {
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 8px;
+  width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.drawing-item:hover {
+  background: var(--tint);
+}
+.drawing-item[aria-current='true'] {
+  border-color: var(--accent);
+}
+.drawing-item img {
+  width: 64px;
+  max-height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 8px 8px;
+}
+.drawing-size {
+  font-weight: 800;
+}
 .notice {
   display: flex;
   align-items: center;

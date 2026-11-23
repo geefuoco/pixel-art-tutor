@@ -52,8 +52,14 @@ function studioCanvas(page: Page) {
   return page.getByRole('img', { name: /studio canvas/i });
 }
 
-test('draw and erase pixels in the Studio from a deep link', async ({ page }) => {
+/** Opens the Studio from a deep link and waits for it to load the saved drawings. */
+async function openStudio(page: Page) {
   await page.goto('#/studio');
+  await expect(studioCanvas(page)).toBeVisible();
+}
+
+test('draw and erase pixels in the Studio from a deep link', async ({ page }) => {
+  await openStudio(page);
   const canvas = studioCanvas(page);
   await expect(canvas).toBeVisible();
   const blank = await pixelAt(canvas, 3, 5);
@@ -88,7 +94,7 @@ test('draw and erase pixels in the Studio from a deep link', async ({ page }) =>
 });
 
 test('fill, eyedropper, and undo/redo from the keyboard', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   const canvas = studioCanvas(page);
   const blank = await pixelAt(canvas, 0, 0);
 
@@ -123,7 +129,7 @@ test('fill, eyedropper, and undo/redo from the keyboard', async ({ page }) => {
 });
 
 test('new drawing of a chosen size, zoom, pan and pixel grid', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   await page.keyboard.press('n');
   const form = page.getByRole('form', { name: 'New drawing' });
   await form.getByLabel('Width').fill('32');
@@ -172,7 +178,7 @@ test('new drawing of a chosen size, zoom, pan and pixel grid', async ({ page }) 
 });
 
 test('a new drawing cannot be larger than 64x64', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   await page.getByRole('button', { name: 'New drawing' }).click();
   const form = page.getByRole('form', { name: 'New drawing' });
   await form.getByLabel('Width').fill('65');
@@ -188,7 +194,7 @@ test('a new drawing cannot be larger than 64x64', async ({ page }) => {
 });
 
 test('select, move, copy and paste pixels, and draw with mirror symmetry', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   const canvas = studioCanvas(page);
   await expect(canvas).toBeVisible();
   const blank = { at11: await pixelAt(canvas, 1, 1), at56: await pixelAt(canvas, 5, 6) };
@@ -262,7 +268,7 @@ async function solidPng(page: Page, width: number, height: number) {
 }
 
 test('export a PNG upscaled, then open it in the Studio', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   const canvas = studioCanvas(page);
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   await clickPixel(page, canvas, 3, 5);
@@ -302,7 +308,7 @@ test('export a PNG upscaled, then open it in the Studio', async ({ page }) => {
 });
 
 test('opening a PNG larger than 64x64 explains why and keeps the drawing', async ({ page }) => {
-  await page.goto('#/studio');
+  await openStudio(page);
   const tooBig = await solidPng(page, 65, 20);
   await page.getByRole('button', { name: 'Open PNG' }).click();
   await page.getByLabel('PNG file').setInputFiles({
@@ -323,4 +329,53 @@ test('opening a PNG larger than 64x64 explains why and keeps the drawing', async
   await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 64 by 20 pixels');
   await expect(page.getByRole('alert')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Color #336699' })).toBeVisible();
+});
+
+test('resume drawings after a reload, and reopen an earlier one', async ({ page }) => {
+  await openStudio(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, studioCanvas(page), 3, 5);
+
+  // A second drawing, which the first stays kept beside.
+  await page.keyboard.press('n');
+  const form = page.getByRole('form', { name: 'New drawing' });
+  await form.getByLabel('Width').fill('8');
+  await form.getByLabel('Height').fill('8');
+  await form.getByRole('button', { name: 'Create' }).click();
+  const small = page.getByRole('img', { name: 'Studio canvas, 8 by 8 pixels' });
+  const size = { width: 8, height: 8 };
+  const dot = await pixelPosition(small, 1, 6, size);
+  await page.mouse.click(dot.x, dot.y);
+  await expect.poll(() => pixelAt(small, 1, 6, size)).toEqual(RED);
+
+  // The reload resumes the drawing last changed, without its undo history.
+  await page.reload();
+  await expect(small).toBeVisible();
+  await expect.poll(() => pixelAt(small, 1, 6, size)).toEqual(RED);
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+
+  await page.keyboard.press('d');
+  const drawings = page.getByRole('region', { name: 'Drawings' });
+  await expect(drawings.getByRole('button')).toHaveText([/8x8/, /16x16/, 'Close']);
+  await drawings.getByRole('button', { name: /16x16/ }).click();
+  await expect(drawings).toBeHidden();
+  await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 16 by 16 pixels');
+  await expect.poll(() => pixelAt(studioCanvas(page), 3, 5)).toEqual(RED);
+});
+
+test('says so when the browser will not store drawings, and still lets you draw', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', {
+      get() {
+        throw new DOMException('Site data is blocked', 'SecurityError');
+      },
+    });
+  });
+  await openStudio(page);
+  await expect(page.getByRole('alert')).toContainText("won't be kept");
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, studioCanvas(page), 2, 2);
+  await expect.poll(() => pixelAt(studioCanvas(page), 2, 2)).toEqual(RED);
 });
