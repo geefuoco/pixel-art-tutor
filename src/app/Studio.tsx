@@ -1,4 +1,7 @@
 import {
+  ClipboardPaste,
+  CaretsToAxisDashedVertical,
+  Copy,
   Eraser,
   FilePlus,
   Grid3x3,
@@ -7,6 +10,8 @@ import {
   Pipette,
   Redo2,
   Scan,
+  SquareDashed,
+  SquareX,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -28,13 +33,14 @@ import {
   type Command,
   type Point,
 } from '../core/drawing';
-import { createEditor, type Editor } from '../core/editor';
+import { createEditor } from '../core/editor';
 import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
+import { createSelectTool } from '../core/select';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { Nav } from './Nav';
 import { PixelCanvas } from './PixelCanvas';
 
-type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper';
+type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
 /** A key press: `key` is KeyboardEvent.key lowercased. `shift` unset means either. */
 interface Chord {
@@ -59,8 +65,12 @@ const PAN_STEP = 32;
 const WHEEL_STEP = 40;
 const DEFAULT_SIZE = 16;
 
-function newEditor(width: number, height: number): Editor {
-  return createEditor(createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE }));
+/** A blank drawing's Editor and the Select tool over it. */
+function newDrawing(width: number, height: number) {
+  const editor = createEditor(
+    createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE }),
+  );
+  return { editor, selectTool: createSelectTool(editor) };
 }
 
 function matches(chord: Chord, e: KeyboardEvent) {
@@ -72,7 +82,9 @@ function matches(chord: Chord, e: KeyboardEvent) {
 }
 
 function chordLabel({ key, mod, shift }: Chord, ctrl = 'Ctrl', plus = '+') {
-  return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${key === '+' ? plus : key.toUpperCase()}`;
+  // Named keys like "escape" read as "Escape"; single characters are upper-cased.
+  const name = key === '+' ? plus : key[0]!.toUpperCase() + key.slice(1);
+  return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${name}`;
 }
 
 function ControlButton({ control, iconSize }: { control: Control; iconSize: number }) {
@@ -94,14 +106,21 @@ function ControlButton({ control, iconSize }: { control: Control; iconSize: numb
 }
 
 export function Studio() {
-  const [editor, setEditor] = useState(() => newEditor(DEFAULT_SIZE, DEFAULT_SIZE));
+  const [{ editor, selectTool }, setDrawing] = useState(() =>
+    newDrawing(DEFAULT_SIZE, DEFAULT_SIZE),
+  );
   const { drawing, canUndo, canRedo } = useSyncExternalStore(editor.subscribe, editor.getState);
+  const { selection, canCopy, canPaste } = useSyncExternalStore(
+    selectTool.subscribe,
+    selectTool.getState,
+  );
   const [tool, setTool] = useState<Tool>('pencil');
   const [color, setColor] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [view, setView] = useState<View>(FIT_VIEW);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [newDrawingOpen, setNewDrawingOpen] = useState(false);
+  const [mirror, setMirror] = useState(false);
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
   const wheelScroll = useRef(0);
 
@@ -133,6 +152,7 @@ export function Studio() {
       { tool: 'eraser', label: 'Eraser', Icon: Eraser, key: 'e' },
       { tool: 'fill', label: 'Fill', Icon: PaintBucket, key: 'f' },
       { tool: 'eyedropper', label: 'Eyedropper', Icon: Pipette, key: 'i' },
+      { tool: 'select', label: 'Select', Icon: SquareDashed, key: 'm' },
     ] as const
   ).map(({ key, ...t }) => ({
     ...t,
@@ -166,6 +186,31 @@ export function Studio() {
       disabled: !canRedo,
     },
     {
+      label: 'Copy',
+      Icon: Copy,
+      chords: [{ key: 'c', mod: true }],
+      run: selectTool.copy,
+      disabled: !canCopy,
+    },
+    {
+      label: 'Paste',
+      Icon: ClipboardPaste,
+      chords: [{ key: 'v', mod: true }],
+      run: () => {
+        selectTool.paste();
+        // The pasted pixels are selected, ready to drag off.
+        setTool('select');
+      },
+      disabled: !canPaste,
+    },
+    {
+      label: 'Deselect',
+      Icon: SquareX,
+      chords: [{ key: 'escape' }],
+      run: selectTool.deselect,
+      disabled: !selection,
+    },
+    {
       label: 'Zoom in',
       Icon: ZoomIn,
       chords: [{ key: '+' }, { key: '=' }],
@@ -193,6 +238,13 @@ export function Studio() {
       run: () => setShowGrid((g) => !g),
       pressed: showGrid,
     },
+    {
+      label: 'Mirror symmetry',
+      Icon: CaretsToAxisDashedVertical,
+      chords: [{ key: 's' }],
+      run: () => setMirror((m) => !m),
+      pressed: mirror,
+    },
   ];
 
   const panKeys: Record<string, [number, number]> = {
@@ -203,7 +255,9 @@ export function Studio() {
   };
 
   function strokeCommand(points: readonly Point[]): Command {
-    return tool === 'eraser' ? { type: 'eraser', points } : { type: 'pencil', color, points };
+    return tool === 'eraser'
+      ? { type: 'eraser', points, mirror }
+      : { type: 'pencil', color, points, mirror };
   }
 
   function press(at: Point) {
@@ -213,7 +267,10 @@ export function Studio() {
         editor.apply(strokeCommand([at]));
         return;
       case 'fill':
-        editor.apply({ type: 'fill', color, at });
+        editor.apply({ type: 'fill', color, at, mirror });
+        return;
+      case 'select':
+        selectTool.press(at);
         return;
       case 'eyedropper': {
         const picked = getPixel(drawing, at.x, at.y);
@@ -232,13 +289,15 @@ export function Studio() {
   function drag(from: Point, to: Point) {
     if (tool === 'pencil' || tool === 'eraser') {
       editor.apply(strokeCommand([from, to]), { mergeWithLast: true });
+    } else if (tool === 'select') {
+      selectTool.drag(to);
     }
   }
 
   function createNewDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    setEditor(newEditor(Number(form.get('width')), Number(form.get('height'))));
+    setDrawing(newDrawing(Number(form.get('width')), Number(form.get('height'))));
     setView(FIT_VIEW);
     setNewDrawingOpen(false);
   }
@@ -258,9 +317,10 @@ export function Studio() {
       return;
     }
     const control = [...tools, ...actions].find((c) => c.chords.some((chord) => matches(chord, e)));
-    if (!control) return;
+    // A disabled control leaves the key to the browser, so Ctrl+C with no selection still copies page text.
+    if (!control || control.disabled) return;
     e.preventDefault();
-    if (!control.disabled) control.run();
+    control.run();
   }
 
   // Studio-wide keyboard shortcuts. A ref callback with cleanup (not an effect):
@@ -385,6 +445,8 @@ export function Studio() {
                 onPress={press}
                 onDrag={drag}
                 showGrid={showGrid}
+                selection={selection}
+                showMirrorAxis={mirror}
                 label={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
               />
             </div>

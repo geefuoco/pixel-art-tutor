@@ -1,5 +1,8 @@
 import { applyCommand, type Command, type Drawing } from './drawing';
 
+/** Names an undo step, so a later call can replace it while it is still open. */
+export type StepId = number;
+
 export interface EditorState {
   readonly drawing: Drawing;
   readonly canUndo: boolean;
@@ -14,11 +17,19 @@ export interface Editor {
   /** The same object until the next change. */
   getState(): EditorState;
   /**
-   * Applies a command as a new undo step. With `mergeWithLast`, it joins the step
-   * the previous apply started instead, so a whole mouse stroke undoes at once.
-   * Undo and redo end the open step. Commands that change nothing add no step.
+   * Applies a command as a new undo step, and returns that step. With `mergeWithLast`,
+   * it joins the step the previous apply started instead, so a whole mouse stroke
+   * undoes at once. Undo and redo end the open step, so after them a merge starts a
+   * new one. Commands that change nothing add no step, but still start one.
    */
-  apply(command: Command, options?: { mergeWithLast?: boolean }): void;
+  apply(command: Command, options?: { mergeWithLast?: boolean }): StepId;
+  /**
+   * While `step` is still the open step, takes back its changes and applies
+   * `command` as that step instead, so a block can be dragged on after a paste or
+   * move without leaving copies behind. Once anything else is applied, undone or
+   * redone, does nothing and returns false.
+   */
+  replace(step: StepId, command: Command): boolean;
   undo(): void;
   redo(): void;
   subscribe(listener: () => void): () => void;
@@ -41,8 +52,9 @@ export function createEditor(initial: Drawing): Editor {
   const undoStack: Step[] = [];
   const redoStack: Step[] = [];
   // The step the last apply started, which a merged apply adds to. It is on the
-  // undo stack once it has changed a pixel.
-  let openStep: { step: Step; recorded: boolean } | null = null;
+  // undo stack while it changes any pixel, and is then always the newest step there.
+  let openStep: { id: StepId; step: Step; recorded: boolean } | null = null;
+  let nextId = 1;
   let state: EditorState = { drawing, canUndo: false, canRedo: false };
   const listeners = new Set<() => void>();
 
@@ -51,28 +63,57 @@ export function createEditor(initial: Drawing): Editor {
     for (const listener of listeners) listener();
   }
 
+  /** Puts the open step on the undo stack or takes it off, to match whether it changes anything. */
+  function record(open: NonNullable<typeof openStep>) {
+    if (!open.recorded && open.step.size > 0) {
+      undoStack.push(open.step);
+      redoStack.length = 0;
+      open.recorded = true;
+    } else if (open.recorded && open.step.size === 0) {
+      undoStack.pop();
+      open.recorded = false;
+    }
+  }
+
+  function changesAnything(next: Drawing) {
+    return next.pixels.some((p, i) => p !== drawing.pixels[i]);
+  }
+
   return {
     getState: () => state,
     apply(command, options) {
       const next = applyCommand(drawing, command);
-      if (!options?.mergeWithLast || !openStep) openStep = { step: new Map(), recorded: false };
-      const { step } = openStep;
-      let changed = false;
+      if (!options?.mergeWithLast || !openStep) {
+        openStep = { id: nextId++, step: new Map(), recorded: false };
+      }
+      const open = openStep;
+      if (!changesAnything(next)) return open.id;
       next.pixels.forEach((after, i) => {
         const before = drawing.pixels[i]!;
-        if (after === before) return;
-        changed = true;
         // Keep the value from before the step's first change to this pixel.
-        step.set(i, { before: step.get(i)?.before ?? before, after });
+        if (after !== before)
+          open.step.set(i, { before: open.step.get(i)?.before ?? before, after });
       });
-      if (!changed) return;
-      if (!openStep.recorded) {
-        undoStack.push(step);
-        redoStack.length = 0;
-        openStep.recorded = true;
-      }
+      record(open);
       drawing = next;
       publish();
+      return open.id;
+    },
+    replace(step, command) {
+      const open = openStep;
+      if (open?.id !== step) return false;
+      const base = withPixels(drawing, open.step, 'before');
+      const next = applyCommand(base, command);
+      if (!changesAnything(next)) return true;
+      open.step.clear();
+      next.pixels.forEach((after, i) => {
+        const before = base.pixels[i]!;
+        if (after !== before) open.step.set(i, { before, after });
+      });
+      record(open);
+      drawing = next;
+      publish();
+      return true;
     },
     undo() {
       openStep = null;

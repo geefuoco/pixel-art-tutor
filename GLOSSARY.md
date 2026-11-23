@@ -81,6 +81,13 @@ _Avoid_: Sandbox, editor
 **Frame**:
 One image in an animation.
 
+**Selection**:
+A rectangle of pixels in the Studio that can be dragged, copied and pasted as a block.
+_Avoid_: Marquee
+
+**Mirror Symmetry**:
+A Studio-only toggle that repeats each pencil, eraser or fill flipped left to right across the middle of the canvas.
+
 **Tiling Preview**:
 A live 3x3 repetition of the canvas that shows how a tile looks when repeated.
 
