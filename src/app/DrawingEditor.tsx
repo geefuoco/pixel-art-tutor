@@ -27,7 +27,7 @@ import type { Editor } from '../core/editor';
 import { createSelectTool, type SelectTool } from '../core/select';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { ControlButton, matches, type Control } from './controls';
-import { PixelCanvas, type CanvasOverlay } from './PixelCanvas';
+import { PixelCanvas, type CanvasMarks } from './PixelCanvas';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
@@ -51,7 +51,7 @@ export function DrawingEditor({
   mirror = false,
   leadingActions = [],
   trailingActions = [],
-  overlay,
+  marks,
   children,
 }: {
   editor: Editor;
@@ -59,7 +59,7 @@ export function DrawingEditor({
   mirror?: boolean;
   leadingActions?: Control[];
   trailingActions?: Control[];
-  overlay?: CanvasOverlay;
+  marks?: CanvasMarks;
   children?: ReactNode;
 }) {
   const selectTool = selectToolFor(editor);
@@ -339,7 +339,7 @@ export function DrawingEditor({
               showGrid={showGrid}
               selection={selection}
               showMirrorAxis={mirror}
-              overlay={overlay}
+              marks={marks}
               label={canvasLabel}
             />
           </div>

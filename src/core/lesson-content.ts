@@ -101,23 +101,14 @@ export function readLesson(content: {
       throw new ManifestProblem('The Reference Sprite has partly transparent pixels');
     }
     const reference = drawingFromImage(image);
-    const explanations = readExplanations(manifest.explanations, exampleSprites);
     const lesson = createLesson({
       id: requireText(manifest, 'id'),
       title: requireText(manifest, 'title'),
       reference,
       roles: readRoles(manifest.roles, reference.palette),
-      explanations,
+      explanations: readExplanations(manifest.explanations, exampleSprites),
       silhouetteColor: readSilhouetteColor(manifest.overrides, reference.palette),
     });
-    const unused = Object.keys(explanations).filter(
-      (kind) => !lesson.steps.some((s) => s.kind === kind),
-    );
-    if (unused.length > 0) {
-      throw new ManifestProblem(
-        `The Reference Sprite has no ${unused.join(' or ')} Step for the explanation to go with`,
-      );
-    }
     return { ok: true, lesson };
   } catch (error) {
     if (error instanceof ManifestProblem || error instanceof RangeError) {

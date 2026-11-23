@@ -1,11 +1,4 @@
-import {
-  CaretsToAxisDashedVertical,
-  FilePlus,
-  FolderOpen,
-  ImageDown,
-  Images,
-  TriangleAlert,
-} from 'lucide-react';
+import { CaretsToAxisDashedVertical, FilePlus, FolderOpen, ImageDown, Images } from 'lucide-react';
 import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import type { CustomPalette } from '../core/palettes';
@@ -16,6 +9,7 @@ import type { Control } from './controls';
 import { downloadFile } from './download';
 import { DrawingEditor } from './DrawingEditor';
 import { Nav } from './Nav';
+import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
 import { PaletteSwatches } from './PaletteSwatches';
 import { decodePng } from './png-image';
@@ -199,14 +193,7 @@ function StudioEditor({
           hidden
           onChange={openPng}
         />
-        {problem && (
-          <div className="warning-banner" role="alert">
-            <TriangleAlert aria-hidden size={20} />
-            <p>
-              <strong>Warning:</strong> {STORAGE_MESSAGES[problem]}
-            </p>
-          </div>
-        )}
+        {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         {openError && (
           <div className="card notice" role="alert">
             <p>{openError}</p>

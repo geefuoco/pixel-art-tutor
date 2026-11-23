@@ -648,7 +648,7 @@ a {
   margin: 0 0 10px;
 }
 
-.pixel-overlay {
+.pixel-marks {
   position: absolute;
   inset: 0;
   width: 100%;

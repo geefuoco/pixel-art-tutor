@@ -6,7 +6,7 @@ import { Nav } from './Nav';
 import { plural } from './plural';
 import { Palettes } from './Palettes';
 import { routeHref } from './router';
-import { forgetLessonPlays } from './lessons-store';
+import { forgetLessonPlays } from './lesson-plays';
 import { studio } from './studio-store';
 
 type Notice = { readonly kind: 'error' | 'done'; readonly text: string };

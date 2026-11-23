@@ -40,7 +40,7 @@ export interface Store {
   getInProgressAttempt(lessonId: string, mode: Mode): Promise<InProgressAttempt | undefined>;
   putInProgressAttempt(attempt: InProgressAttempt): Promise<void>;
   deleteInProgressAttempt(lessonId: string, mode: Mode): Promise<void>;
-  finishAttempt(attempt: Attempt): Promise<void>;
+  saveAttempt(attempt: Attempt, options: { clearInProgress: boolean }): Promise<void>;
   listAttempts(): Promise<Attempt[]>;
   readAll(): Promise<StoreContents>;
   replaceAll(contents: StoreContents): Promise<void>;
@@ -166,9 +166,11 @@ export function openStore(factory: IDBFactory | undefined): Store {
         objectStore(IN_PROGRESS_ATTEMPTS).delete([lessonId, mode]),
       );
     },
-    async finishAttempt(attempt) {
+    async saveAttempt(attempt, { clearInProgress }) {
       await transact('readwrite', (objectStore) => {
-        objectStore(IN_PROGRESS_ATTEMPTS).delete([attempt.lessonId, attempt.mode]);
+        if (clearInProgress) {
+          objectStore(IN_PROGRESS_ATTEMPTS).delete([attempt.lessonId, attempt.mode]);
+        }
         return objectStore(ATTEMPTS).put(attempt);
       });
     },

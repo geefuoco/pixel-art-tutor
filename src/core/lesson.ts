@@ -9,6 +9,10 @@ export type StepKind = (typeof STEP_KINDS)[number];
 export const MODES = ['trace'] as const;
 export type Mode = (typeof MODES)[number];
 
+export function isMode(value: unknown): value is Mode {
+  return (MODES as readonly unknown[]).includes(value);
+}
+
 export const LESSON_SIZES = [8, 16, 32] as const;
 export type LessonSize = (typeof LESSON_SIZES)[number];
 
@@ -104,5 +108,13 @@ export function createLesson(options: {
     }
     return { ...step, explanation };
   });
+  const unexplained = STEP_KINDS.filter(
+    (kind) => explanations[kind] !== undefined && !steps.some((s) => s.kind === kind),
+  );
+  if (unexplained.length > 0) {
+    throw new RangeError(
+      `The Reference Sprite has no ${unexplained.join(' or ')} Step for an explanation to go with`,
+    );
+  }
   return { id, title, size, palette: reference.palette, reference, roles, steps };
 }

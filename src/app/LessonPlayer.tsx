@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CircleCheck, Eye, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleCheck, Eye } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, type StepCheck } from '../core/evaluate';
@@ -9,8 +9,10 @@ import type { StorageProblem } from '../persistence/store';
 import type { Control } from './controls';
 import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
-import { lessonPlayFor, useCourse, useLessonPlay, type CourseLesson } from './lessons-store';
+import { lessonPlayFor, useLessonPlay } from './lesson-plays';
+import { useCourse, type CourseLesson } from './lessons-store';
 import { Nav } from './Nav';
+import { WarningBanner } from './WarningBanner';
 import { plural } from './plural';
 import { routeHref } from './router';
 
@@ -167,20 +169,13 @@ function TraceSession({
           editor={editor}
           canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels`}
           trailingActions={lessonActions}
-          overlay={{
+          marks={{
             guide: showGuide ? step.target : null,
             missing: check?.missing ?? [],
             extra: check?.extra ?? [],
           }}
         >
-          {problem && (
-            <div className="warning-banner" role="alert">
-              <TriangleAlert aria-hidden size={20} />
-              <p>
-                <strong>Warning:</strong> {STORAGE_MESSAGES[problem]}
-              </p>
-            </div>
-          )}
+          {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="lesson-title">
           <p className="hint">Trace</p>

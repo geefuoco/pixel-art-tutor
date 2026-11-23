@@ -90,22 +90,24 @@ describe('checking a Step', () => {
     expect(checkStep(LESSON, OUTLINE, outlineWithStrayShading)).toEqual({ missing: [], extra: [] });
   });
 
-  it('reports pixels outside the sprite, and earlier-Step pixels in the wrong color, as extra', () => {
+  it('reports pixels outside the sprite as extra, and earlier-Step pixels not right as missing', () => {
     const drawing = sprite([
       'O.......',
       '..OOOO..',
       '.OBBBBB.',
-      '.OBBBBO.',
+      '.OBBBB..',
       '..OOOO..',
       '.......H',
       '........',
       '........',
     ]);
     expect(checkStep(LESSON, BASE, drawing)).toEqual({
-      missing: [],
+      missing: [
+        { x: 6, y: 2 },
+        { x: 6, y: 3 },
+      ],
       extra: [
         { x: 0, y: 0 },
-        { x: 6, y: 2 },
         { x: 7, y: 5 },
       ],
     });

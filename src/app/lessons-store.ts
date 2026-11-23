@@ -1,13 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import type { Lesson, Mode } from '../core/lesson';
+import type { Lesson } from '../core/lesson';
 import { readLesson } from '../core/lesson-content';
-import {
-  createLessonPlay,
-  type LessonPlay,
-  type LessonPlayState,
-} from '../persistence/lesson-play';
 import { decodePng } from './png-image';
-import { browserStore } from './studio-store';
 
 const LESSONS_DIR = '/content/lessons/';
 
@@ -96,36 +90,4 @@ function subscribeToCourse(listener: () => void) {
 
 export function useCourse(): CourseState {
   return useSyncExternalStore(subscribeToCourse, () => courseState);
-}
-
-interface PlayHandle {
-  readonly play: LessonPlay;
-  readonly subscribe: (listener: () => void) => () => void;
-}
-
-const plays = new Map<string, PlayHandle>();
-
-export function lessonPlayFor(lesson: Lesson, mode: Mode): PlayHandle {
-  const key = `${lesson.id}/${mode}`;
-  let handle = plays.get(key);
-  if (!handle) {
-    const play = createLessonPlay({ store: browserStore, lesson, mode });
-    handle = {
-      play,
-      subscribe(listener) {
-        void play.load();
-        return play.subscribe(listener);
-      },
-    };
-    plays.set(key, handle);
-  }
-  return handle;
-}
-
-export function useLessonPlay({ play, subscribe }: PlayHandle): LessonPlayState {
-  return useSyncExternalStore(subscribe, play.getState);
-}
-
-export function forgetLessonPlays() {
-  plays.clear();
 }

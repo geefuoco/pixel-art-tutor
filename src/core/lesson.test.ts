@@ -147,7 +147,7 @@ describe('a Lesson', () => {
           pixels: [0, ...new Array(width * height - 1).fill(-1)],
         },
         roles: ROLES,
-        explanations: EXPLANATIONS,
+        explanations: { silhouette: 'Block it in.', outline: 'Outline it.' },
       });
     expect(lessonOf(16, 16)).not.toThrow();
     expect(lessonOf(32, 32)).not.toThrow();
@@ -170,5 +170,16 @@ describe('a Lesson', () => {
     expect(() => createLesson({ ...base, roles: ROLES.slice(0, 4) })).toThrow(/Role for every/);
     const noShadow = { ...EXPLANATIONS, shadow: undefined };
     expect(() => createLesson({ ...base, explanations: noShadow })).toThrow(/shadow/);
+    const flat = sprite([
+      '.OO.....',
+      'OBBO....',
+      '.OO.....',
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+    ]);
+    expect(() => createLesson({ ...base, reference: flat })).toThrow(/no shadow or highlight Step/);
   });
 });

@@ -96,7 +96,12 @@ describe('playing a Lesson', () => {
         id: expect.any(String),
         lessonId: 'pot',
         mode: 'trace',
-        drawing: drawingOf(pot),
+        drawing: {
+          width: 8,
+          height: 8,
+          palette: PALETTE,
+          pixels: [0, 1, 1, 0, ...new Array<number>(60).fill(_)],
+        },
         score: 1,
         finishedAt: 5000,
       },
@@ -104,11 +109,13 @@ describe('playing a Lesson', () => {
     expect(drawingOf(await play(indexedDB)).pixels.every((p) => p === _)).toBe(true);
   });
 
-  it('keeps a finished drawing that did not pass, to carry on as a new in-progress Attempt', async () => {
+  it('keeps a drawing that did not pass in progress, saving the Attempt too', async () => {
     const indexedDB = new IDBFactory();
     const pot = await play(indexedDB);
     draw(pot, 0, 0, 3);
     expect(await pot.finish()).toEqual({ score: 0.5, passed: false });
+    expect(await openStore(indexedDB).listAttempts()).toMatchObject([{ score: 0.5 }]);
+    expect(firstRow(drawingOf(await play(indexedDB)))).toEqual([0, _, _, 0, _, _, _, _]);
 
     pot.dismissResult();
     expect(ready(pot).result).toBeNull();

@@ -7,8 +7,8 @@ export interface StepCheck {
   readonly extra: readonly Point[];
 }
 
-function stepOfPixel(lesson: Lesson, reference: number): number {
-  return lesson.steps.findIndex((s) => s.kind === lesson.roles[reference]);
+function stepOfPixel(lesson: Lesson, referenceColor: number): number {
+  return lesson.steps.findIndex((s) => s.kind === lesson.roles[referenceColor]);
 }
 
 export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): StepCheck {
@@ -17,35 +17,31 @@ export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): 
   const silhouette = lesson.steps[0]!.target;
   const missing: Point[] = [];
   const extra: Point[] = [];
-  lesson.reference.pixels.forEach((reference, i) => {
+  lesson.reference.pixels.forEach((referenceColor, i) => {
     const drawn = drawing.pixels[i]!;
     const at = { x: i % lesson.size, y: Math.floor(i / lesson.size) };
-    if (reference === TRANSPARENT) {
+    if (referenceColor === TRANSPARENT) {
       if (drawn !== TRANSPARENT) extra.push(at);
       return;
     }
-    const pixelStep = stepOfPixel(lesson, reference);
-    const expected = pixelStep <= stepIndex ? reference : silhouette[i]!;
-    const right = drawn === expected || drawn === reference;
-    if (step.target[i] !== TRANSPARENT) {
-      if (!right) missing.push(at);
-    } else if (pixelStep < stepIndex && drawn !== TRANSPARENT && !right) {
-      extra.push(at);
-    }
+    const pixelStep = stepOfPixel(lesson, referenceColor);
+    if (pixelStep > stepIndex && step.target[i] === TRANSPARENT) return;
+    const expectedColor = pixelStep <= stepIndex ? referenceColor : silhouette[i]!;
+    if (drawn !== expectedColor && drawn !== referenceColor) missing.push(at);
   });
   return { missing, extra };
 }
 
 export function scoreLessonDrawing(lesson: Lesson, drawing: Drawing): number {
   let compared = 0;
-  let right = 0;
-  lesson.reference.pixels.forEach((reference, i) => {
+  let correct = 0;
+  lesson.reference.pixels.forEach((referenceColor, i) => {
     const drawn = drawing.pixels[i]!;
-    if (reference === TRANSPARENT && drawn === TRANSPARENT) return;
+    if (referenceColor === TRANSPARENT && drawn === TRANSPARENT) return;
     compared++;
-    if (drawn === reference) right++;
+    if (drawn === referenceColor) correct++;
   });
-  return compared === 0 ? 0 : right / compared;
+  return compared === 0 ? 0 : correct / compared;
 }
 
 export function passesLesson(score: number): boolean {

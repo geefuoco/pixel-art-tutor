@@ -8,7 +8,7 @@ const GUIDE_EDGE = 'rgba(59, 51, 85, 0.45)';
 const MISSING_COLOR = '#f59e0b';
 const EXTRA_COLOR = '#e11d48';
 
-export interface CanvasOverlay {
+export interface CanvasMarks {
   readonly guide: readonly number[] | null;
   readonly missing: readonly Point[];
   readonly extra: readonly Point[];
@@ -26,13 +26,13 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
   }
 }
 
-function paintOverlay(canvas: HTMLCanvasElement, drawing: Drawing, overlay: CanvasOverlay) {
+function paintMarks(canvas: HTMLCanvasElement, drawing: Drawing, marks: CanvasMarks) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineWidth = 1;
   ctx.strokeStyle = GUIDE_EDGE;
-  overlay.guide?.forEach((p, i) => {
+  marks.guide?.forEach((p, i) => {
     if (p === TRANSPARENT) return;
     const x = (i % drawing.width) * CELL;
     const y = Math.floor(i / drawing.width) * CELL;
@@ -46,10 +46,10 @@ function paintOverlay(canvas: HTMLCanvasElement, drawing: Drawing, overlay: Canv
   ctx.setLineDash([]);
   ctx.lineWidth = 3;
   ctx.strokeStyle = MISSING_COLOR;
-  for (const { x, y } of overlay.missing)
+  for (const { x, y } of marks.missing)
     ctx.strokeRect(x * CELL + 3, y * CELL + 3, CELL - 6, CELL - 6);
   ctx.strokeStyle = EXTRA_COLOR;
-  for (const { x, y } of overlay.extra) {
+  for (const { x, y } of marks.extra) {
     ctx.beginPath();
     ctx.moveTo(x * CELL + 5, y * CELL + 5);
     ctx.lineTo(x * CELL + CELL - 5, y * CELL + CELL - 5);
@@ -66,7 +66,7 @@ export function PixelCanvas({
   showGrid,
   selection,
   showMirrorAxis,
-  overlay,
+  marks,
   label,
 }: {
   drawing: Drawing;
@@ -75,7 +75,7 @@ export function PixelCanvas({
   showGrid: boolean;
   selection: Rect | null;
   showMirrorAxis: boolean;
-  overlay?: CanvasOverlay;
+  marks?: CanvasMarks;
   label: string;
 }) {
   const last = useRef<Point | null>(null);
@@ -85,11 +85,11 @@ export function PixelCanvas({
     },
     [drawing],
   );
-  const overlayRef = useCallback(
+  const marksRef = useCallback(
     (canvas: HTMLCanvasElement | null) => {
-      if (canvas && overlay) paintOverlay(canvas, drawing, overlay);
+      if (canvas && marks) paintMarks(canvas, drawing, marks);
     },
-    [drawing, overlay],
+    [drawing, marks],
   );
 
   function toPixel(e: PointerEvent<HTMLCanvasElement>): Point {
@@ -127,10 +127,10 @@ export function PixelCanvas({
         }}
         onLostPointerCapture={() => (last.current = null)}
       />
-      {overlay && (
+      {marks && (
         <canvas
-          ref={overlayRef}
-          className="pixel-overlay"
+          ref={marksRef}
+          className="pixel-marks"
           aria-hidden
           width={drawing.width * CELL}
           height={drawing.height * CELL}

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { MODES, type Mode } from '../core/lesson';
+import { isMode, type Mode } from '../core/lesson';
 
 export type Page = 'home' | 'lessons' | 'studio' | 'settings';
 
@@ -25,10 +25,6 @@ const PAGES: Record<string, Page> = {
   '/studio': 'studio',
   '/settings': 'settings',
 };
-
-function isMode(value: string): value is Mode {
-  return (MODES as readonly string[]).includes(value);
-}
 
 function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '') || '/';

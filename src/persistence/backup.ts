@@ -1,5 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
-import { MODES, type Mode } from '../core/lesson';
+import { isMode } from '../core/lesson';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
 import type { Attempt, InProgressAttempt, SavedDrawing, Store, StoreContents } from './store';
 
@@ -64,10 +64,6 @@ function readCustomPalette(value: unknown): CustomPalette | null {
   return checkCustomPalette({ id, name, colors });
 }
 
-function isMode(value: unknown): value is Mode {
-  return (MODES as readonly unknown[]).includes(value);
-}
-
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
@@ -125,7 +121,7 @@ export function readBackup(text: string): BackupReading {
   const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);
   const customPalettes =
     version === 1 ? [] : readAllWithUniqueKeys(file.customPalettes, readCustomPalette, byId);
-  const hasAttempts = version === BACKUP_VERSION;
+  const hasAttempts = version >= 3;
   const attempts = hasAttempts ? readAllWithUniqueKeys(file.attempts, readAttempt, byId) : [];
   const inProgressAttempts = hasAttempts
     ? readAllWithUniqueKeys(

@@ -27,6 +27,6 @@
 - `roles` gives every sprite color one Role: `outline`, `base`, `shadow` or `highlight`.
 - Steps follow from the Roles: Silhouette is every opaque pixel, blocked in one color, then one Step per Role that has colors, in the order outline, base, shadow, highlight. `explanations` has one entry per Step the sprite has, and no others.
 - Explanations are a Markdown subset: paragraphs, `- ` lists, `**strong**`, `*emphasis*`, `` `code` `` and images. A paragraph of only images shows them side by side, each captioned with its alt text. Images must be files in `examples/`.
-- `overrides` is optional. `silhouetteColor` picks the color the Silhouette Step is blocked in; by default it is the most used base color.
+- `overrides` is optional. `silhouetteColor` picks the color the Silhouette Step is blocked in; by default it is the most used base color. While checking the Silhouette Step, a pixel already drawn in its final color also counts as right, so drawing ahead is never marked wrong.
 
 The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.

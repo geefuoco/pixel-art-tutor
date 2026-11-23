@@ -116,14 +116,17 @@ export function createLessonPlay(options: {
       const result = { score, passed: passesLesson(score) };
       await flush();
       await track(
-        store.finishAttempt({
-          id: crypto.randomUUID(),
-          lessonId: lesson.id,
-          mode,
-          drawing,
-          score,
-          finishedAt: now(),
-        }),
+        store.saveAttempt(
+          {
+            id: crypto.randomUUID(),
+            lessonId: lesson.id,
+            mode,
+            drawing,
+            score,
+            finishedAt: now(),
+          },
+          { clearInProgress: result.passed },
+        ),
       );
       update({ result });
       return result;
