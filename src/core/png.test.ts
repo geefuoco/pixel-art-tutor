@@ -134,7 +134,7 @@ describe('PNG export', () => {
   });
 
   it('compresses upscaled pixel art to a shareable file size', () => {
-    // 64x64 pixels in horizontal stripes of 4 colors, with a few scattered single pixels.
+    // 64x64 pixels in 4-row stripes of two colors, with scattered single pixels of a third.
     const drawing = drawingOf(
       Array.from({ length: 64 }, (_, y) =>
         Array.from({ length: 64 }, (_, x) => ((x * 7 + y * 13) % 29 === 0 ? 2 : (y >> 2) % 2)),
@@ -143,7 +143,8 @@ describe('PNG export', () => {
     const bytes = exportPng(drawing, 16);
     // 1024x1024 RGBA is 4 MiB uncompressed.
     expect(bytes.length).toBeLessThan(100_000);
-    expect(decodePng(bytes).rgba[0]).toEqual(drawing.pixels[0] === 2 ? RED : BLACK);
+    // Pixel (0, 0) is one of the scattered red ones.
+    expect(decodePng(bytes).rgba[0]).toEqual(RED);
   });
 
   it('only accepts whole-number scales from 1x to 16x', () => {

@@ -80,6 +80,8 @@ function blankDrawing(width: number, height: number) {
   return createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE });
 }
 
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
 const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
 /** Saves the drawing as a PNG file through the browser's download. */
@@ -92,12 +94,17 @@ function downloadPng(drawing: Drawing, scale: number) {
   link.href = url;
   link.download = `drawing-${drawing.width * scale}x${drawing.height * scale}.png`;
   link.click();
-  URL.revokeObjectURL(url);
+  // Some browsers start the download after click() returns, so revoke later.
+  setTimeout(() => URL.revokeObjectURL(url));
 }
 
 /** Decodes a PNG file into a Drawing. Rejects with a message to show the user. */
 async function readPng(file: File): Promise<Drawing> {
-  if (file.type !== 'image/png') throw new Error(`${file.name} is not a PNG file.`);
+  // Checked by content: the browser's file type can be empty, and it decodes other formats too.
+  const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (!PNG_SIGNATURE.every((b, i) => signature[i] === b)) {
+    throw new Error(`${file.name} is not a PNG file.`);
+  }
   let bitmap: ImageBitmap;
   try {
     // Keep the file's exact color values rather than converting them for the display.
@@ -218,7 +225,10 @@ export function Studio() {
       label: 'New drawing',
       Icon: FilePlus,
       chords: [{ key: 'n' }],
-      run: () => setNewDrawingOpen(true),
+      run: () => {
+        setExportOpen(false);
+        setNewDrawingOpen(true);
+      },
     },
     {
       label: 'Open PNG',
@@ -230,7 +240,10 @@ export function Studio() {
       label: 'Export PNG',
       Icon: ImageDown,
       chords: [{ key: 'e', mod: true, shift: true }],
-      run: () => setExportOpen(true),
+      run: () => {
+        setNewDrawingOpen(false);
+        setExportOpen(true);
+      },
     },
     {
       label: 'Undo',
@@ -394,7 +407,9 @@ export function Studio() {
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.altKey) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.altKey) {
+      return;
+    }
     if (e.key === ' ') {
       setSpaceHeld(true);
       // Let Space still press a focused button.
