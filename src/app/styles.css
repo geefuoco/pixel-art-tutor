@@ -498,3 +498,161 @@ a {
   align-items: center;
   gap: 6px;
 }
+
+.message-actions,
+.lesson-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lessons h1 {
+  margin: 0 0 16px;
+  font-size: 28px;
+}
+
+.lesson-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lesson-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.lesson-list h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.lesson-list .btn {
+  margin-left: auto;
+}
+
+.lesson-thumbnail,
+.example-sprite {
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 8px 8px;
+  border-radius: 6px;
+}
+
+.lesson-thumbnail {
+  width: 64px;
+  height: 64px;
+}
+
+.lesson-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 340px);
+  align-items: start;
+  gap: 16px;
+}
+
+.lesson-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.lesson-panel h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.lesson-panel h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step-button {
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.step-button[aria-current='step'] {
+  border-color: var(--accent);
+  background: var(--tint);
+}
+
+.explanation p {
+  margin: 0 0 10px;
+}
+
+.explanation .example-sprite {
+  height: 1.6em;
+  vertical-align: middle;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+.examples figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 200px;
+}
+
+.examples .example-sprite {
+  height: 64px;
+}
+
+.examples figcaption {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.check-result {
+  margin: 0;
+  font-weight: 700;
+}
+
+.check-result:empty {
+  display: none;
+}
+
+.lesson-result {
+  border-top: 2px solid var(--line);
+  padding-top: 12px;
+}
+
+.lesson-result p {
+  margin: 0 0 10px;
+}
+
+.pixel-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}

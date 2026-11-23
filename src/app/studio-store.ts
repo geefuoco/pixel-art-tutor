@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { createDrawing, type Color } from '../core/drawing';
 import { STUDIO_STARTER_PALETTE } from '../core/palettes';
-import { openStore } from '../persistence/store';
 import { createStudio, type StudioState } from '../persistence/studio';
+import { browserStore } from './browser-store';
 
 export function blankStudioDrawing(
   width: number,
@@ -12,16 +12,8 @@ export function blankStudioDrawing(
   return createDrawing({ width, height, palette });
 }
 
-function browserIndexedDB(): IDBFactory | undefined {
-  try {
-    return globalThis.indexedDB ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export const studio = createStudio({
-  store: openStore(browserIndexedDB()),
+  store: browserStore,
   firstDrawing: blankStudioDrawing(16, 16),
 });
 

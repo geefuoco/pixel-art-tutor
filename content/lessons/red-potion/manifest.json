@@ -1,0 +1,20 @@
+{
+  "id": "red-potion",
+  "title": "Red potion",
+  "roles": {
+    "#849be4": "outline",
+    "#b9bffb": "outline",
+    "#df3e23": "base",
+    "#dba463": "base",
+    "#b4202a": "shadow",
+    "#bb7547": "shadow",
+    "#e3e6ff": "highlight"
+  },
+  "explanations": {
+    "silhouette": "Every sprite starts as a shape. Block in the whole potion in one flat color and ignore the detail for now. If the silhouette reads as a potion on its own, the finished sprite will too.\n\n![Silhouette in one flat color](examples/silhouette.png) ![The finished potion](examples/finished.png)\n\nThe **Fill** tool is quickest: draw the edge with the **Pencil**, then fill inside it.",
+    "outline": "Draw the outline over the edge of the silhouette. Keep it **1 pixel wide**: where the line steps diagonally, pixels touch only at their corners, never side by side.\n\nThe lit left side of the glass uses a lighter blue than the right side and the bottom, so the outline already shows where the light comes from.\n\n![The outline on its own](examples/outline.png)",
+    "base": "Base colors are the flat middle tones of each material: red for the liquid and tan for the cork. Most of this Step is already done, because you blocked the silhouette in red. Add the cork.\n\n![Outline and base colors, no shading yet](examples/flat.png)",
+    "shadow": "Light comes from the top left, so shadow goes on the sides that face away from it: the right edge and bottom of the liquid, and the right half of the cork. A shadow is a darker version of its base color, not black.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "A highlight is the brightest color, used sparingly where the light hits hardest. A pale glint runs down the neck and catches the upper left of the glass. Those few pixels are what make it read as glass.\n\n![With shadow](examples/shaded.png) ![With highlights](examples/finished.png)\n\nThe same outline, shadow and glint work for any potion:\n\n![Three other potions from the same set](examples/other-potions.png)"
+  }
+}

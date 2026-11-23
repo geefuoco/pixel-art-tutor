@@ -1,90 +1,22 @@
-import {
-  ClipboardPaste,
-  CaretsToAxisDashedVertical,
-  Copy,
-  Eraser,
-  FilePlus,
-  FolderOpen,
-  Grid3x3,
-  ImageDown,
-  Images,
-  TriangleAlert,
-  PaintBucket,
-  Pencil,
-  Pipette,
-  Redo2,
-  Scan,
-  SquareDashed,
-  SquareX,
-  Undo2,
-  ZoomIn,
-  ZoomOut,
-  type LucideIcon,
-} from 'lucide-react';
-import {
-  useCallback,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ChangeEvent,
-  type CSSProperties,
-  type FormEvent,
-} from 'react';
-import {
-  getPixel,
-  MAX_DRAWING_SIZE,
-  TRANSPARENT,
-  type Command,
-  type Drawing,
-  type Point,
-} from '../core/drawing';
-import type { Editor } from '../core/editor';
-import { checkImageSize, drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
-import { createSelectTool, type SelectTool } from '../core/select';
-import type { SavedDrawing, StorageProblem } from '../persistence/store';
+import { CaretsToAxisDashedVertical, FilePlus, FolderOpen, ImageDown, Images } from 'lucide-react';
+import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
+import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import type { CustomPalette } from '../core/palettes';
+import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
+import type { SavedDrawing, StorageProblem } from '../persistence/store';
 import type { CurrentDrawing } from '../persistence/studio';
-import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
+import type { Control } from './controls';
 import { downloadFile } from './download';
+import { DrawingEditor } from './DrawingEditor';
 import { Nav } from './Nav';
+import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
 import { PaletteSwatches } from './PaletteSwatches';
-import { PixelCanvas } from './PixelCanvas';
+import { decodePng } from './png-image';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
-type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
-
 type Panel = 'new-drawing' | 'export' | 'drawings' | null;
-
-interface Chord {
-  key: string;
-  mod?: boolean;
-  shift?: boolean;
-}
-
-interface Control {
-  label: string;
-  Icon: LucideIcon;
-  chords: Chord[];
-  run: () => void;
-  disabled?: boolean;
-  pressed?: boolean;
-}
-
-const PAN_STEP = 32;
-const WHEEL_STEP = 40;
-
-const selectTools = new WeakMap<Editor, SelectTool>();
-
-function selectToolFor(editor: Editor): SelectTool {
-  let tool = selectTools.get(editor);
-  if (!tool) {
-    tool = createSelectTool(editor);
-    selectTools.set(editor, tool);
-  }
-  return tool;
-}
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
   unavailable:
@@ -124,57 +56,13 @@ async function readPng(file: File): Promise<Drawing> {
   if (!PNG_SIGNATURE.every((b, i) => signature[i] === b)) {
     throw new Error(`${file.name} is not a PNG file.`);
   }
-  let bitmap: ImageBitmap;
+  let image: ImageData;
   try {
-    bitmap = await createImageBitmap(file, {
-      colorSpaceConversion: 'none',
-      premultiplyAlpha: 'none',
-    });
+    image = await decodePng(file);
   } catch {
     throw new Error(`${file.name} could not be read as a PNG image.`);
   }
-  try {
-    checkImageSize(bitmap.width, bitmap.height);
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const context = canvas.getContext('2d')!;
-    context.drawImage(bitmap, 0, 0);
-    return drawingFromImage(context.getImageData(0, 0, bitmap.width, bitmap.height));
-  } finally {
-    bitmap.close();
-  }
-}
-
-function matches(chord: Chord, e: KeyboardEvent) {
-  return (
-    e.key.toLowerCase() === chord.key &&
-    (e.ctrlKey || e.metaKey) === !!chord.mod &&
-    (chord.shift === undefined || chord.shift === e.shiftKey)
-  );
-}
-
-function chordLabel({ key, mod, shift }: Chord, ctrl = 'Ctrl', plus = '+') {
-  const name = key === '+' ? plus : key[0]!.toUpperCase() + key.slice(1);
-  return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${name}`;
-}
-
-function ControlButton({ control, iconSize }: { control: Control; iconSize: number }) {
-  const { label, Icon, chords, run, disabled, pressed } = control;
-  return (
-    <button
-      type="button"
-      className="tool"
-      aria-label={label}
-      title={`${label} (${chordLabel(chords[0]!)})`}
-      aria-keyshortcuts={chords.map((c) => chordLabel(c, 'Control', 'Plus')).join(' ')}
-      aria-pressed={pressed}
-      disabled={disabled}
-      onClick={run}
-    >
-      <Icon aria-hidden size={iconSize} />
-    </button>
-  );
+  return drawingFromImage(image);
 }
 
 export function Studio() {
@@ -209,60 +97,14 @@ function StudioEditor({
   problem: StorageProblem | null;
 }) {
   const { editor } = current;
-  const selectTool = selectToolFor(editor);
-  const { drawing, canUndo, canRedo } = useSyncExternalStore(editor.subscribe, editor.getState);
-  const { selection, canCopy, canPaste } = useSyncExternalStore(
-    selectTool.subscribe,
-    selectTool.getState,
-  );
-  const [tool, setTool] = useState<Tool>('pencil');
-  const [color, setColor] = useState(0);
-  const [showGrid, setShowGrid] = useState(false);
-  const [view, setView] = useState<View>(FIT_VIEW);
-  const [spaceHeld, setSpaceHeld] = useState(false);
+  const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
   const [panel, setPanel] = useState<Panel>(null);
   const [exportScale, setExportScale] = useState(1);
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
-  const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
-  const wheelScroll = useRef(0);
 
-  const listenForWheel = useCallback((stage: HTMLDivElement | null) => {
-    if (!stage) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      wheelScroll.current += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * 16;
-      if (Math.abs(wheelScroll.current) < WHEEL_STEP) return;
-      const steps = wheelScroll.current < 0 ? 1 : -1;
-      wheelScroll.current = 0;
-      const rect = stage.getBoundingClientRect();
-      const anchor = {
-        x: e.clientX - rect.left - rect.width / 2,
-        y: e.clientY - rect.top - rect.height / 2,
-      };
-      setView((v) => zoomView(v, steps, anchor));
-    };
-    stage.addEventListener('wheel', onWheel, { passive: false });
-    return () => stage.removeEventListener('wheel', onWheel);
-  }, []);
-
-  const tools: (Control & { tool: Tool })[] = (
-    [
-      { tool: 'pencil', label: 'Pencil', Icon: Pencil, key: 'b' },
-      { tool: 'eraser', label: 'Eraser', Icon: Eraser, key: 'e' },
-      { tool: 'fill', label: 'Fill', Icon: PaintBucket, key: 'f' },
-      { tool: 'eyedropper', label: 'Eyedropper', Icon: Pipette, key: 'i' },
-      { tool: 'select', label: 'Select', Icon: SquareDashed, key: 'm' },
-    ] as const
-  ).map(({ key, ...t }) => ({
-    ...t,
-    chords: [{ key }],
-    run: () => setTool(t.tool),
-    pressed: tool === t.tool,
-  }));
-
-  const actions: Control[] = [
+  const leadingActions: Control[] = [
     {
       label: 'New drawing',
       Icon: FilePlus,
@@ -288,75 +130,9 @@ function StudioEditor({
       chords: [{ key: 'e', mod: true, shift: true }],
       run: () => setPanel('export'),
     },
-    {
-      label: 'Undo',
-      Icon: Undo2,
-      chords: [{ key: 'z', mod: true, shift: false }],
-      run: editor.undo,
-      disabled: !canUndo,
-    },
-    {
-      label: 'Redo',
-      Icon: Redo2,
-      chords: [
-        { key: 'z', mod: true, shift: true },
-        { key: 'y', mod: true },
-      ],
-      run: editor.redo,
-      disabled: !canRedo,
-    },
-    {
-      label: 'Copy',
-      Icon: Copy,
-      chords: [{ key: 'c', mod: true }],
-      run: selectTool.copy,
-      disabled: !canCopy,
-    },
-    {
-      label: 'Paste',
-      Icon: ClipboardPaste,
-      chords: [{ key: 'v', mod: true }],
-      run: () => {
-        selectTool.paste();
-        setTool('select');
-      },
-      disabled: !canPaste,
-    },
-    {
-      label: 'Deselect',
-      Icon: SquareX,
-      chords: [{ key: 'escape' }],
-      run: selectTool.deselect,
-      disabled: !selection,
-    },
-    {
-      label: 'Zoom in',
-      Icon: ZoomIn,
-      chords: [{ key: '+' }, { key: '=' }],
-      run: () => setView((v) => zoomView(v, 1)),
-      disabled: !canZoom(view, 1),
-    },
-    {
-      label: 'Zoom out',
-      Icon: ZoomOut,
-      chords: [{ key: '-' }],
-      run: () => setView((v) => zoomView(v, -1)),
-      disabled: !canZoom(view, -1),
-    },
-    {
-      label: 'Fit to view',
-      Icon: Scan,
-      chords: [{ key: '0' }],
-      run: () => setView(FIT_VIEW),
-      disabled: view === FIT_VIEW,
-    },
-    {
-      label: 'Pixel grid',
-      Icon: Grid3x3,
-      chords: [{ key: 'g' }],
-      run: () => setShowGrid((g) => !g),
-      pressed: showGrid,
-    },
+  ];
+
+  const trailingActions: Control[] = [
     {
       label: 'Mirror symmetry',
       Icon: CaretsToAxisDashedVertical,
@@ -366,67 +142,19 @@ function StudioEditor({
     },
   ];
 
-  const panKeys: Record<string, [number, number]> = {
-    arrowleft: [PAN_STEP, 0],
-    arrowright: [-PAN_STEP, 0],
-    arrowup: [0, PAN_STEP],
-    arrowdown: [0, -PAN_STEP],
-  };
-
-  function strokeCommand(points: readonly Point[]): Command {
-    return tool === 'eraser'
-      ? { type: 'eraser', points, mirror }
-      : { type: 'pencil', color, points, mirror };
-  }
-
-  function press(at: Point) {
-    switch (tool) {
-      case 'pencil':
-      case 'eraser':
-        editor.apply(strokeCommand([at]));
-        return;
-      case 'fill':
-        editor.apply({ type: 'fill', color, at, mirror });
-        return;
-      case 'select':
-        selectTool.press(at);
-        return;
-      case 'eyedropper': {
-        const picked = getPixel(drawing, at.x, at.y);
-        if (picked === TRANSPARENT) {
-          setTool('eraser');
-        } else {
-          setColor(picked);
-          setTool('pencil');
-        }
-        return;
-      }
-    }
-  }
-
-  function drag(from: Point, to: Point) {
-    if (tool === 'pencil' || tool === 'eraser') {
-      editor.apply(strokeCommand([from, to]), { mergeWithLast: true });
-    } else if (tool === 'select') {
-      selectTool.drag(to);
-    }
-  }
-
-  function resetForDrawing(next: Drawing) {
-    if (next.palette !== drawing.palette) setColor(0);
-    setView(FIT_VIEW);
+  function closePanels() {
     setPanel(null);
     setOpenError(null);
   }
 
   function startDrawing(next: Drawing) {
     studio.create(next);
-    resetForDrawing(next);
+    closePanels();
   }
 
   function openDrawing(entry: SavedDrawing) {
     studio.open(entry.id);
-    if (entry.id !== current.id) resetForDrawing(entry.drawing);
+    if (entry.id !== current.id) closePanels();
     else setPanel(null);
   }
 
@@ -447,230 +175,113 @@ function StudioEditor({
     setPanel(null);
   }
 
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.altKey) {
-      return;
-    }
-    if (e.key === ' ') {
-      setSpaceHeld(true);
-      if (!(e.target instanceof HTMLButtonElement)) e.preventDefault();
-      return;
-    }
-    const pan = !(e.ctrlKey || e.metaKey) && panKeys[e.key.toLowerCase()];
-    if (pan) {
-      setView((v) => panView(v, ...pan));
-      e.preventDefault();
-      return;
-    }
-    const control = [...tools, ...actions].find((c) => c.chords.some((chord) => matches(chord, e)));
-    if (!control || control.disabled) return;
-    e.preventDefault();
-    control.run();
-  }
-
-  function listenForKeys(node: HTMLDivElement | null) {
-    if (!node) return;
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') setSpaceHeld(false);
-    };
-    const onBlur = () => setSpaceHeld(false);
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('blur', onBlur);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('blur', onBlur);
-    };
-  }
-
-  const zoom = viewZoom(view);
-  const longest = Math.max(drawing.width, drawing.height);
-  const zoomedStyle = {
-    '--w': (zoom * drawing.width) / longest,
-    '--h': (zoom * drawing.height) / longest,
-    transform: `translate(calc(-50% + ${view.pan.x}px), calc(-50% + ${view.pan.y}px))`,
-  } as CSSProperties;
-
   return (
-    <div className="page studio" ref={listenForKeys}>
+    <div className="page studio">
       <Nav current="studio" />
-      <main className="studio-main">
-        <div
-          className="pill tool-pill"
-          role="toolbar"
-          aria-label="Tools"
-          aria-orientation="vertical"
-        >
-          {tools.map((t) => (
-            <ControlButton key={t.label} control={t} iconSize={22} />
-          ))}
-        </div>
-        <div className="studio-center">
-          <div className="pill action-pill" role="toolbar" aria-label="Actions">
-            {actions.map((a) => (
-              <ControlButton key={a.label} control={a} iconSize={20} />
-            ))}
+      <DrawingEditor
+        editor={editor}
+        canvasLabel={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
+        mirror={mirror}
+        leadingActions={leadingActions}
+        trailingActions={trailingActions}
+      >
+        <input
+          ref={setFileInput}
+          type="file"
+          accept="image/png"
+          aria-label="PNG file"
+          hidden
+          onChange={openPng}
+        />
+        {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
+        {openError && (
+          <div className="card notice" role="alert">
+            <p>{openError}</p>
+            <button type="button" className="btn" onClick={() => setOpenError(null)}>
+              Dismiss
+            </button>
           </div>
-          <input
-            ref={setFileInput}
-            type="file"
-            accept="image/png"
-            aria-label="PNG file"
-            hidden
-            onChange={openPng}
-          />
-          {problem && (
-            <div className="warning-banner" role="alert">
-              <TriangleAlert aria-hidden size={20} />
-              <p>
-                <strong>Warning:</strong> {STORAGE_MESSAGES[problem]}
-              </p>
-            </div>
-          )}
-          {openError && (
-            <div className="card notice" role="alert">
-              <p>{openError}</p>
-              <button type="button" className="btn" onClick={() => setOpenError(null)}>
-                Dismiss
-              </button>
-            </div>
-          )}
-          {panel === 'drawings' && (
-            <section
-              className="card drawings"
-              aria-label="Drawings"
-              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
-            >
-              {drawings.length === 0 ? (
-                <p className="hint">Nothing kept yet. A drawing is kept from its first change.</p>
-              ) : (
-                <ul className="drawing-list">
-                  {drawings.map((d, i) => (
-                    <li key={d.id}>
-                      <button
-                        type="button"
-                        className="drawing-item"
-                        aria-current={d.id === current.id ? 'true' : undefined}
-                        onClick={() => openDrawing(d)}
-                        autoFocus={i === 0}
-                      >
-                        <img
-                          src={thumbnail(d.drawing)}
-                          alt=""
-                          style={{ aspectRatio: `${d.drawing.width} / ${d.drawing.height}` }}
-                        />
-                        <span className="drawing-size">
-                          {d.drawing.width}x{d.drawing.height}
-                        </span>
-                        <span className="hint">{lastUsed.format(d.updatedAt)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <button type="button" className="btn" onClick={() => setPanel(null)}>
-                Close
-              </button>
-            </section>
-          )}
-          {panel === 'export' && (
-            <form
-              className="card new-drawing export-png"
-              aria-label="Export PNG"
-              onSubmit={exportDrawing}
-              onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
-            >
-              <label>
-                Scale
-                <select
-                  value={exportScale}
-                  onChange={(e) => setExportScale(Number(e.currentTarget.value))}
-                  autoFocus
-                >
-                  {EXPORT_SCALES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}x
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className="btn primary">
-                Export
-              </button>
-              <button type="button" className="btn" onClick={() => setPanel(null)}>
-                Cancel
-              </button>
-              <p className="hint">
-                Saves a {drawing.width * exportScale}x{drawing.height * exportScale} PNG. Each pixel
-                becomes a sharp {exportScale}x{exportScale} block.
-              </p>
-            </form>
-          )}
-          {panel === 'new-drawing' && (
-            <NewDrawingForm
-              drawing={drawing}
-              palettes={palettes}
-              onCreate={startDrawing}
-              onCancel={() => setPanel(null)}
-            />
-          )}
-          <div
-            ref={listenForWheel}
-            className={`stage${spaceHeld ? ' panning' : ''}`}
-            onMouseDown={(e) => {
-              if (e.button === 1) e.preventDefault();
-            }}
-            onPointerDownCapture={(e) => {
-              if (!(e.button === 1 || (e.button === 0 && spaceHeld))) return;
-              e.stopPropagation();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              panDrag.current = { start: { x: e.clientX, y: e.clientY }, pan: view.pan };
-            }}
-            onPointerMove={(e) => {
-              const start = panDrag.current;
-              if (!start) return;
-              setView((v) => ({
-                ...v,
-                pan: {
-                  x: start.pan.x + e.clientX - start.start.x,
-                  y: start.pan.y + e.clientY - start.start.y,
-                },
-              }));
-            }}
-            onLostPointerCapture={() => (panDrag.current = null)}
+        )}
+        {panel === 'drawings' && (
+          <section
+            className="card drawings"
+            aria-label="Drawings"
+            onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
           >
-            <div className="zoomed-canvas" style={zoomedStyle}>
-              <PixelCanvas
-                drawing={drawing}
-                onPress={press}
-                onDrag={drag}
-                showGrid={showGrid}
-                selection={selection}
-                showMirrorAxis={mirror}
-                label={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
-              />
-            </div>
-          </div>
-          <p className="hint">
-            Scroll to zoom. Pan with Space+drag, the middle mouse button or the arrow keys.
-          </p>
-        </div>
-        <div className="pill palette-pill" role="group" aria-label="Palette">
-          {drawing.palette.map((c, i) => (
-            <button
-              key={c}
-              type="button"
-              className="swatch"
-              style={{ background: c }}
-              aria-label={`Color ${c}`}
-              title={c}
-              aria-pressed={color === i}
-              onClick={() => setColor(i)}
-            />
-          ))}
-        </div>
-      </main>
+            {drawings.length === 0 ? (
+              <p className="hint">Nothing kept yet. A drawing is kept from its first change.</p>
+            ) : (
+              <ul className="drawing-list">
+                {drawings.map((d, i) => (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      className="drawing-item"
+                      aria-current={d.id === current.id ? 'true' : undefined}
+                      onClick={() => openDrawing(d)}
+                      autoFocus={i === 0}
+                    >
+                      <img
+                        src={thumbnail(d.drawing)}
+                        alt=""
+                        style={{ aspectRatio: `${d.drawing.width} / ${d.drawing.height}` }}
+                      />
+                      <span className="drawing-size">
+                        {d.drawing.width}x{d.drawing.height}
+                      </span>
+                      <span className="hint">{lastUsed.format(d.updatedAt)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button type="button" className="btn" onClick={() => setPanel(null)}>
+              Close
+            </button>
+          </section>
+        )}
+        {panel === 'export' && (
+          <form
+            className="card new-drawing export-png"
+            aria-label="Export PNG"
+            onSubmit={exportDrawing}
+            onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
+          >
+            <label>
+              Scale
+              <select
+                value={exportScale}
+                onChange={(e) => setExportScale(Number(e.currentTarget.value))}
+                autoFocus
+              >
+                {EXPORT_SCALES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}x
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="btn primary">
+              Export
+            </button>
+            <button type="button" className="btn" onClick={() => setPanel(null)}>
+              Cancel
+            </button>
+            <p className="hint">
+              Saves a {drawing.width * exportScale}x{drawing.height * exportScale} PNG. Each pixel
+              becomes a sharp {exportScale}x{exportScale} block.
+            </p>
+          </form>
+        )}
+        {panel === 'new-drawing' && (
+          <NewDrawingForm
+            drawing={drawing}
+            palettes={palettes}
+            onCreate={startDrawing}
+            onCancel={() => setPanel(null)}
+          />
+        )}
+      </DrawingEditor>
     </div>
   );
 }

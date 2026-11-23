@@ -1,4 +1,5 @@
 import type { Drawing } from '../core/drawing';
+import type { Mode } from '../core/lesson';
 import type { CustomPalette } from '../core/palettes';
 
 export interface SavedDrawing {
@@ -7,9 +8,27 @@ export interface SavedDrawing {
   readonly updatedAt: number;
 }
 
+export interface InProgressAttempt {
+  readonly lessonId: string;
+  readonly mode: Mode;
+  readonly drawing: Drawing;
+  readonly updatedAt: number;
+}
+
+export interface Attempt {
+  readonly id: string;
+  readonly lessonId: string;
+  readonly mode: Mode;
+  readonly drawing: Drawing;
+  readonly score: number;
+  readonly finishedAt: number;
+}
+
 export interface StoreContents {
   readonly studioDrawings: readonly SavedDrawing[];
   readonly customPalettes: readonly CustomPalette[];
+  readonly attempts: readonly Attempt[];
+  readonly inProgressAttempts: readonly InProgressAttempt[];
 }
 
 export interface Store {
@@ -18,6 +37,11 @@ export interface Store {
   listCustomPalettes(): Promise<CustomPalette[]>;
   putCustomPalette(palette: CustomPalette): Promise<void>;
   deleteCustomPalette(id: string): Promise<void>;
+  getInProgressAttempt(lessonId: string, mode: Mode): Promise<InProgressAttempt | undefined>;
+  putInProgressAttempt(attempt: InProgressAttempt): Promise<void>;
+  deleteInProgressAttempt(lessonId: string, mode: Mode): Promise<void>;
+  saveAttempt(attempt: Attempt, options: { clearInProgress: boolean }): Promise<void>;
+  listAttempts(): Promise<Attempt[]>;
   readAll(): Promise<StoreContents>;
   replaceAll(contents: StoreContents): Promise<void>;
 }
@@ -43,10 +67,18 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
-const OBJECT_STORES = [STUDIO_DRAWINGS, CUSTOM_PALETTES];
+const ATTEMPTS = 'attempts';
+const IN_PROGRESS_ATTEMPTS = 'in-progress-attempts';
+const KEY_PATHS: Record<string, string | string[]> = {
+  [STUDIO_DRAWINGS]: 'id',
+  [CUSTOM_PALETTES]: 'id',
+  [ATTEMPTS]: 'id',
+  [IN_PROGRESS_ATTEMPTS]: ['lessonId', 'mode'],
+};
+const OBJECT_STORES = Object.keys(KEY_PATHS);
 
 type ObjectStoreName = (typeof OBJECT_STORES)[number];
 
@@ -55,8 +87,8 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
     const request = factory.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      for (const name of OBJECT_STORES) {
-        if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: 'id' });
+      for (const [name, keyPath] of Object.entries(KEY_PATHS)) {
+        if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -121,17 +153,54 @@ export function openStore(factory: IDBFactory | undefined): Store {
     async deleteCustomPalette(id) {
       await transact('readwrite', (objectStore) => objectStore(CUSTOM_PALETTES).delete(id));
     },
+    async getInProgressAttempt(lessonId, mode) {
+      return transact<InProgressAttempt | undefined>('readonly', (objectStore) =>
+        objectStore(IN_PROGRESS_ATTEMPTS).get([lessonId, mode]),
+      );
+    },
+    async putInProgressAttempt(attempt) {
+      await transact('readwrite', (objectStore) => objectStore(IN_PROGRESS_ATTEMPTS).put(attempt));
+    },
+    async deleteInProgressAttempt(lessonId, mode) {
+      await transact('readwrite', (objectStore) =>
+        objectStore(IN_PROGRESS_ATTEMPTS).delete([lessonId, mode]),
+      );
+    },
+    async saveAttempt(attempt, { clearInProgress }) {
+      await transact('readwrite', (objectStore) => {
+        if (clearInProgress) {
+          objectStore(IN_PROGRESS_ATTEMPTS).delete([attempt.lessonId, attempt.mode]);
+        }
+        return objectStore(ATTEMPTS).put(attempt);
+      });
+    },
+    async listAttempts() {
+      const all = await transact<Attempt[]>('readonly', (objectStore) =>
+        objectStore(ATTEMPTS).getAll(),
+      );
+      return all.sort((a, b) => b.finishedAt - a.finishedAt);
+    },
     async readAll() {
-      const [studioDrawings, customPalettes] = await Promise.all([
+      const [studioDrawings, customPalettes, attempts, inProgressAttempts] = await Promise.all([
         this.listStudioDrawings(),
         this.listCustomPalettes(),
+        this.listAttempts(),
+        transact<InProgressAttempt[]>('readonly', (objectStore) =>
+          objectStore(IN_PROGRESS_ATTEMPTS).getAll(),
+        ),
       ]);
-      return { studioDrawings, customPalettes };
+      return { studioDrawings, customPalettes, attempts, inProgressAttempts };
     },
     async replaceAll(contents) {
       await transact('readwrite', (objectStore) => {
         objectStore(CUSTOM_PALETTES).clear();
         for (const palette of contents.customPalettes) objectStore(CUSTOM_PALETTES).put(palette);
+        objectStore(ATTEMPTS).clear();
+        for (const attempt of contents.attempts) objectStore(ATTEMPTS).put(attempt);
+        objectStore(IN_PROGRESS_ATTEMPTS).clear();
+        for (const attempt of contents.inProgressAttempts) {
+          objectStore(IN_PROGRESS_ATTEMPTS).put(attempt);
+        }
         const cleared = objectStore(STUDIO_DRAWINGS).clear();
         for (const entry of contents.studioDrawings) objectStore(STUDIO_DRAWINGS).put(entry);
         return cleared;

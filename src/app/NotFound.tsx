@@ -4,7 +4,7 @@ import { routeHref } from './router';
 export function NotFound() {
   return (
     <div className="page">
-      <Nav current="not-found" />
+      <Nav />
       <main className="card message-card">
         <h1>Page not found</h1>
         <a className="btn primary" href={routeHref.home}>
