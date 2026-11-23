@@ -1,9 +1,9 @@
 import {
   ClipboardPaste,
+  CaretsToAxisDashedVertical,
   Copy,
   Eraser,
   FilePlus,
-  FlipHorizontal2,
   Grid3x3,
   PaintBucket,
   Pencil,
@@ -262,7 +262,7 @@ export function Studio() {
     },
     {
       label: 'Mirror symmetry',
-      Icon: FlipHorizontal2,
+      Icon: CaretsToAxisDashedVertical,
       chords: [{ key: 's' }],
       run: () => setMirror((m) => !m),
       pressed: mirror,
