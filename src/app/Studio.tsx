@@ -4,7 +4,9 @@ import {
   Copy,
   Eraser,
   FilePlus,
+  FolderOpen,
   Grid3x3,
+  ImageDown,
   PaintBucket,
   Pencil,
   Pipette,
@@ -22,6 +24,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ChangeEvent,
   type CSSProperties,
   type FormEvent,
 } from 'react';
@@ -31,10 +34,12 @@ import {
   MAX_DRAWING_SIZE,
   TRANSPARENT,
   type Command,
+  type Drawing,
   type Point,
 } from '../core/drawing';
 import { createEditor } from '../core/editor';
 import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
+import { checkImageSize, drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
 import { createSelectTool } from '../core/select';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { Nav } from './Nav';
@@ -65,12 +70,62 @@ const PAN_STEP = 32;
 const WHEEL_STEP = 40;
 const DEFAULT_SIZE = 16;
 
-/** A blank drawing's Editor and the Select tool over it. */
-function newDrawing(width: number, height: number) {
-  const editor = createEditor(
-    createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE }),
-  );
+/** An Editor for the drawing and the Select tool over it. */
+function editing(drawing: Drawing) {
+  const editor = createEditor(drawing);
   return { editor, selectTool: createSelectTool(editor) };
+}
+
+function blankDrawing(width: number, height: number) {
+  return createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE });
+}
+
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+
+const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
+
+/** Saves the drawing as a PNG file through the browser's download. */
+function downloadPng(drawing: Drawing, scale: number) {
+  const bytes = exportPng(drawing, scale);
+  const url = URL.createObjectURL(
+    new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `drawing-${drawing.width * scale}x${drawing.height * scale}.png`;
+  link.click();
+  // Some browsers start the download after click() returns, so revoke later.
+  setTimeout(() => URL.revokeObjectURL(url));
+}
+
+/** Decodes a PNG file into a Drawing. Rejects with a message to show the user. */
+async function readPng(file: File): Promise<Drawing> {
+  // Checked by content: the browser's file type can be empty, and it decodes other formats too.
+  const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (!PNG_SIGNATURE.every((b, i) => signature[i] === b)) {
+    throw new Error(`${file.name} is not a PNG file.`);
+  }
+  let bitmap: ImageBitmap;
+  try {
+    // Keep the file's exact color values rather than converting them for the display.
+    bitmap = await createImageBitmap(file, {
+      colorSpaceConversion: 'none',
+      premultiplyAlpha: 'none',
+    });
+  } catch {
+    throw new Error(`${file.name} could not be read as a PNG image.`);
+  }
+  try {
+    checkImageSize(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d')!;
+    context.drawImage(bitmap, 0, 0);
+    return drawingFromImage(context.getImageData(0, 0, bitmap.width, bitmap.height));
+  } finally {
+    bitmap.close();
+  }
 }
 
 function matches(chord: Chord, e: KeyboardEvent) {
@@ -106,8 +161,8 @@ function ControlButton({ control, iconSize }: { control: Control; iconSize: numb
 }
 
 export function Studio() {
-  const [{ editor, selectTool }, setDrawing] = useState(() =>
-    newDrawing(DEFAULT_SIZE, DEFAULT_SIZE),
+  const [{ editor, selectTool }, setEditing] = useState(() =>
+    editing(blankDrawing(DEFAULT_SIZE, DEFAULT_SIZE)),
   );
   const { drawing, canUndo, canRedo } = useSyncExternalStore(editor.subscribe, editor.getState);
   const { selection, canCopy, canPaste } = useSyncExternalStore(
@@ -120,6 +175,10 @@ export function Studio() {
   const [view, setView] = useState<View>(FIT_VIEW);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [newDrawingOpen, setNewDrawingOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportScale, setExportScale] = useState(1);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
   const wheelScroll = useRef(0);
@@ -166,7 +225,25 @@ export function Studio() {
       label: 'New drawing',
       Icon: FilePlus,
       chords: [{ key: 'n' }],
-      run: () => setNewDrawingOpen(true),
+      run: () => {
+        setExportOpen(false);
+        setNewDrawingOpen(true);
+      },
+    },
+    {
+      label: 'Open PNG',
+      Icon: FolderOpen,
+      chords: [{ key: 'o', mod: true }],
+      run: () => fileInput?.click(),
+    },
+    {
+      label: 'Export PNG',
+      Icon: ImageDown,
+      chords: [{ key: 'e', mod: true, shift: true }],
+      run: () => {
+        setNewDrawingOpen(false);
+        setExportOpen(true);
+      },
     },
     {
       label: 'Undo',
@@ -294,16 +371,45 @@ export function Studio() {
     }
   }
 
+  /** Starts editing `next` in place of the current drawing, with fresh undo history. */
+  function replaceDrawing(next: Drawing) {
+    setEditing(editing(next));
+    // A different palette's colors don't line up with the old indexes.
+    if (next.palette !== drawing.palette) setColor(0);
+    setView(FIT_VIEW);
+    setNewDrawingOpen(false);
+    setExportOpen(false);
+    setOpenError(null);
+  }
+
   function createNewDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    setDrawing(newDrawing(Number(form.get('width')), Number(form.get('height'))));
-    setView(FIT_VIEW);
-    setNewDrawingOpen(false);
+    replaceDrawing(blankDrawing(Number(form.get('width')), Number(form.get('height'))));
+  }
+
+  async function openPng(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    // Cleared so choosing the same file again still opens it.
+    e.currentTarget.value = '';
+    if (!file) return;
+    try {
+      replaceDrawing(await readPng(file));
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function exportDrawing(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    downloadPng(drawing, exportScale);
+    setExportOpen(false);
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.altKey) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.altKey) {
+      return;
+    }
     if (e.key === ' ') {
       setSpaceHeld(true);
       // Let Space still press a focused button.
@@ -369,6 +475,55 @@ export function Studio() {
               <ControlButton key={a.label} control={a} iconSize={20} />
             ))}
           </div>
+          <input
+            ref={setFileInput}
+            type="file"
+            accept="image/png"
+            aria-label="PNG file"
+            hidden
+            onChange={openPng}
+          />
+          {openError && (
+            <div className="card notice" role="alert">
+              <p>{openError}</p>
+              <button type="button" className="btn" onClick={() => setOpenError(null)}>
+                Dismiss
+              </button>
+            </div>
+          )}
+          {exportOpen && (
+            <form
+              className="card new-drawing export-png"
+              aria-label="Export PNG"
+              onSubmit={exportDrawing}
+              onKeyDown={(e) => e.key === 'Escape' && setExportOpen(false)}
+            >
+              <label>
+                Scale
+                <select
+                  value={exportScale}
+                  onChange={(e) => setExportScale(Number(e.currentTarget.value))}
+                  autoFocus
+                >
+                  {EXPORT_SCALES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}x
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="btn primary">
+                Export
+              </button>
+              <button type="button" className="btn" onClick={() => setExportOpen(false)}>
+                Cancel
+              </button>
+              <p className="hint">
+                Saves a {drawing.width * exportScale}x{drawing.height * exportScale} PNG. Each pixel
+                becomes a sharp {exportScale}x{exportScale} block.
+              </p>
+            </form>
+          )}
           {newDrawingOpen && (
             <form
               className="card new-drawing"

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 interface Point {
@@ -225,4 +226,101 @@ test('select, move, copy and paste pixels, and draw with mirror symmetry', async
   await page.keyboard.press('b');
   await clickPixel(page, canvas, 0, 10);
   await expect.poll(() => pixelAt(canvas, 15, 10)).toEqual(RED);
+});
+
+/** Decodes PNG bytes with the browser and reads the RGBA at the given image pixels. */
+async function decodedPixels(page: Page, png: Buffer, points: Point[]) {
+  return page.evaluate(
+    async ({ bytes, points }) => {
+      const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)]));
+      const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
+      context.drawImage(bitmap, 0, 0);
+      return {
+        width: bitmap.width,
+        height: bitmap.height,
+        pixels: points.map(({ x, y }) => Array.from(context.getImageData(x, y, 1, 1).data)),
+      };
+    },
+    { bytes: [...png], points },
+  );
+}
+
+/** A PNG of the given size, all one color, made by the browser. */
+async function solidPng(page: Page, width: number, height: number) {
+  const bytes = await page.evaluate(
+    async ({ width, height }) => {
+      const canvas = new OffscreenCanvas(width, height);
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = '#336699';
+      context.fillRect(0, 0, width, height);
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      return [...new Uint8Array(await blob.arrayBuffer())];
+    },
+    { width, height },
+  );
+  return Buffer.from(bytes);
+}
+
+test('export a PNG upscaled, then open it in the Studio', async ({ page }) => {
+  await page.goto('#/studio');
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 3, 5);
+
+  await page.keyboard.press('Control+Shift+e');
+  const form = page.getByRole('form', { name: 'Export PNG' });
+  await form.getByLabel('Scale').selectOption('4');
+  await expect(form).toContainText('64x64');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    form.getByRole('button', { name: 'Export' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/\.png$/);
+  const png = await readFile((await download.path())!);
+  // Drawing pixel (3, 5) covers image pixels 12-15 across and 20-23 down at 4x.
+  const decoded = await decodedPixels(page, png, [
+    { x: 12, y: 20 },
+    { x: 15, y: 23 },
+    { x: 16, y: 23 },
+  ]);
+  expect([decoded.width, decoded.height]).toEqual([64, 64]);
+  expect(decoded.pixels).toEqual([RED, RED, [0, 0, 0, 0]]);
+
+  // Opening it gives a 64x64 drawing whose palette is the PNG's one color.
+  const chooser = page.waitForEvent('filechooser');
+  await page.keyboard.press('Control+o');
+  await (await chooser).setFiles({ name: 'export.png', mimeType: 'image/png', buffer: png });
+  const opened = page.getByRole('img', { name: 'Studio canvas, 64 by 64 pixels' });
+  await expect(opened).toBeVisible();
+  const size = { width: 64, height: 64 };
+  await expect.poll(() => pixelAt(opened, 12, 20, size)).toEqual(RED);
+  await expect(page.getByRole('group', { name: 'Palette' }).getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Color #e94560' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
+
+test('opening a PNG larger than 64x64 explains why and keeps the drawing', async ({ page }) => {
+  await page.goto('#/studio');
+  const tooBig = await solidPng(page, 65, 20);
+  await page.getByRole('button', { name: 'Open PNG' }).click();
+  await page.getByLabel('PNG file').setInputFiles({
+    name: 'big.png',
+    mimeType: 'image/png',
+    buffer: tooBig,
+  });
+  await expect(page.getByRole('alert')).toContainText('65x20');
+  await expect(page.getByRole('alert')).toContainText('64x64');
+  await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 16 by 16 pixels');
+
+  // A PNG that fits opens, and clears the message.
+  await page.getByLabel('PNG file').setInputFiles({
+    name: 'fits.png',
+    mimeType: 'image/png',
+    buffer: await solidPng(page, 64, 20),
+  });
+  await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 64 by 20 pixels');
+  await expect(page.getByRole('alert')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Color #336699' })).toBeVisible();
 });
