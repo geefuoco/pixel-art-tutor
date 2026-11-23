@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSPARENT, applyCommand, type Drawing } from './drawing';
+import { TRANSPARENT, applyCommand } from './drawing';
+import { drawingOf as drawing, rowsOf as rows } from './test-grids';
 
-const palette = ['#000000', '#ffffff', '#ff0000'];
 const T = TRANSPARENT;
-
-function drawing(rows: number[][]): Drawing {
-  return { width: rows[0]!.length, height: rows.length, palette, pixels: rows.flat() };
-}
-
-function rows(d: Drawing) {
-  return Array.from({ length: d.height }, (_, y) => d.pixels.slice(y * d.width, (y + 1) * d.width));
-}
 
 describe('horizontal mirror symmetry', () => {
   it('a mirrored pencil stroke is drawn again, flipped left to right', () => {

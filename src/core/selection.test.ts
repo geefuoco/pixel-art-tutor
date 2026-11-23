@@ -1,17 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSPARENT, applyCommand, copyPixels, rectBetween, type Drawing } from './drawing';
+import { TRANSPARENT, applyCommand, copyPixels, rectBetween } from './drawing';
+import { drawingOf as drawing, rowsOf as rows } from './test-grids';
 
-const palette = ['#000000', '#ffffff', '#ff0000'];
 const T = TRANSPARENT;
-
-/** A drawing from rows of pixel values, top row first. */
-function drawing(rows: number[][]): Drawing {
-  return { width: rows[0]!.length, height: rows.length, palette, pixels: rows.flat() };
-}
-
-function rows(d: Drawing) {
-  return Array.from({ length: d.height }, (_, y) => d.pixels.slice(y * d.width, (y + 1) * d.width));
-}
 
 describe('move', () => {
   it('moves the pixels in a rectangle, leaving transparency behind', () => {

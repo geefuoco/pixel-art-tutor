@@ -177,14 +177,14 @@ describe('editor', () => {
     expect(row(editor.getState().drawing)).toEqual([0, 1, T, 2]);
   });
 
-  it('replacing the last step takes back its changes and applies the new command as that step', () => {
+  it('replacing a step takes back its changes and applies the new command as that step', () => {
     const editor = createEditor(createDrawing({ width: 4, height: 1, palette }));
     editor.apply({ type: 'pencil', color: 2, points: [{ x: 3, y: 0 }] });
     const clip = { width: 2, height: 1, pixels: [0, 1] };
-    editor.apply({ type: 'paste', clip, at: { x: 0, y: 0 } });
+    const step = editor.apply({ type: 'paste', clip, at: { x: 0, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([0, 1, T, 2]);
     // Dragging the pasted block on: it moves, and nothing is left where it was.
-    editor.apply({ type: 'paste', clip, at: { x: 1, y: 0 } }, { replaceLast: true });
+    expect(editor.replace(step, { type: 'paste', clip, at: { x: 1, y: 0 } })).toBe(true);
     expect(row(editor.getState().drawing)).toEqual([T, 0, 1, 2]);
 
     editor.undo();
@@ -197,24 +197,36 @@ describe('editor', () => {
     const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
     const from = { x: 0, y: 0, width: 3, height: 1 };
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
-    editor.apply({ type: 'move', from, to: { x: 2, y: 0 } });
+    const step = editor.apply({ type: 'move', from, to: { x: 2, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([T, T, 0]);
     // Moved back from the same start: pixels that went off the canvas come back too.
-    editor.apply({ type: 'move', from, to: { x: 0, y: 0 } }, { replaceLast: true });
+    editor.replace(step, { type: 'move', from, to: { x: 0, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([0, T, T]);
     editor.undo();
     expect(row(editor.getState().drawing)).toEqual([T, T, T]);
   });
 
-  it('after an undo, replacing starts a new step instead of changing the undone one', () => {
+  it('a step can no longer be replaced once anything else is applied, undone or redone', () => {
     const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
-    editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
-    editor.apply({ type: 'pencil', color: 1, points: [{ x: 1, y: 0 }] });
+    const pencil = (x: number) => ({ type: 'pencil', color: 0, points: [{ x, y: 0 }] }) as const;
+
+    let step = editor.apply(pencil(0));
     editor.undo();
-    editor.apply({ type: 'pencil', color: 1, points: [{ x: 2, y: 0 }] }, { replaceLast: true });
-    expect(row(editor.getState().drawing)).toEqual([0, T, 1]);
-    editor.undo();
-    expect(row(editor.getState().drawing)).toEqual([0, T, T]);
+    expect(editor.replace(step, pencil(1))).toBe(false);
+    editor.redo();
+    expect(editor.replace(step, pencil(1))).toBe(false);
+
+    step = editor.apply(pencil(1));
+    // Even a command that changes nothing starts a new step.
+    editor.apply(pencil(1));
+    expect(editor.replace(step, pencil(2))).toBe(false);
+    expect(row(editor.getState().drawing)).toEqual([0, 0, T]);
+
+    // Merging into a step keeps it open.
+    step = editor.apply(pencil(2));
+    editor.apply(pencil(2), { mergeWithLast: true });
+    expect(editor.replace(step, { type: 'eraser', points: [{ x: 0, y: 0 }] })).toBe(true);
+    expect(row(editor.getState().drawing)).toEqual([T, 0, T]);
   });
 
   it('undo and redo notify subscribers, and the state is stable between changes', () => {
