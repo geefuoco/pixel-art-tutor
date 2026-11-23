@@ -73,7 +73,7 @@
   .va-inv { padding: 10px; display: grid; gap: 8px; justify-items: center; }
   .va-slot { position: relative; width: 52px; height: 52px; border: 0; background: #1a1c2c; display: grid; place-items: center; }
   .va-slot.on { background: #ffcd75; }
-  .va-slot.on svg rect { fill: #1a1c2c; }
+  .va-slot.on svg { stroke: #1a1c2c; }
   .va-key { position: absolute; right: 2px; bottom: 0; font-size: 16px; color: #94b0c2; }
   .va-slot.on .va-key { color: #1a1c2c; }
   .va-sep { width: 100%; height: 4px; background: #f4f4f4; opacity: .3; }
@@ -296,7 +296,7 @@
   .vd-tool { border: 0; width: 44px; height: 44px; border-radius: 50%; background: none; display: grid; place-items: center; }
   .vd-tool:hover { background: #f4f0ff; }
   .vd-tool.on { background: #7c5cff; }
-  .vd-tool.on svg rect { fill: #fff; }
+  .vd-tool.on svg { stroke: #fff; }
   .vd-gap { height: 8px; }
   .vd-stage { justify-self: center; padding: 14px; background: #fff; border-radius: 26px; box-shadow: 0 20px 60px rgba(90,70,160,.18); }
   .vd-stage svg { border-radius: 10px; }
@@ -546,7 +546,22 @@ function Pixels({ rows, colors, px = 10, grid, gridColor = 'rgba(0,0,0,.12)', gu
     </svg>
   );
 }
-const Icon = ({ name, color = '#000', px = 3 }) => <Pixels rows={ICONS[name]} colors={{ x: color }} px={px} />;
+// Real (vector) tool icons: paths from Lucide (ISC license), inlined.
+const LUCIDE = {
+  pencil: <><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></>,
+  eraser: <><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" /><path d="M22 21H7" /><path d="m5 11 9 9" /></>,
+  fill: <><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z" /><path d="m5 2 5 5" /><path d="M2 13h15" /><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" /></>,
+  dropper: <><path d="m2 22 1-1h3l9-9" /><path d="M3 21v-3l9-9" /><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z" /></>,
+  select: <><path d="M5 3a2 2 0 0 0-2 2" /><path d="M19 3a2 2 0 0 1 2 2" /><path d="M21 19a2 2 0 0 1-2 2" /><path d="M5 21a2 2 0 0 1-2-2" /><path d="M9 3h1" /><path d="M9 21h1" /><path d="M14 3h1" /><path d="M14 21h1" /><path d="M3 9v1" /><path d="M21 9v1" /><path d="M3 14v1" /><path d="M21 14v1" /></>,
+  undo: <><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></>,
+  redo: <><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" /></>,
+  grid: <><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" /></>,
+  zoom: <><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /><path d="M11 8v6" /><path d="M8 11h6" /></>,
+};
+const Icon = ({ name, color = '#000', px = 3 }) => (
+  <svg width={Math.round(px * 7)} height={Math.round(px * 7)} viewBox="0 0 24 24" fill="none" stroke={color}
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{LUCIDE[name]}</svg>
+);
 
 function useLessonUi() {
   const [tool, setTool] = useState('pencil');
