@@ -146,6 +146,17 @@ test('new drawing of a chosen size, zoom, pan and pixel grid', async ({ page }) 
   await page.keyboard.press('0');
   await expect.poll(async () => (await canvas.boundingBox())!).toEqual(fit);
 
+  // The mouse wheel zooms at the cursor: the pixel under it stays under it.
+  await page.mouse.move(corner.x, corner.y);
+  await page.mouse.wheel(0, -100);
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(fit.width * 2);
+  const after = await pixelPosition(canvas, 31, 7, size);
+  const halfCell = fit.width / size.width / 2;
+  expect(Math.abs(after.x - corner.x)).toBeLessThan(halfCell);
+  expect(Math.abs(after.y - corner.y)).toBeLessThan(halfCell);
+  await page.mouse.wheel(0, 100);
+  await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(fit.width);
+
   const grid = page.locator('.pixel-grid');
   await expect(grid).toBeHidden();
   await page.keyboard.press('g');

@@ -23,11 +23,21 @@ export function canZoom(view: View, steps: number): boolean {
   return next >= 0 && next < ZOOM_LEVELS.length;
 }
 
-/** Zooms by whole levels, stopping at fit size and the largest zoom; the point at the view's centre stays there. */
-export function zoomView(view: View, steps: number): View {
+/**
+ * Zooms by whole levels, stopping at fit size and the largest zoom. The drawing
+ * point at `anchor` (screen pixels from the view's centre; the centre itself by
+ * default) stays at the same place on screen.
+ */
+export function zoomView(view: View, steps: number, anchor: Point = { x: 0, y: 0 }): View {
   const zoomIndex = Math.min(ZOOM_LEVELS.length - 1, Math.max(0, view.zoomIndex + steps));
+  if (zoomIndex === view.zoomIndex) return view;
+  // The anchor's distance from the drawing's centre scales with the zoom.
   const ratio = ZOOM_LEVELS[zoomIndex]! / viewZoom(view);
-  return { zoomIndex, pan: { x: view.pan.x * ratio, y: view.pan.y * ratio } };
+  const pan = {
+    x: anchor.x - (anchor.x - view.pan.x) * ratio,
+    y: anchor.y - (anchor.y - view.pan.y) * ratio,
+  };
+  return { zoomIndex, pan };
 }
 
 /** Moves the drawing by (dx, dy) screen pixels. */

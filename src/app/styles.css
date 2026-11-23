@@ -207,8 +207,7 @@ a {
   --fit: min(384px, 56vw);
   width: calc(var(--fit) + 28px);
   height: calc(var(--fit) + 28px);
-  display: grid;
-  place-items: center;
+  position: relative;
   overflow: hidden;
   background: #fff;
   border-radius: 26px;
@@ -220,10 +219,13 @@ a {
   cursor: grab;
 }
 
+/* Centred on the view however large it gets, then offset by the pan. */
 .zoomed-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: calc(var(--fit) * var(--w));
   height: calc(var(--fit) * var(--h));
-  flex: none;
 }
 
 .pixel-canvas-wrap {

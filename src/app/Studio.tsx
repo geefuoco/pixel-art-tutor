@@ -12,7 +12,14 @@ import {
   ZoomOut,
   type LucideIcon,
 } from 'lucide-react';
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react';
+import {
+  useCallback,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type FormEvent,
+} from 'react';
 import {
   createDrawing,
   getPixel,
@@ -48,6 +55,8 @@ interface Control {
 
 /** How far one arrow key press pans, in screen pixels. */
 const PAN_STEP = 32;
+/** Wheel scroll, in pixels, that zooms one level; trackpads send many small deltas. */
+const WHEEL_STEP = 40;
 const DEFAULT_SIZE = 16;
 
 function newEditor(width: number, height: number): Editor {
@@ -94,6 +103,29 @@ export function Studio() {
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [newDrawingOpen, setNewDrawingOpen] = useState(false);
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
+  const wheelScroll = useRef(0);
+
+  // Wheel zoom at the cursor. Attached natively because React's wheel listener is
+  // passive and can't stop the page from scrolling. Stable, so it subscribes once.
+  const listenForWheel = useCallback((stage: HTMLDivElement | null) => {
+    if (!stage) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      wheelScroll.current += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * 16;
+      if (Math.abs(wheelScroll.current) < WHEEL_STEP) return;
+      // One level per event at most, however big the notch.
+      const steps = wheelScroll.current < 0 ? 1 : -1;
+      wheelScroll.current = 0;
+      const rect = stage.getBoundingClientRect();
+      const anchor = {
+        x: e.clientX - rect.left - rect.width / 2,
+        y: e.clientY - rect.top - rect.height / 2,
+      };
+      setView((v) => zoomView(v, steps, anchor));
+    };
+    stage.addEventListener('wheel', onWheel, { passive: false });
+    return () => stage.removeEventListener('wheel', onWheel);
+  }, []);
 
   const tools: (Control & { tool: Tool })[] = (
     [
@@ -254,7 +286,7 @@ export function Studio() {
   const zoomedStyle = {
     '--w': (zoom * drawing.width) / longest,
     '--h': (zoom * drawing.height) / longest,
-    transform: `translate(${view.pan.x}px, ${view.pan.y}px)`,
+    transform: `translate(calc(-50% + ${view.pan.x}px), calc(-50% + ${view.pan.y}px))`,
   } as CSSProperties;
 
   return (
@@ -321,6 +353,7 @@ export function Studio() {
             </form>
           )}
           <div
+            ref={listenForWheel}
             className={`stage${spaceHeld ? ' panning' : ''}`}
             onMouseDown={(e) => {
               // Stop the middle button's autoscroll so it can pan instead.
@@ -356,7 +389,9 @@ export function Studio() {
               />
             </div>
           </div>
-          <p className="hint">Pan with Space+drag, the middle mouse button or the arrow keys.</p>
+          <p className="hint">
+            Scroll to zoom. Pan with Space+drag, the middle mouse button or the arrow keys.
+          </p>
         </div>
         <div className="pill palette-pill" role="group" aria-label="Palette">
           {drawing.palette.map((c, i) => (
