@@ -19,7 +19,6 @@ describe('horizontal mirror symmetry', () => {
       ],
       mirror: true,
     });
-    // The two halves are separate strokes: nothing joins them across the middle.
     expect(rows(after)).toEqual([
       [2, T, T, T, T, 2],
       [T, 2, T, T, 2, T],
@@ -47,7 +46,6 @@ describe('horizontal mirror symmetry', () => {
       [T, 0, T, 1, T],
       [0, T, T, T, 1],
     ]);
-    // The flipped press lands in a different region, which is filled on its own.
     const filled = applyCommand(before, {
       type: 'fill',
       color: 2,

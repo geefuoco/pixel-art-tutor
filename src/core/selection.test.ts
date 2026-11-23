@@ -47,7 +47,6 @@ describe('move', () => {
       to: { x: 2, y: 0 },
     });
     expect(rows(moved)).toEqual([[T, T, 0]]);
-    // Moving back does not bring them back.
     const back = applyCommand(moved, {
       type: 'move',
       from: { x: 0, y: 0, width: 3, height: 1 },

@@ -16,7 +16,6 @@ interface Size {
 }
 const DEFAULT: Size = { width: STUDIO_SIZE, height: STUDIO_SIZE };
 
-/** The RGBA color painted at the centre of drawing pixel (x, y). */
 function pixelAt(canvas: Locator, x: number, y: number, size = DEFAULT) {
   return canvas.evaluate(
     (c: HTMLCanvasElement, { px, py, size }) => {
@@ -34,7 +33,6 @@ function pixelAt(canvas: Locator, x: number, y: number, size = DEFAULT) {
   );
 }
 
-/** Mouse position over the centre of drawing pixel (x, y). */
 async function pixelPosition(canvas: Locator, x: number, y: number, size = DEFAULT) {
   const box = (await canvas.boundingBox())!;
   return {
@@ -52,7 +50,6 @@ function studioCanvas(page: Page) {
   return page.getByRole('img', { name: /studio canvas/i });
 }
 
-/** Opens the Studio from a deep link and waits for it to load the saved drawings. */
 async function openStudio(page: Page) {
   await page.goto('#/studio');
   await expect(studioCanvas(page)).toBeVisible();
@@ -69,7 +66,6 @@ test('draw and erase pixels in the Studio from a deep link', async ({ page }) =>
   await clickPixel(page, canvas, 3, 5);
   await expect.poll(() => pixelAt(canvas, 3, 5)).toEqual(RED);
 
-  // Dragging paints a connected line.
   const from = await pixelPosition(canvas, 2, 9);
   const to = await pixelPosition(canvas, 9, 9);
   await page.mouse.move(from.x, from.y);
@@ -80,7 +76,6 @@ test('draw and erase pixels in the Studio from a deep link', async ({ page }) =>
     await expect.poll(() => pixelAt(canvas, x, 9)).toEqual(RED);
   }
 
-  // The whole drag undoes as one step, leaving the earlier dot.
   await page.getByRole('button', { name: 'Undo' }).click();
   for (let x = 2; x <= 9; x++) {
     await expect.poll(() => pixelAt(canvas, x, 9)).toEqual(blankRow[x - 2]);
@@ -97,7 +92,6 @@ test('fill, eyedropper, and undo/redo from the keyboard', async ({ page }) => {
   const canvas = studioCanvas(page);
   const blank = await pixelAt(canvas, 0, 0);
 
-  // A red dot, then a yellow fill of everything around it.
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   await clickPixel(page, canvas, 4, 4);
   await page.getByRole('button', { name: 'Color #f9a826' }).click();
@@ -112,7 +106,6 @@ test('fill, eyedropper, and undo/redo from the keyboard', async ({ page }) => {
   await page.keyboard.press('Control+Shift+z');
   await expect.poll(() => pixelAt(canvas, 15, 15)).toEqual(YELLOW);
 
-  // The eyedropper picks red back up and returns to the pencil.
   await page.keyboard.press('i');
   await clickPixel(page, canvas, 4, 4);
   await expect(page.getByRole('button', { name: 'Color #e94560' })).toHaveAttribute(
@@ -141,7 +134,6 @@ test('new drawing of a chosen size, zoom, pan and pixel grid', async ({ page }) 
   const fit = (await canvas.boundingBox())!;
   expect(fit.width / fit.height).toBeCloseTo(4);
 
-  // The far corner of a non-square drawing is drawable.
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   const corner = await pixelPosition(canvas, 31, 7, size);
   await page.mouse.click(corner.x, corner.y);
@@ -157,7 +149,6 @@ test('new drawing of a chosen size, zoom, pan and pixel grid', async ({ page }) 
   await page.keyboard.press('0');
   await expect.poll(async () => (await canvas.boundingBox())!).toEqual(fit);
 
-  // The mouse wheel zooms at the cursor: the pixel under it stays under it.
   await page.mouse.move(corner.x, corner.y);
   await page.mouse.wheel(0, -100);
   await expect.poll(async () => (await canvas.boundingBox())!.width).toBeCloseTo(fit.width * 2);
@@ -210,14 +201,12 @@ test('select, move, copy and paste pixels, and draw with mirror symmetry', async
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   await clickPixel(page, canvas, 1, 1);
 
-  // Select around the dot, then drag it by the inside of the selection.
   await page.keyboard.press('m');
   await dragPixels({ x: 0, y: 0 }, { x: 2, y: 2 });
   await dragPixels({ x: 1, y: 1 }, { x: 5, y: 1 });
   await expect.poll(() => pixelAt(canvas, 5, 1)).toEqual(RED);
   await expect.poll(() => pixelAt(canvas, 1, 1)).toEqual(blank.at11);
 
-  // Paste lands over the selection; dragging it leaves the original behind.
   await page.keyboard.press('Control+c');
   await page.keyboard.press('Control+v');
   await dragPixels({ x: 5, y: 1 }, { x: 5, y: 6 });
@@ -233,7 +222,6 @@ test('select, move, copy and paste pixels, and draw with mirror symmetry', async
   await expect.poll(() => pixelAt(canvas, 15, 10)).toEqual(RED);
 });
 
-/** Decodes PNG bytes with the browser and reads the RGBA at the given image pixels. */
 async function decodedPixels(page: Page, png: Buffer, points: Point[]) {
   return page.evaluate(
     async ({ bytes, points }) => {
@@ -250,7 +238,6 @@ async function decodedPixels(page: Page, png: Buffer, points: Point[]) {
   );
 }
 
-/** A PNG of the given size, all one color, made by the browser. */
 async function solidPng(page: Page, width: number, height: number) {
   const bytes = await page.evaluate(
     async ({ width, height }) => {
@@ -282,7 +269,6 @@ test('export a PNG upscaled, then open it in the Studio', async ({ page }) => {
   ]);
   expect(download.suggestedFilename()).toMatch(/\.png$/);
   const png = await readFile((await download.path())!);
-  // Drawing pixel (3, 5) covers image pixels 12-15 across and 20-23 down at 4x.
   const decoded = await decodedPixels(page, png, [
     { x: 12, y: 20 },
     { x: 15, y: 23 },
@@ -291,7 +277,6 @@ test('export a PNG upscaled, then open it in the Studio', async ({ page }) => {
   expect([decoded.width, decoded.height]).toEqual([64, 64]);
   expect(decoded.pixels).toEqual([RED, RED, [0, 0, 0, 0]]);
 
-  // Opening it gives a 64x64 drawing whose palette is the PNG's one color.
   const chooser = page.waitForEvent('filechooser');
   await page.keyboard.press('Control+o');
   await (await chooser).setFiles({ name: 'export.png', mimeType: 'image/png', buffer: png });
@@ -319,7 +304,6 @@ test('opening a PNG larger than 64x64 explains why and keeps the drawing', async
   await expect(page.getByRole('alert')).toContainText('64x64');
   await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 16 by 16 pixels');
 
-  // A PNG that fits opens, and clears the message.
   await page.getByLabel('PNG file').setInputFiles({
     name: 'fits.png',
     mimeType: 'image/png',
@@ -335,7 +319,6 @@ test('resume drawings after a reload, and reopen an earlier one', async ({ page 
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   await clickPixel(page, studioCanvas(page), 3, 5);
 
-  // A second drawing, which the first stays kept beside.
   await page.keyboard.press('n');
   const form = page.getByRole('form', { name: 'New drawing' });
   await form.getByLabel('Width').fill('8');
@@ -347,7 +330,6 @@ test('resume drawings after a reload, and reopen an earlier one', async ({ page 
   await page.mouse.click(dot.x, dot.y);
   await expect.poll(() => pixelAt(small, 1, 6, size)).toEqual(RED);
 
-  // The reload resumes the drawing last changed, without its undo history.
   await page.reload();
   await expect(small).toBeVisible();
   await expect.poll(() => pixelAt(small, 1, 6, size)).toEqual(RED);

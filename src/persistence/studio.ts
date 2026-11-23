@@ -2,7 +2,6 @@ import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
 import { StorageError, type SavedDrawing, type Store, type StorageProblem } from './store';
 
-/** The drawing being edited in the Studio. */
 export interface CurrentDrawing {
   readonly id: string;
   readonly editor: Editor;
@@ -13,44 +12,21 @@ export type StudioState =
   | {
       readonly status: 'ready';
       readonly current: CurrentDrawing;
-      /** Every kept drawing with its latest pixels, most recently changed first. */
       readonly drawings: readonly SavedDrawing[];
-      /** Set while the latest load or save failed, so changes may not be kept. */
       readonly problem: StorageProblem | null;
     };
 
-/**
- * The Studio's drawings: which one is being edited, and the rest, kept in a Store.
- * Every change to the current drawing is saved. Subscribable, so UI can read it
- * with useSyncExternalStore.
- */
 export interface Studio {
-  /** The same object until the next change. */
   getState(): StudioState;
   subscribe(listener: () => void): () => void;
-  /**
-   * Loads the saved drawings and opens the most recently changed one, or the
-   * first drawing if there are none or storage is unavailable. Later calls
-   * return the first call's promise.
-   */
   load(): Promise<void>;
-  /**
-   * Starts editing a new drawing. One with any pixels (an opened PNG, say) is kept at
-   * once; a blank one on its first change, so trying out sizes leaves nothing behind.
-   */
   create(drawing: Drawing): void;
-  /**
-   * Edits the kept drawing with this id, with fresh undo history, and puts it first so
-   * a reload resumes it. Does nothing for the current drawing.
-   */
   open(id: string): void;
-  /** Resolves once every change made so far has been written, or failed to be. */
   flush(): Promise<void>;
 }
 
 export function createStudio(options: {
   store: Store;
-  /** What a first visit opens. */
   firstDrawing: Drawing;
   now?: () => number;
 }): Studio {
@@ -60,14 +36,9 @@ export function createStudio(options: {
   const listeners = new Set<() => void>();
   let stopAutosave = () => {};
 
-  // Each change is written at once: IndexedDB runs writes to one object store in the
-  // order they start, so the newest version of a drawing is always written last.
   const pending = new Set<Promise<void>>();
-  /** The newest version of each drawing sent to the store. */
   const newest = new Map<string, SavedDrawing>();
-  /** Drawings whose newest version failed to save, retried after the next save that works. */
   const failed = new Map<string, SavedDrawing>();
-  /** The last updatedAt given out. Each is later than the one before, even within a millisecond. */
   let lastStamp = -Infinity;
 
   function publish() {
@@ -91,7 +62,6 @@ export function createStudio(options: {
       () => {
         const retries = [...failed.values()];
         if (retries.length === 0) setProblem(null);
-        // Their outcome settles the problem.
         for (const retry of retries) write(retry);
       },
       (error: unknown) => {
@@ -103,7 +73,6 @@ export function createStudio(options: {
     void done.finally(() => pending.delete(done));
   }
 
-  /** Keeps the drawing: puts it first in the list and writes it. */
   function keep(id: string, drawing: Drawing) {
     if (state.status !== 'ready') return;
     lastStamp = Math.max(now(), lastStamp + 1);
@@ -112,7 +81,6 @@ export function createStudio(options: {
     write(entry);
   }
 
-  /** Makes `drawing` the one being edited, with fresh undo history, keeping each change. */
   function startEditing(id: string, drawing: Drawing): CurrentDrawing {
     stopAutosave();
     const editor = createEditor(drawing);
@@ -154,7 +122,6 @@ export function createStudio(options: {
       const entry = state.drawings.find((d) => d.id === id);
       if (!entry) return;
       update({ current: startEditing(id, entry.drawing) });
-      // Kept again so it comes first, and a reload resumes it.
       keep(id, entry.drawing);
     },
     async flush() {
@@ -163,7 +130,6 @@ export function createStudio(options: {
   };
 }
 
-/** The Store promises StorageErrors; anything else still means nothing was kept. */
 function problemOf(error: unknown): StorageProblem {
   return error instanceof StorageError ? error.problem : 'unavailable';
 }

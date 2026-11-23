@@ -1,6 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Runs against the production build. Run `npm run build` first.
 export default defineConfig({
   testDir: 'e2e',
   forbidOnly: !!process.env.CI,

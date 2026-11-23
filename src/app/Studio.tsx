@@ -50,17 +50,14 @@ import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
-/** The card open above the canvas, if any. */
 type Panel = 'new-drawing' | 'export' | 'drawings' | null;
 
-/** A key press: `key` is KeyboardEvent.key lowercased. `shift` unset means either. */
 interface Chord {
   key: string;
   mod?: boolean;
   shift?: boolean;
 }
 
-/** A toolbar button and its keyboard shortcuts; the first chord is the one shown. */
 interface Control {
   label: string;
   Icon: LucideIcon;
@@ -70,14 +67,11 @@ interface Control {
   pressed?: boolean;
 }
 
-/** How far one arrow key press pans, in screen pixels. */
 const PAN_STEP = 32;
-/** Wheel scroll, in pixels, that zooms one level; trackpads send many small deltas. */
 const WHEEL_STEP = 40;
 
 const selectTools = new WeakMap<Editor, SelectTool>();
 
-/** The Select tool over an Editor, the same one each time. */
 function selectToolFor(editor: Editor): SelectTool {
   let tool = selectTools.get(editor);
   if (!tool) {
@@ -95,7 +89,6 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
 
 const thumbnails = new WeakMap<Drawing, string>();
 
-/** A 1x PNG of the drawing as a data URL, for an <img>. */
 function thumbnail(drawing: Drawing): string {
   let url = thumbnails.get(drawing);
   if (!url) {
@@ -113,7 +106,6 @@ const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
-/** Saves the drawing as a PNG file through the browser's download. */
 function downloadPng(drawing: Drawing, scale: number) {
   const bytes = exportPng(drawing, scale);
   const url = URL.createObjectURL(
@@ -123,20 +115,16 @@ function downloadPng(drawing: Drawing, scale: number) {
   link.href = url;
   link.download = `drawing-${drawing.width * scale}x${drawing.height * scale}.png`;
   link.click();
-  // Some browsers start the download after click() returns, so revoke later.
   setTimeout(() => URL.revokeObjectURL(url));
 }
 
-/** Decodes a PNG file into a Drawing. Rejects with a message to show the user. */
 async function readPng(file: File): Promise<Drawing> {
-  // Checked by content: the browser's file type can be empty, and it decodes other formats too.
   const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
   if (!PNG_SIGNATURE.every((b, i) => signature[i] === b)) {
     throw new Error(`${file.name} is not a PNG file.`);
   }
   let bitmap: ImageBitmap;
   try {
-    // Keep the file's exact color values rather than converting them for the display.
     bitmap = await createImageBitmap(file, {
       colorSpaceConversion: 'none',
       premultiplyAlpha: 'none',
@@ -166,7 +154,6 @@ function matches(chord: Chord, e: KeyboardEvent) {
 }
 
 function chordLabel({ key, mod, shift }: Chord, ctrl = 'Ctrl', plus = '+') {
-  // Named keys like "escape" read as "Escape"; single characters are upper-cased.
   const name = key === '+' ? plus : key[0]!.toUpperCase() + key.slice(1);
   return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${name}`;
 }
@@ -231,15 +218,12 @@ function StudioEditor({
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
   const wheelScroll = useRef(0);
 
-  // Wheel zoom at the cursor. Attached natively because React's wheel listener is
-  // passive and can't stop the page from scrolling. Stable, so it subscribes once.
   const listenForWheel = useCallback((stage: HTMLDivElement | null) => {
     if (!stage) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       wheelScroll.current += e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * 16;
       if (Math.abs(wheelScroll.current) < WHEEL_STEP) return;
-      // One level per event at most, however big the notch.
       const steps = wheelScroll.current < 0 ? 1 : -1;
       wheelScroll.current = 0;
       const rect = stage.getBoundingClientRect();
@@ -324,7 +308,6 @@ function StudioEditor({
       chords: [{ key: 'v', mod: true }],
       run: () => {
         selectTool.paste();
-        // The pasted pixels are selected, ready to drag off.
         setTool('select');
       },
       disabled: !canPaste,
@@ -400,7 +383,6 @@ function StudioEditor({
         return;
       case 'eyedropper': {
         const picked = getPixel(drawing, at.x, at.y);
-        // Picking a transparent pixel means "draw transparency", which is the eraser.
         if (picked === TRANSPARENT) {
           setTool('eraser');
         } else {
@@ -420,16 +402,13 @@ function StudioEditor({
     }
   }
 
-  /** Resets the view and color for a different drawing, which starts with fresh undo history. */
   function resetForDrawing(next: Drawing) {
-    // A different palette's colors don't line up with the old indexes.
     if (next.palette !== drawing.palette) setColor(0);
     setView(FIT_VIEW);
     setPanel(null);
     setOpenError(null);
   }
 
-  /** Starts editing a new drawing; the current one stays in Drawings if it was kept. */
   function startDrawing(next: Drawing) {
     studio.create(next);
     resetForDrawing(next);
@@ -449,7 +428,6 @@ function StudioEditor({
 
   async function openPng(e: ChangeEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
-    // Cleared so choosing the same file again still opens it.
     e.currentTarget.value = '';
     if (!file) return;
     try {
@@ -471,7 +449,6 @@ function StudioEditor({
     }
     if (e.key === ' ') {
       setSpaceHeld(true);
-      // Let Space still press a focused button.
       if (!(e.target instanceof HTMLButtonElement)) e.preventDefault();
       return;
     }
@@ -482,14 +459,11 @@ function StudioEditor({
       return;
     }
     const control = [...tools, ...actions].find((c) => c.chords.some((chord) => matches(chord, e)));
-    // A disabled control leaves the key to the browser, so Ctrl+C with no selection still copies page text.
     if (!control || control.disabled) return;
     e.preventDefault();
     control.run();
   }
 
-  // Studio-wide keyboard shortcuts. A ref callback with cleanup (not an effect):
-  // it re-subscribes each render so the handler always sees current state.
   function listenForKeys(node: HTMLDivElement | null) {
     if (!node) return;
     const onKeyUp = (e: KeyboardEvent) => {
@@ -676,12 +650,10 @@ function StudioEditor({
             ref={listenForWheel}
             className={`stage${spaceHeld ? ' panning' : ''}`}
             onMouseDown={(e) => {
-              // Stop the middle button's autoscroll so it can pan instead.
               if (e.button === 1) e.preventDefault();
             }}
             onPointerDownCapture={(e) => {
               if (!(e.button === 1 || (e.button === 0 && spaceHeld))) return;
-              // Pan instead of drawing: keep the press from reaching the canvas.
               e.stopPropagation();
               e.currentTarget.setPointerCapture(e.pointerId);
               panDrag.current = { start: { x: e.clientX, y: e.clientY }, pan: view.pan };

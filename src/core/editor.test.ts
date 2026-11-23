@@ -42,7 +42,7 @@ describe('editor', () => {
     editor.undo();
     expect(row(editor.getState().drawing)).toEqual([T, T, T]);
     expect(editor.getState()).toMatchObject({ canUndo: false, canRedo: true });
-    editor.undo(); // nothing left: a no-op
+    editor.undo();
     expect(row(editor.getState().drawing)).toEqual([T, T, T]);
 
     editor.redo();
@@ -50,7 +50,7 @@ describe('editor', () => {
     editor.redo();
     expect(row(editor.getState().drawing)).toEqual([T, 1, 1]);
     expect(editor.getState()).toMatchObject({ canUndo: true, canRedo: false });
-    editor.redo(); // nothing left: a no-op
+    editor.redo();
     expect(row(editor.getState().drawing)).toEqual([T, 1, 1]);
   });
 
@@ -103,7 +103,6 @@ describe('editor', () => {
   it('a stroke that starts with no visible change is still its own undo step', () => {
     const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
-    // Starts on a pixel that already has this color, then drags on.
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply(
       {
@@ -183,7 +182,6 @@ describe('editor', () => {
     const clip = { width: 2, height: 1, pixels: [0, 1] };
     const step = editor.apply({ type: 'paste', clip, at: { x: 0, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([0, 1, T, 2]);
-    // Dragging the pasted block on: it moves, and nothing is left where it was.
     expect(editor.replace(step, { type: 'paste', clip, at: { x: 1, y: 0 } })).toBe(true);
     expect(row(editor.getState().drawing)).toEqual([T, 0, 1, 2]);
 
@@ -199,7 +197,6 @@ describe('editor', () => {
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     const step = editor.apply({ type: 'move', from, to: { x: 2, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([T, T, 0]);
-    // Moved back from the same start: pixels that went off the canvas come back too.
     editor.replace(step, { type: 'move', from, to: { x: 0, y: 0 } });
     expect(row(editor.getState().drawing)).toEqual([0, T, T]);
     editor.undo();
@@ -217,12 +214,10 @@ describe('editor', () => {
     expect(editor.replace(step, pencil(1))).toBe(false);
 
     step = editor.apply(pencil(1));
-    // Even a command that changes nothing starts a new step.
     editor.apply(pencil(1));
     expect(editor.replace(step, pencil(2))).toBe(false);
     expect(row(editor.getState().drawing)).toEqual([0, 0, T]);
 
-    // Merging into a step keeps it open.
     step = editor.apply(pencil(2));
     editor.apply(pencil(2), { mergeWithLast: true });
     expect(editor.replace(step, { type: 'eraser', points: [{ x: 0, y: 0 }] })).toBe(true);
@@ -239,7 +234,7 @@ describe('editor', () => {
     editor.undo();
     editor.redo();
     expect(notified).toBe(3);
-    editor.redo(); // no-op: no notification
+    editor.redo();
     expect(notified).toBe(3);
   });
 });

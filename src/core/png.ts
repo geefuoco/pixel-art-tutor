@@ -1,7 +1,6 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Color, type Drawing } from './drawing';
 import { STUDIO_PLACEHOLDER_PALETTE } from './palettes';
 
-/** The largest factor a PNG export can upscale by. */
 export const MAX_EXPORT_SCALE = 16;
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -20,7 +19,6 @@ function uint32(n: number): number[] {
   return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
 }
 
-/** A PNG chunk: length, type, data and the CRC of type and data. */
 function chunk(type: string, data: Uint8Array): Uint8Array {
   const out = new Uint8Array(12 + data.length);
   const view = new DataView(out.buffer);
@@ -31,14 +29,12 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   return out;
 }
 
-/** Writes bits least significant first, as deflate packs them. */
 class BitWriter {
   private bytes = new Uint8Array(1024);
   private length = 0;
   private bitBuffer = 0;
   private bitCount = 0;
 
-  /** The low `count` bits of `value`, least significant first. */
   bits(value: number, count: number) {
     this.bitBuffer |= value << this.bitCount;
     this.bitCount += count;
@@ -49,7 +45,6 @@ class BitWriter {
     }
   }
 
-  /** A Huffman code, which deflate stores most significant bit first. */
   code(code: number, count: number) {
     let reversed = 0;
     for (let i = 0; i < count; i++) reversed |= ((code >> i) & 1) << (count - 1 - i);
@@ -71,7 +66,6 @@ class BitWriter {
   }
 }
 
-// Deflate's fixed Huffman code (RFC 1951, 3.2.6).
 function writeSymbol(out: BitWriter, symbol: number) {
   if (symbol < 144) out.code(0x30 + symbol, 8);
   else if (symbol < 256) out.code(0x190 + symbol - 144, 9);
@@ -89,17 +83,12 @@ const LENGTH_EXTRA_BITS = [
 const MIN_MATCH = 3;
 const MAX_MATCH = 258;
 
-/**
- * A zlib stream holding one fixed-Huffman deflate block. Its only matches repeat the
- * byte just before them, which is all filtered pixel art needs: runs of one color
- * and repeated rows both filter to runs of zeros.
- */
 function zlib(data: Uint8Array): Uint8Array {
   const out = new BitWriter();
   out.bits(0x78, 8);
   out.bits(0x01, 8);
-  out.bits(1, 1); // Final block.
-  out.bits(1, 2); // Fixed Huffman codes.
+  out.bits(1, 1);
+  out.bits(1, 2);
   let i = 0;
   while (i < data.length) {
     let run = 0;
@@ -115,10 +104,10 @@ function zlib(data: Uint8Array): Uint8Array {
     while (LENGTH_BASES[code]! > run) code--;
     writeSymbol(out, 257 + code);
     out.bits(run - LENGTH_BASES[code]!, LENGTH_EXTRA_BITS[code]!);
-    out.code(0, 5); // Distance code 0: distance 1.
+    out.code(0, 5);
     i += run;
   }
-  writeSymbol(out, 256); // End of block.
+  writeSymbol(out, 256);
   const deflated = out.finish();
 
   let a = 1;
@@ -136,10 +125,6 @@ function zlib(data: Uint8Array): Uint8Array {
 const FILTER_SUB = 1;
 const FILTER_UP = 2;
 
-/**
- * The drawing as PNG file bytes (8-bit RGBA), each drawing pixel a `scale` x `scale`
- * block. Throws a RangeError unless `scale` is a whole number from 1 to MAX_EXPORT_SCALE.
- */
 export function exportPng(drawing: Drawing, scale: number): Uint8Array {
   if (!(Number.isInteger(scale) && scale >= 1 && scale <= MAX_EXPORT_SCALE)) {
     throw new RangeError(
@@ -167,8 +152,6 @@ export function exportPng(drawing: Drawing, scale: number): Uint8Array {
       row.set(colors[value] ?? transparent, x * 4);
     }
     const start = y * (rowBytes + 1);
-    // A row repeating the one above filters to all zeros with Up; otherwise Sub
-    // turns each run of one color into zeros after its first pixel.
     if (y % scale !== 0) {
       filtered[start] = FILTER_UP;
     } else {
@@ -195,11 +178,6 @@ export function exportPng(drawing: Drawing, scale: number): Uint8Array {
   return png;
 }
 
-/**
- * Throws a RangeError, with a message to show the user, if an image of this size is
- * too big to open: over MAX_DRAWING_SIZE on either side. Lets a caller check before
- * it reads the pixels.
- */
 export function checkImageSize(width: number, height: number): void {
   if (width > MAX_DRAWING_SIZE || height > MAX_DRAWING_SIZE) {
     throw new RangeError(
@@ -208,7 +186,6 @@ export function checkImageSize(width: number, height: number): void {
   }
 }
 
-/** Decoded image pixels, shaped like the DOM's ImageData: row-major RGBA bytes. */
 export interface RgbaImage {
   readonly width: number;
   readonly height: number;
@@ -219,14 +196,6 @@ function hex(n: number): string {
   return n.toString(16).padStart(2, '0');
 }
 
-/**
- * A Drawing of the image's pixels. Its palette is the image's colors in the order
- * they first appear, reading rows top to bottom. Fully transparent pixels become
- * transparent; any other alpha is drawn as the solid color. A fully transparent image
- * gets the Studio palette instead, so there is still a color to draw with.
- *
- * Throws as checkImageSize does for an image that is too big.
- */
 export function drawingFromImage(image: RgbaImage): Drawing {
   const { width, height, data } = image;
   checkImageSize(width, height);

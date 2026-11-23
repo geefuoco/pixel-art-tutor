@@ -43,11 +43,9 @@ describe('select tool', () => {
     const { editor, select, pixels } = setup([[0, T, 2, T]]);
     select.press({ x: 0, y: 0 });
     select.drag({ x: 1, y: 0 });
-    // Drop the two-pixel block, whose right half is see-through, over the 2...
     select.press({ x: 0, y: 0 });
     select.drag({ x: 2, y: 0 });
     expect(pixels()).toEqual([[T, T, 0, T]]);
-    // ...then carry it on: the 2 it covered is still there.
     select.press({ x: 2, y: 0 });
     select.drag({ x: 0, y: 0 });
     expect(pixels()).toEqual([[0, T, 2, T]]);
@@ -60,7 +58,6 @@ describe('select tool', () => {
     select.press({ x: 0, y: 0 });
     select.drag({ x: 1, y: 0 });
     editor.apply({ type: 'pencil', color: 1, points: [{ x: 3, y: 0 }] });
-    // Even a command that changes nothing ends the block's step.
     editor.apply({ type: 'pencil', color: 1, points: [{ x: 3, y: 0 }] });
     select.press({ x: 1, y: 0 });
     select.drag({ x: 2, y: 0 });
@@ -90,7 +87,6 @@ describe('select tool', () => {
       [0, 1, T, T],
       [T, T, 0, 1],
     ]);
-    // The paste and the drags that followed it undo together.
     editor.undo();
     expect(pixels()).toEqual([
       [0, 1, T, T],

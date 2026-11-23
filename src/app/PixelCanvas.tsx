@@ -16,12 +16,6 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
   }
 }
 
-/**
- * Renders a Drawing on a plain canvas and reports the mouse in drawing pixels:
- * onPress with the pressed pixel, then onDrag for each pixel the drag moves to
- * (drag points can be outside the canvas). Sized by its parent; showGrid draws a line around every pixel, selection outlines
- * a rectangle and showMirrorAxis marks the middle of the canvas.
- */
 export function PixelCanvas({
   drawing,
   onPress,
@@ -40,7 +34,6 @@ export function PixelCanvas({
   label: string;
 }) {
   const last = useRef<Point | null>(null);
-  // Re-runs on commit whenever the drawing changes, so painting happens outside render.
   const ref = useCallback(
     (canvas: HTMLCanvasElement | null) => {
       if (canvas) paint(canvas, drawing);
@@ -68,7 +61,6 @@ export function PixelCanvas({
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
-          // A press exactly on the right or bottom edge rounds to one past the last pixel.
           const { x, y } = toPixel(e);
           const p = { x: Math.min(x, drawing.width - 1), y: Math.min(y, drawing.height - 1) };
           last.current = p;
@@ -82,7 +74,6 @@ export function PixelCanvas({
           last.current = p;
           onDrag(from, p);
         }}
-        // Fires after pointerup and pointercancel too, so every way a stroke can end lands here.
         onLostPointerCapture={() => (last.current = null)}
       />
       {showGrid && (
