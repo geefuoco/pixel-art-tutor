@@ -1,8 +1,9 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
+import { checkCustomPalette, type CustomPalette } from '../core/palettes';
 import type { SavedDrawing, Store, StoreContents } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -56,6 +57,22 @@ function readSavedDrawing(value: unknown): SavedDrawing | null {
   return { id, updatedAt: updatedAt as number, drawing: checked };
 }
 
+function readCustomPalette(value: unknown): CustomPalette | null {
+  if (!isRecord(value)) return null;
+  const { id, name, colors } = value as Unchecked<CustomPalette>;
+  return checkCustomPalette({ id, name, colors });
+}
+
+function readAllWithUniqueIds<T extends { readonly id: string }>(
+  values: unknown,
+  read: (value: unknown) => T | null,
+): T[] | null {
+  if (!Array.isArray(values)) return null;
+  const checked = values.map(read);
+  if (!checked.every((v) => v !== null)) return null;
+  return new Set(checked.map((v) => v.id)).size === checked.length ? checked : null;
+}
+
 export function readBackup(text: string): BackupReading {
   let file: unknown;
   try {
@@ -71,13 +88,10 @@ export function readBackup(text: string): BackupReading {
         'This backup was made by a newer version of Pixel Art Tutor. Reload the page to update, then try again.',
     };
   }
-  if (file.version !== BACKUP_VERSION || !Array.isArray(file.studioDrawings)) {
-    return { ok: false, message: DAMAGED };
-  }
-  const studioDrawings = file.studioDrawings.map(readSavedDrawing);
-  const ids = new Set(studioDrawings.map((d) => d?.id));
-  if (!studioDrawings.every((d) => d !== null) || ids.size !== studioDrawings.length) {
-    return { ok: false, message: DAMAGED };
-  }
-  return { ok: true, contents: { studioDrawings } };
+  if (file.version !== 1 && file.version !== BACKUP_VERSION) return { ok: false, message: DAMAGED };
+  const studioDrawings = readAllWithUniqueIds(file.studioDrawings, readSavedDrawing);
+  const customPalettes =
+    file.version === 1 ? [] : readAllWithUniqueIds(file.customPalettes, readCustomPalette);
+  if (!studioDrawings || !customPalettes) return { ok: false, message: DAMAGED };
+  return { ok: true, contents: { studioDrawings, customPalettes } };
 }

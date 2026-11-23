@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { STUDIO_PLACEHOLDER_PALETTE } from './palettes';
+import { STUDIO_STARTER_PALETTE } from './palettes';
 import { drawingFromImage, exportPng } from './png';
 import { drawingOf, rowsOf } from './test-grids';
 
@@ -200,7 +200,7 @@ describe('opening an image', () => {
 
   it('gives a fully transparent image the Studio palette, so there is a color to draw with', () => {
     const drawing = drawingFromImage({ width: 2, height: 1, data: new Uint8ClampedArray(8) });
-    expect(drawing.palette).toEqual(STUDIO_PLACEHOLDER_PALETTE);
+    expect(drawing.palette).toEqual(STUDIO_STARTER_PALETTE);
     expect(drawing.pixels).toEqual([_, _]);
   });
 });

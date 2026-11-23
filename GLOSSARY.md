@@ -85,6 +85,16 @@ One image in an animation.
 A rectangle of pixels in the Studio that can be dragged, copied and pasted as a block.
 _Avoid_: Marquee
 
+**Palette**:
+The fixed list of colors a drawing can use. A Studio drawing takes its palette from a Bundled Palette, a Custom Palette or the Studio starter colors when it is made.
+_Avoid_: Color set, swatches
+
+**Bundled Palette**:
+A well-known palette that ships with the app, credited to its creator.
+
+**Custom Palette**:
+A named palette of 1 to 32 colors the learner makes and keeps.
+
 **Mirror Symmetry**:
 A Studio-only toggle that repeats each pencil, eraser or fill flipped left to right across the middle of the canvas.
 

@@ -111,6 +111,50 @@ describe('Studio autosave', () => {
   });
 });
 
+describe('Studio custom palettes', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('keeps saved palettes in name order across a reload, with changes and deletions', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB);
+    expect(ready(studio).palettes).toEqual([]);
+
+    await studio.savePalette({ id: 'm', name: 'Moss', colors: ['#334422'] });
+    await studio.savePalette({ id: 'd', name: 'Dusk', colors: ['#221133', '#ffaa88'] });
+    await studio.savePalette({ id: 'm', name: 'Moss', colors: ['#334422', '#667744'] });
+    await studio.savePalette({ id: 'x', name: 'Extra', colors: ['#ffffff'] });
+    await studio.deletePalette('x');
+    expect(ready(studio).palettes.map((p) => p.name)).toEqual(['Dusk', 'Moss']);
+
+    expect(ready(await openStudio(indexedDB)).palettes).toEqual([
+      { id: 'd', name: 'Dusk', colors: ['#221133', '#ffaa88'] },
+      { id: 'm', name: 'Moss', colors: ['#334422', '#667744'] },
+    ]);
+  });
+
+  it('refuses to save a palette that breaks the custom palette rules', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB);
+    await expect(
+      studio.savePalette({ id: 'p', name: 'Moss', colors: ['#334422', '#334422'] }),
+    ).rejects.toThrow(RangeError);
+    expect(await openStore(indexedDB).listCustomPalettes()).toEqual([]);
+  });
+
+  it('refuses a palette save that storage cannot hold, keeping the palettes it had', async () => {
+    const studio = await openStudio(new IDBFactory());
+    await studio.savePalette({ id: 'm', name: 'Moss', colors: ['#334422'] });
+    vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+
+    await expect(
+      studio.savePalette({ id: 'm', name: 'Moss', colors: ['#000000'] }),
+    ).rejects.toMatchObject({ problem: 'full' });
+    expect(ready(studio).palettes).toEqual([{ id: 'm', name: 'Moss', colors: ['#334422'] }]);
+  });
+});
+
 describe('Studio storage problems', () => {
   afterEach(() => vi.restoreAllMocks());
 

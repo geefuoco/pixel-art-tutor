@@ -200,7 +200,9 @@ a {
 .new-drawing .hint {
   flex-basis: 100%;
 }
-.export-png select {
+.export-png select,
+.new-drawing select,
+.palette-editor input:not([type='color']) {
   font: inherit;
   padding: 6px 8px;
   border: 1px solid var(--line);
@@ -402,4 +404,97 @@ a {
 }
 .confirm-restore p {
   flex-basis: 100%;
+}
+
+.palette-swatches {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 260px;
+}
+.palette-swatches span {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(59, 51, 85, 0.15);
+}
+.palette-choice {
+  flex-basis: 100%;
+}
+.palette-choice select {
+  width: min(100%, 320px);
+}
+.settings-section + .settings-section {
+  margin-top: 28px;
+}
+.settings h3 {
+  margin: 8px 0 0;
+  font-size: 16px;
+}
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.palette-list li {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+.palette-list .palette-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+.palette-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 560px);
+}
+.palette-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 700;
+}
+.palette-editor-colors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.palette-editor-colors li {
+  display: flex;
+  align-items: center;
+}
+.palette-editor-colors .tool {
+  width: 22px;
+  height: 22px;
+}
+.palette-editor input[type='color'] {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.palette-editor-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.palette-editor-add .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

@@ -57,3 +57,44 @@ describe('store: Studio drawings', () => {
     expect((await openStore(indexedDB).listStudioDrawings()).map((d) => d.id)).toEqual(['a']);
   });
 });
+
+describe('store: custom palettes', () => {
+  it('round-trips custom palettes in name order, and deletes one', async () => {
+    const indexedDB = new IDBFactory();
+    const store = openStore(indexedDB);
+    await store.putCustomPalette({ id: 'p1', name: 'Swamp', colors: ['#112233', '#445566'] });
+    await store.putCustomPalette({ id: 'p2', name: 'autumn', colors: ['#aa5500'] });
+    await store.putCustomPalette({ id: 'p3', name: 'Ice', colors: ['#ddeeff'] });
+    await store.putCustomPalette({ id: 'p1', name: 'Bog', colors: ['#112233'] });
+    await store.deleteCustomPalette('p3');
+
+    expect(await openStore(indexedDB).listCustomPalettes()).toEqual([
+      { id: 'p2', name: 'autumn', colors: ['#aa5500'] },
+      { id: 'p1', name: 'Bog', colors: ['#112233'] },
+    ]);
+  });
+
+  it('keeps drawings saved before custom palettes existed', async () => {
+    const indexedDB = new IDBFactory();
+    const drawing = createDrawing({ width: 1, height: 1, palette: PALETTE });
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 1);
+      request.onupgradeneeded = () => {
+        request.result
+          .createObjectStore('studio-drawings', { keyPath: 'id' })
+          .put({ id: 'old', drawing, updatedAt: 1 });
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const store = openStore(indexedDB);
+    expect(await store.listStudioDrawings()).toEqual([{ id: 'old', drawing, updatedAt: 1 }]);
+    expect(await store.listCustomPalettes()).toEqual([]);
+    await store.putCustomPalette({ id: 'p', name: 'New', colors: ['#000000'] });
+    expect(await store.listCustomPalettes()).toHaveLength(1);
+  });
+});

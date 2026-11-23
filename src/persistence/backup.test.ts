@@ -45,7 +45,11 @@ describe('backup and restore', () => {
     const file = await createBackup(source.store);
 
     const target = await openStudio(new IDBFactory());
-    expect(await target.studio.restore(file)).toEqual({ ok: true, drawingCount: 2 });
+    expect(await target.studio.restore(file)).toEqual({
+      ok: true,
+      drawingCount: 2,
+      paletteCount: 0,
+    });
 
     const expected = [
       { width: 1, height: 2, palette: PALETTE, pixels: [0, _] },
@@ -73,9 +77,27 @@ describe('backup and restore', () => {
     expect(ready(studio).drawings.map((d) => d.id)).toEqual(ids);
   });
 
+  it('restores custom palettes along with the drawings, replacing the ones there were', async () => {
+    const source = await twoDrawings();
+    await source.studio.savePalette({ id: 'p', name: 'Moss', colors: ['#334422', '#667744'] });
+    const backup = await source.studio.backup();
+
+    const target = await openStudio(new IDBFactory());
+    await target.studio.savePalette({ id: 'q', name: 'Gone', colors: ['#000000'] });
+    expect(await target.studio.restore(backup)).toEqual({
+      ok: true,
+      drawingCount: 2,
+      paletteCount: 1,
+    });
+
+    const restored = [{ id: 'p', name: 'Moss', colors: ['#334422', '#667744'] }];
+    expect(ready(target.studio).palettes).toEqual(restored);
+    expect(await target.store.listCustomPalettes()).toEqual(restored);
+  });
+
   const valid = {
     format: 'pixel-art-tutor-backup',
-    version: 1,
+    version: 2,
     studioDrawings: [
       {
         id: 'a',
@@ -83,15 +105,36 @@ describe('backup and restore', () => {
         drawing: { width: 2, height: 1, palette: PALETTE, pixels: [1, _] },
       },
     ],
+    customPalettes: [{ id: 'p', name: 'Moss', colors: ['#334422', '#667744'] }],
   };
   const withDrawing = (drawing: object) =>
     JSON.stringify({ ...valid, studioDrawings: [{ ...valid.studioDrawings[0], drawing }] });
+  const withPalette = (palette: object) =>
+    JSON.stringify({ ...valid, customPalettes: [{ ...valid.customPalettes[0], ...palette }] });
+  const thirtyThree = Array.from(
+    { length: 33 },
+    (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
+  );
 
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 2 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 3 }), /newer version/],
     ['missing its drawings', JSON.stringify({ format: valid.format, version: 1 }), /damaged/],
+    ['missing its palettes', JSON.stringify({ ...valid, customPalettes: undefined }), /damaged/],
+    ['a palette with no colors', withPalette({ colors: [] }), /damaged/],
+    ['a palette with 33 colors', withPalette({ colors: thirtyThree }), /damaged/],
+    ['a palette with a color twice', withPalette({ colors: ['#334422', '#334422'] }), /damaged/],
+    ['a palette color that is not a hex color', withPalette({ colors: ['green'] }), /damaged/],
+    ['a palette without a name', withPalette({ name: undefined }), /damaged/],
+    [
+      'two palettes with the same id',
+      JSON.stringify({
+        ...valid,
+        customPalettes: [...valid.customPalettes, ...valid.customPalettes],
+      }),
+      /damaged/,
+    ],
     [
       'a drawing with too few pixels',
       withDrawing({ width: 2, height: 1, palette: PALETTE, pixels: [1] }),
@@ -137,8 +180,27 @@ describe('backup and restore', () => {
 
   it('accepts the hand-written valid file the rejected ones are variations of', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
-    expect(await studio.restore(JSON.stringify(valid))).toEqual({ ok: true, drawingCount: 1 });
+    expect(await studio.restore(JSON.stringify(valid))).toEqual({
+      ok: true,
+      drawingCount: 1,
+      paletteCount: 1,
+    });
     expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
+    expect(await store.listCustomPalettes()).toEqual(valid.customPalettes);
+  });
+
+  it('restores a version 1 backup, made before custom palettes, as having none', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    await studio.savePalette({ id: 'q', name: 'Gone', colors: ['#000000'] });
+    const version1 = { format: valid.format, version: 1, studioDrawings: valid.studioDrawings };
+
+    expect(await studio.restore(JSON.stringify(version1))).toEqual({
+      ok: true,
+      drawingCount: 1,
+      paletteCount: 0,
+    });
+    expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
+    expect(await store.listCustomPalettes()).toEqual([]);
   });
 
   it('keeps the current data when storage fills up partway through a restore', async () => {
