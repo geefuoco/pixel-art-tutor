@@ -192,11 +192,14 @@ a {
   border-radius: 10px;
 }
 
-.new-drawing .hint {
-  flex-basis: 100%;
+.hint {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.new-drawing .hint {
+  flex-basis: 100%;
 }
 
 /* The view: a fixed window the drawing is zoomed and panned inside. */
@@ -217,7 +220,7 @@ a {
   cursor: grab;
 }
 
-.canvas-frame {
+.zoomed-canvas {
   width: calc(var(--fit) * var(--w));
   height: calc(var(--fit) * var(--h));
   flex: none;

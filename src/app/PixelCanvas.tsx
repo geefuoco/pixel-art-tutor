@@ -17,20 +17,21 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
 }
 
 /**
- * Renders a Drawing on a plain canvas and reports mouse strokes as drawing-pixel
- * points: onStrokeStart on press, then onStrokeMove for each pixel the drag moves to.
- * Sized by its parent; the optional grid overlay outlines every pixel.
+ * Renders a Drawing on a plain canvas and reports the mouse in drawing pixels:
+ * onPress with the pressed pixel, then onDrag for each pixel the drag moves to
+ * (drag points can be outside the canvas). Sized by its parent; showGrid draws
+ * a line around every pixel.
  */
 export function PixelCanvas({
   drawing,
-  onStrokeStart,
-  onStrokeMove,
+  onPress,
+  onDrag,
   showGrid,
   label,
 }: {
   drawing: Drawing;
-  onStrokeStart: (at: Point) => void;
-  onStrokeMove: (from: Point, to: Point) => void;
+  onPress: (at: Point) => void;
+  onDrag: (from: Point, to: Point) => void;
   showGrid: boolean;
   label: string;
 }) {
@@ -63,9 +64,11 @@ export function PixelCanvas({
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
-          const p = toPixel(e);
+          // A press exactly on the right or bottom edge rounds to one past the last pixel.
+          const { x, y } = toPixel(e);
+          const p = { x: Math.min(x, drawing.width - 1), y: Math.min(y, drawing.height - 1) };
           last.current = p;
-          onStrokeStart(p);
+          onPress(p);
         }}
         onPointerMove={(e) => {
           const from = last.current;
@@ -73,7 +76,7 @@ export function PixelCanvas({
           const p = toPixel(e);
           if (p.x === from.x && p.y === from.y) return;
           last.current = p;
-          onStrokeMove(from, p);
+          onDrag(from, p);
         }}
         // Fires after pointerup and pointercancel too, so every way a stroke can end lands here.
         onLostPointerCapture={() => (last.current = null)}
