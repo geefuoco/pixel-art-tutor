@@ -1,22 +1,16 @@
 import type { Drawing } from '../core/drawing';
 
-/** A Studio drawing as saved: its latest pixels and when they last changed. */
 export interface SavedDrawing {
   readonly id: string;
   readonly drawing: Drawing;
-  /** When it was last changed or opened, in milliseconds since the epoch. */
   readonly updatedAt: number;
 }
 
-/** Everything the app keeps in the browser. Each method rejects with a StorageError. */
 export interface Store {
-  /** Every saved Studio drawing, most recently changed first. */
   listStudioDrawings(): Promise<SavedDrawing[]>;
-  /** Saves a Studio drawing, replacing any saved drawing with the same id. Resolves once written. */
   putStudioDrawing(entry: SavedDrawing): Promise<void>;
 }
 
-/** Why the app can't keep data: the browser won't give it storage, or the storage is full. */
 export type StorageProblem = 'unavailable' | 'full';
 
 export class StorageError extends Error {
@@ -52,15 +46,9 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   });
 }
 
-/**
- * A Store over IndexedDB, or over nothing when `factory` is undefined (the browser
- * has no IndexedDB), in which case every call rejects as unavailable. The database is
- * opened on first use.
- */
 export function openStore(factory: IDBFactory | undefined): Store {
   let database: Promise<IDBDatabase> | undefined;
 
-  /** Runs one request in its own transaction, resolving once the transaction commits. */
   async function transact<T>(
     mode: IDBTransactionMode,
     run: (store: IDBObjectStore) => IDBRequest<T>,
@@ -68,7 +56,6 @@ export function openStore(factory: IDBFactory | undefined): Store {
     try {
       if (!factory) throw new StorageError('unavailable');
       database ??= openDatabase(factory).then((db) => {
-        // Reopened on next use if the browser closes it, or a newer version in another tab needs it closed.
         db.onclose = () => (database = undefined);
         db.onversionchange = () => {
           db.close();
@@ -76,7 +63,6 @@ export function openStore(factory: IDBFactory | undefined): Store {
         };
         return db;
       });
-      // A failed open is retried next time rather than remembered.
       database.catch(() => (database = undefined));
       const transaction = (await database).transaction(STUDIO_DRAWINGS, mode);
       const request = run(transaction.objectStore(STUDIO_DRAWINGS));

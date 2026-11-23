@@ -5,7 +5,6 @@ import { STUDIO_PLACEHOLDER_PALETTE } from './palettes';
 import { drawingFromImage, exportPng } from './png';
 import { drawingOf, rowsOf } from './test-grids';
 
-/** Test helper: a minimal, independent PNG decoder for 8-bit RGBA, non-interlaced PNGs. */
 function decodePng(bytes: Uint8Array): { width: number; height: number; rgba: number[][] } {
   const buf = Buffer.from(bytes);
   const signature = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -113,7 +112,6 @@ describe('PNG export', () => {
       const big = decodePng(exportPng(drawing, scale));
       expect([big.width, big.height]).toEqual([3 * scale, 2 * scale]);
       const at = (x: number, y: number) => big.rgba[y * big.width + x];
-      // The last row and column of the top-left block, and the first of its neighbours.
       expect(at(scale - 1, scale - 1)).toEqual(BLACK);
       expect(at(scale, scale - 1)).toEqual(WHITE);
       expect(at(scale - 1, scale)).toEqual(CLEAR);
@@ -128,22 +126,18 @@ describe('PNG export', () => {
     const png = decodePng(exportPng(drawing, 16));
     expect([png.width, png.height]).toEqual([1024, 1024]);
     expect(png.rgba[0]).toEqual(BLACK);
-    // Drawing pixel (63, 63) is color (63 + 63) % 3 = 0, and (62, 63) is 2.
     expect(png.rgba[1023 * 1024 + 1023]).toEqual(BLACK);
     expect(png.rgba[1023 * 1024 + 1007]).toEqual(RED);
   });
 
   it('compresses upscaled pixel art to a shareable file size', () => {
-    // 64x64 pixels in 4-row stripes of two colors, with scattered single pixels of a third.
     const drawing = drawingOf(
       Array.from({ length: 64 }, (_, y) =>
         Array.from({ length: 64 }, (_, x) => ((x * 7 + y * 13) % 29 === 0 ? 2 : (y >> 2) % 2)),
       ),
     );
     const bytes = exportPng(drawing, 16);
-    // 1024x1024 RGBA is 4 MiB uncompressed.
     expect(bytes.length).toBeLessThan(100_000);
-    // Pixel (0, 0) is one of the scattered red ones.
     expect(decodePng(bytes).rgba[0]).toEqual(RED);
   });
 
@@ -155,7 +149,6 @@ describe('PNG export', () => {
   });
 });
 
-/** RGBA bytes for a list of [r, g, b, a] pixels. */
 function rgbaData(pixels: number[][]) {
   return new Uint8ClampedArray(pixels.flat());
 }

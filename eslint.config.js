@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import noComments from './eslint-rules/no-comments.js';
 
 const noUseEffect =
   'useEffect is banned in this project (see CLAUDE.md). Derive values during render, do work in event handlers, and subscribe to external stores with useSyncExternalStore.';
@@ -12,6 +13,11 @@ export default defineConfig(
   { ignores: ['dist', 'playwright-report', 'test-results', 'prototypes'] },
   js.configs.recommended,
   tseslint.configs.recommended,
+  {
+    linterOptions: { noInlineConfig: true },
+    plugins: { local: { rules: { 'no-comments': noComments } } },
+    rules: { 'local/no-comments': 'error' },
+  },
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [reactHooks.configs.flat.recommended],
@@ -28,7 +34,6 @@ export default defineConfig(
     },
   },
   {
-    // The core is framework-free: no React and no DOM.
     files: ['src/core/**/*.{ts,tsx}'],
     languageOptions: { globals: {} },
     rules: {
@@ -47,7 +52,6 @@ export default defineConfig(
     },
   },
   {
-    // Persistence is framework-free too, but may use browser storage.
     files: ['src/persistence/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [

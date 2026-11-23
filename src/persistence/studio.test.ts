@@ -10,7 +10,6 @@ function blank(width: number, height: number) {
   return createDrawing({ width, height, palette: PALETTE });
 }
 
-/** A Studio over `indexedDB`, loaded, as after opening the page. */
 async function openStudio(indexedDB: IDBFactory | undefined, firstDrawing = blank(3, 2)) {
   const studio = createStudio({ store: openStore(indexedDB), firstDrawing });
   await studio.load();
@@ -155,7 +154,6 @@ describe('Studio storage problems', () => {
     await studio.flush();
     put.mockRestore();
 
-    // Another drawing saves fine, and the first one's unsaved change is written with it.
     studio.create({ ...blank(1, 1), pixels: [0] });
     await studio.flush();
     expect(ready(studio).problem).toBeNull();

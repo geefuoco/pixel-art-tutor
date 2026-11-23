@@ -109,12 +109,6 @@ describe('drawing document', () => {
   });
 
   it('fill paints the 4-connected region of the clicked color and stops at other colors', () => {
-    // A ring of color 0 in a 5x5 canvas; its inside and outside are both transparent.
-    // . . . . .
-    // . 0 0 0 .
-    // . 0 . 0 .
-    // . 0 0 0 .
-    // . . . . .
     let d = createDrawing({ width: 5, height: 5, palette });
     d = applyCommand(d, {
       type: 'pencil',
@@ -138,7 +132,6 @@ describe('drawing document', () => {
       T, T, T, T, T,
     ]);
 
-    // The outside wraps around the ring without getting in.
     const outside = applyCommand(d, { type: 'fill', color: 1, at: { x: 0, y: 0 } });
     // prettier-ignore
     expect(allPixels(outside)).toEqual([
@@ -151,8 +144,6 @@ describe('drawing document', () => {
   });
 
   it('fill does not leak through a diagonal gap', () => {
-    // 0 .
-    // . 0   filling the top-right corner must not reach the bottom-left one.
     let d = createDrawing({ width: 2, height: 2, palette });
     d = applyCommand(d, { type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     d = applyCommand(d, { type: 'pencil', color: 0, points: [{ x: 1, y: 1 }] });

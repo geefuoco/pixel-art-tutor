@@ -1,8 +1,5 @@
 import { useSyncExternalStore } from 'react';
 
-// Hash-based routing: GitHub Pages serves index.html for the site root only,
-// so deep links live in the fragment.
-
 export type Route = 'home' | 'studio' | 'not-found';
 
 export const routeHref: Record<Exclude<Route, 'not-found'>, string> = {
