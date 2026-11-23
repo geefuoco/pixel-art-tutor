@@ -39,7 +39,10 @@ export interface Studio {
    * once; a blank one on its first change, so trying out sizes leaves nothing behind.
    */
   create(drawing: Drawing): void;
-  /** Edits the kept drawing with this id, with fresh undo history. Does nothing for the current drawing. */
+  /**
+   * Edits the kept drawing with this id, with fresh undo history, and puts it first so
+   * a reload resumes it. Does nothing for the current drawing.
+   */
   open(id: string): void;
   /** Resolves once every change made so far has been written, or failed to be. */
   flush(): Promise<void>;
@@ -57,45 +60,60 @@ export function createStudio(options: {
   const listeners = new Set<() => void>();
   let stopAutosave = () => {};
 
-  // Writes run one at a time. While one runs, only the latest unwritten version of
-  // each drawing waits, so a fast stroke costs a few writes rather than one per pixel.
-  const unwritten = new Map<string, SavedDrawing>();
-  let writing: Promise<void> | null = null;
+  // Each change is written at once: IndexedDB runs writes to one object store in the
+  // order they start, so the newest version of a drawing is always written last.
+  const pending = new Set<Promise<void>>();
+  /** The newest version of each drawing sent to the store. */
+  const newest = new Map<string, SavedDrawing>();
+  /** Drawings whose newest version failed to save, retried after the next save that works. */
+  const failed = new Map<string, SavedDrawing>();
+  /** The last updatedAt given out. Each is later than the one before, even within a millisecond. */
+  let lastStamp = -Infinity;
+
+  function publish() {
+    for (const listener of listeners) listener();
+  }
 
   function update(next: Partial<Extract<StudioState, { status: 'ready' }>>) {
     if (state.status !== 'ready') throw new Error('The Studio has not loaded');
     state = { ...state, ...next };
-    for (const listener of listeners) listener();
+    publish();
   }
 
   function setProblem(problem: StorageProblem | null) {
     if (state.status === 'ready' && state.problem !== problem) update({ problem });
   }
 
-  async function writeAll() {
-    for (let entry = first(unwritten); entry; entry = first(unwritten)) {
-      unwritten.delete(entry.id);
-      try {
-        await store.putStudioDrawing(entry);
-        setProblem(null);
-      } catch (error) {
-        setProblem(error instanceof StorageError ? error.problem : 'unavailable');
-      }
-    }
-    writing = null;
+  function write(entry: SavedDrawing) {
+    newest.set(entry.id, entry);
+    failed.delete(entry.id);
+    const done = store.putStudioDrawing(entry).then(
+      () => {
+        const retries = [...failed.values()];
+        if (retries.length === 0) setProblem(null);
+        // Their outcome settles the problem.
+        for (const retry of retries) write(retry);
+      },
+      (error: unknown) => {
+        if (newest.get(entry.id) === entry) failed.set(entry.id, entry);
+        setProblem(problemOf(error));
+      },
+    );
+    pending.add(done);
+    void done.finally(() => pending.delete(done));
   }
 
   /** Keeps the drawing: puts it first in the list and writes it. */
   function keep(id: string, drawing: Drawing) {
     if (state.status !== 'ready') return;
-    const entry = { id, drawing, updatedAt: now() };
+    lastStamp = Math.max(now(), lastStamp + 1);
+    const entry = { id, drawing, updatedAt: lastStamp };
     update({ drawings: [entry, ...state.drawings.filter((d) => d.id !== id)] });
-    unwritten.set(id, entry);
-    writing ??= writeAll();
+    write(entry);
   }
 
-  /** Edits `drawing` as the current drawing, keeping each change. */
-  function edit(id: string, drawing: Drawing): CurrentDrawing {
+  /** Makes `drawing` the one being edited, with fresh undo history, keeping each change. */
+  function startEditing(id: string, drawing: Drawing): CurrentDrawing {
     stopAutosave();
     const editor = createEditor(drawing);
     stopAutosave = editor.subscribe(() => keep(id, editor.getState().drawing));
@@ -115,31 +133,37 @@ export function createStudio(options: {
         try {
           drawings = await store.listStudioDrawings();
         } catch (error) {
-          problem = error instanceof StorageError ? error.problem : 'unavailable';
+          problem = problemOf(error);
         }
         const latest = drawings[0];
         const current = latest
-          ? edit(latest.id, latest.drawing)
-          : edit(crypto.randomUUID(), firstDrawing);
+          ? startEditing(latest.id, latest.drawing)
+          : startEditing(crypto.randomUUID(), firstDrawing);
         state = { status: 'ready', current, drawings, problem };
-        for (const listener of listeners) listener();
+        publish();
       })();
       return loading;
     },
     create(drawing) {
-      const current = edit(crypto.randomUUID(), drawing);
+      const current = startEditing(crypto.randomUUID(), drawing);
       update({ current });
       if (drawing.pixels.some((p) => p !== TRANSPARENT)) keep(current.id, drawing);
     },
     open(id) {
       if (state.status !== 'ready' || state.current.id === id) return;
       const entry = state.drawings.find((d) => d.id === id);
-      if (entry) update({ current: edit(id, entry.drawing) });
+      if (!entry) return;
+      update({ current: startEditing(id, entry.drawing) });
+      // Kept again so it comes first, and a reload resumes it.
+      keep(id, entry.drawing);
     },
-    flush: () => writing ?? Promise.resolve(),
+    async flush() {
+      while (pending.size > 0) await Promise.all(pending);
+    },
   };
 }
 
-function first<T>(map: Map<string, T>): T | undefined {
-  return map.values().next().value;
+/** The Store promises StorageErrors; anything else still means nothing was kept. */
+function problemOf(error: unknown): StorageProblem {
+  return error instanceof StorageError ? error.problem : 'unavailable';
 }

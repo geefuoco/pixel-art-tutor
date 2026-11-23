@@ -4,7 +4,10 @@ import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
 import { openStore } from '../persistence/store';
 import { createStudio, type StudioState } from '../persistence/studio';
 
-export const DEFAULT_STUDIO_SIZE = 16;
+/** A blank Studio drawing in the Studio palette. */
+export function blankStudioDrawing(width: number, height: number) {
+  return createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE });
+}
 
 /** The browser's IndexedDB, or undefined where it is missing or reading it throws (blocked site data). */
 function browserIndexedDB(): IDBFactory | undefined {
@@ -18,11 +21,7 @@ function browserIndexedDB(): IDBFactory | undefined {
 /** The app's one Studio, saving to this browser. Loads when the Studio is first shown. */
 export const studio = createStudio({
   store: openStore(browserIndexedDB()),
-  firstDrawing: createDrawing({
-    width: DEFAULT_STUDIO_SIZE,
-    height: DEFAULT_STUDIO_SIZE,
-    palette: STUDIO_PLACEHOLDER_PALETTE,
-  }),
+  firstDrawing: blankStudioDrawing(16, 16),
 });
 
 function subscribe(listener: () => void) {

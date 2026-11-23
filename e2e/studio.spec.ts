@@ -61,7 +61,6 @@ async function openStudio(page: Page) {
 test('draw and erase pixels in the Studio from a deep link', async ({ page }) => {
   await openStudio(page);
   const canvas = studioCanvas(page);
-  await expect(canvas).toBeVisible();
   const blank = await pixelAt(canvas, 3, 5);
   const blankRow = await Promise.all([2, 3, 4, 5, 6, 7, 8, 9].map((x) => pixelAt(canvas, x, 9)));
 

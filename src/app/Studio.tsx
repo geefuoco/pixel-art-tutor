@@ -30,7 +30,6 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  createDrawing,
   getPixel,
   MAX_DRAWING_SIZE,
   TRANSPARENT,
@@ -39,7 +38,6 @@ import {
   type Point,
 } from '../core/drawing';
 import type { Editor } from '../core/editor';
-import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
 import { checkImageSize, drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
 import { createSelectTool, type SelectTool } from '../core/select';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
@@ -47,7 +45,7 @@ import type { CurrentDrawing } from '../persistence/studio';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { Nav } from './Nav';
 import { PixelCanvas } from './PixelCanvas';
-import { studio, useStudio } from './studio-store';
+import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
@@ -108,11 +106,7 @@ function thumbnail(drawing: Drawing): string {
   return url;
 }
 
-const editedAt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
-function blankDrawing(width: number, height: number) {
-  return createDrawing({ width, height, palette: STUDIO_PLACEHOLDER_PALETTE });
-}
+const lastUsed = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
@@ -426,7 +420,7 @@ function StudioEditor({
   }
 
   /** Resets the view and color for a different drawing, which starts with fresh undo history. */
-  function switchedTo(next: Drawing) {
+  function resetForDrawing(next: Drawing) {
     // A different palette's colors don't line up with the old indexes.
     if (next.palette !== drawing.palette) setColor(0);
     setView(FIT_VIEW);
@@ -437,19 +431,19 @@ function StudioEditor({
   /** Starts editing a new drawing; the current one stays in Drawings if it was kept. */
   function startDrawing(next: Drawing) {
     studio.create(next);
-    switchedTo(next);
+    resetForDrawing(next);
   }
 
   function openDrawing(entry: SavedDrawing) {
     studio.open(entry.id);
-    if (entry.id !== current.id) switchedTo(entry.drawing);
+    if (entry.id !== current.id) resetForDrawing(entry.drawing);
     else setPanel(null);
   }
 
   function createNewDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    startDrawing(blankDrawing(Number(form.get('width')), Number(form.get('height'))));
+    startDrawing(blankStudioDrawing(Number(form.get('width')), Number(form.get('height'))));
   }
 
   async function openPng(e: ChangeEvent<HTMLInputElement>) {
@@ -587,7 +581,7 @@ function StudioEditor({
                         <span className="drawing-size">
                           {d.drawing.width}x{d.drawing.height}
                         </span>
-                        <span className="hint">{editedAt.format(d.updatedAt)}</span>
+                        <span className="hint">{lastUsed.format(d.updatedAt)}</span>
                       </button>
                     </li>
                   ))}

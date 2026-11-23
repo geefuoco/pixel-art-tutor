@@ -4,7 +4,7 @@ import type { Drawing } from '../core/drawing';
 export interface SavedDrawing {
   readonly id: string;
   readonly drawing: Drawing;
-  /** Milliseconds since the epoch. */
+  /** When it was last changed or opened, in milliseconds since the epoch. */
   readonly updatedAt: number;
 }
 
@@ -41,7 +41,7 @@ const DB_NAME = 'pixel-art-tutor';
 const DB_VERSION = 1;
 const STUDIO_DRAWINGS = 'studio-drawings';
 
-function opened(factory: IDBFactory): Promise<IDBDatabase> {
+function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
@@ -67,7 +67,15 @@ export function openStore(factory: IDBFactory | undefined): Store {
   ): Promise<T> {
     try {
       if (!factory) throw new StorageError('unavailable');
-      database ??= opened(factory);
+      database ??= openDatabase(factory).then((db) => {
+        // Reopened on next use if the browser closes it, or a newer version in another tab needs it closed.
+        db.onclose = () => (database = undefined);
+        db.onversionchange = () => {
+          db.close();
+          database = undefined;
+        };
+        return db;
+      });
       // A failed open is retried next time rather than remembered.
       database.catch(() => (database = undefined));
       const transaction = (await database).transaction(STUDIO_DRAWINGS, mode);

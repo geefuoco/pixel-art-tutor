@@ -48,7 +48,7 @@ export default defineConfig(
   },
   {
     // Persistence is framework-free too, but may use browser storage.
-    files: ['src/persistence/**/*.ts'],
+    files: ['src/persistence/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

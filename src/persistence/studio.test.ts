@@ -77,6 +77,20 @@ describe('Studio autosave', () => {
     expect(current(reloaded).drawing.pixels).toEqual([1, _, _, _, _, _]);
   });
 
+  it('resumes the drawing last opened after a reload, even if it was not changed', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB);
+    const firstId = ready(studio).current.id;
+    ready(studio).current.editor.apply({ type: 'pencil', color: 1, points: [{ x: 0, y: 0 }] });
+    studio.create({ ...blank(1, 1), pixels: [0] });
+    studio.open(firstId);
+    await studio.flush();
+
+    const reloaded = await openStudio(indexedDB);
+    expect(ready(reloaded).current.id).toBe(firstId);
+    expect(current(reloaded).drawing.pixels).toEqual([1, _, _, _, _, _]);
+  });
+
   it('keeps a new drawing with pixels at once, but an untouched blank one never', async () => {
     const indexedDB = new IDBFactory();
     const studio = await openStudio(indexedDB);
@@ -128,5 +142,25 @@ describe('Studio storage problems', () => {
     await studio.flush();
     expect(ready(studio).problem).toBeNull();
     expect(current(await openStudio(indexedDB)).drawing.pixels).toEqual([1, 1, _, _, _, _]);
+  });
+
+  it('saves a drawing whose save failed once storage works again, warning until then', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB);
+    const firstId = ready(studio).current.id;
+    const put = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    ready(studio).current.editor.apply({ type: 'pencil', color: 1, points: [{ x: 0, y: 0 }] });
+    await studio.flush();
+    put.mockRestore();
+
+    // Another drawing saves fine, and the first one's unsaved change is written with it.
+    studio.create({ ...blank(1, 1), pixels: [0] });
+    await studio.flush();
+    expect(ready(studio).problem).toBeNull();
+    const reloaded = await openStudio(indexedDB);
+    const saved = ready(reloaded).drawings.find((d) => d.id === firstId);
+    expect(saved?.drawing.pixels).toEqual([1, _, _, _, _, _]);
   });
 });
