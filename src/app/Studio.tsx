@@ -1,12 +1,17 @@
 import {
+  ClipboardPaste,
+  Copy,
   Eraser,
   FilePlus,
+  FlipHorizontal2,
   Grid3x3,
   PaintBucket,
   Pencil,
   Pipette,
   Redo2,
   Scan,
+  SquareDashed,
+  SquareX,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -21,20 +26,45 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  copyPixels,
   createDrawing,
   getPixel,
   MAX_DRAWING_SIZE,
+  rectBetween,
+  rectOnCanvas,
   TRANSPARENT,
+  type Clip,
   type Command,
   type Point,
+  type Rect,
 } from '../core/drawing';
-import { createEditor, type Editor } from '../core/editor';
+import { createEditor, type Editor, type EditorState } from '../core/editor';
 import { STUDIO_PLACEHOLDER_PALETTE } from '../core/palettes';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { Nav } from './Nav';
 import { PixelCanvas } from './PixelCanvas';
 
-type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper';
+type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
+
+/** A block of pixels that can be placed at a point, and where it is now. */
+interface Block {
+  /** Its whole rectangle, including any part off the canvas. */
+  rect: Rect;
+  place: (at: Point) => Command;
+}
+
+/**
+ * The block last pasted or moved, for as long as nothing else has changed the drawing.
+ * Dragging it again replaces that step, so it doesn't pick up what it now covers.
+ */
+interface Floating extends Block {
+  /** The editor state right after it was placed; any other change ends it. */
+  state: EditorState;
+}
+
+/** A Select tool press in progress: drawing a new selection, or dragging a block. */
+type SelectGesture =
+  { kind: 'select'; start: Point } | { kind: 'move'; start: Point; block: Block; replace: boolean };
 
 /** A key press: `key` is KeyboardEvent.key lowercased. `shift` unset means either. */
 interface Chord {
@@ -72,7 +102,13 @@ function matches(chord: Chord, e: KeyboardEvent) {
 }
 
 function chordLabel({ key, mod, shift }: Chord, ctrl = 'Ctrl', plus = '+') {
-  return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${key === '+' ? plus : key.toUpperCase()}`;
+  // Named keys like "escape" read as "Escape"; single characters are upper-cased.
+  const name = key === '+' ? plus : key[0]!.toUpperCase() + key.slice(1);
+  return `${mod ? `${ctrl}+` : ''}${shift ? 'Shift+' : ''}${name}`;
+}
+
+function contains(rect: Rect, p: Point) {
+  return p.x >= rect.x && p.y >= rect.y && p.x < rect.x + rect.width && p.y < rect.y + rect.height;
 }
 
 function ControlButton({ control, iconSize }: { control: Control; iconSize: number }) {
@@ -95,13 +131,20 @@ function ControlButton({ control, iconSize }: { control: Control; iconSize: numb
 
 export function Studio() {
   const [editor, setEditor] = useState(() => newEditor(DEFAULT_SIZE, DEFAULT_SIZE));
-  const { drawing, canUndo, canRedo } = useSyncExternalStore(editor.subscribe, editor.getState);
+  const editorState = useSyncExternalStore(editor.subscribe, editor.getState);
+  const { drawing, canUndo, canRedo } = editorState;
   const [tool, setTool] = useState<Tool>('pencil');
   const [color, setColor] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [view, setView] = useState<View>(FIT_VIEW);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [newDrawingOpen, setNewDrawingOpen] = useState(false);
+  const [mirror, setMirror] = useState(false);
+  const [selection, setSelection] = useState<Rect | null>(null);
+  const [clip, setClip] = useState<Clip | null>(null);
+  const [floating, setFloating] = useState<Floating | null>(null);
+  const placed = floating?.state === editorState ? floating : null;
+  const gesture = useRef<SelectGesture | null>(null);
   const panDrag = useRef<{ start: Point; pan: Point } | null>(null);
   const wheelScroll = useRef(0);
 
@@ -133,6 +176,7 @@ export function Studio() {
       { tool: 'eraser', label: 'Eraser', Icon: Eraser, key: 'e' },
       { tool: 'fill', label: 'Fill', Icon: PaintBucket, key: 'f' },
       { tool: 'eyedropper', label: 'Eyedropper', Icon: Pipette, key: 'i' },
+      { tool: 'select', label: 'Select', Icon: SquareDashed, key: 'm' },
     ] as const
   ).map(({ key, ...t }) => ({
     ...t,
@@ -166,6 +210,27 @@ export function Studio() {
       disabled: !canRedo,
     },
     {
+      label: 'Copy',
+      Icon: Copy,
+      chords: [{ key: 'c', mod: true }],
+      run: () => selection && setClip(copyPixels(drawing, selection)),
+      disabled: !selection,
+    },
+    {
+      label: 'Paste',
+      Icon: ClipboardPaste,
+      chords: [{ key: 'v', mod: true }],
+      run: pasteClip,
+      disabled: !clip,
+    },
+    {
+      label: 'Deselect',
+      Icon: SquareX,
+      chords: [{ key: 'escape' }],
+      run: deselect,
+      disabled: !selection,
+    },
+    {
       label: 'Zoom in',
       Icon: ZoomIn,
       chords: [{ key: '+' }, { key: '=' }],
@@ -193,6 +258,13 @@ export function Studio() {
       run: () => setShowGrid((g) => !g),
       pressed: showGrid,
     },
+    {
+      label: 'Mirror symmetry',
+      Icon: FlipHorizontal2,
+      chords: [{ key: 's' }],
+      run: () => setMirror((m) => !m),
+      pressed: mirror,
+    },
   ];
 
   const panKeys: Record<string, [number, number]> = {
@@ -203,17 +275,54 @@ export function Studio() {
   };
 
   function strokeCommand(points: readonly Point[]): Command {
-    return tool === 'eraser' ? { type: 'eraser', points } : { type: 'pencil', color, points };
+    return tool === 'eraser'
+      ? { type: 'eraser', points, mirror }
+      : { type: 'pencil', color, points, mirror };
+  }
+
+  function deselect() {
+    setSelection(null);
+    setFloating(null);
+  }
+
+  function pasteClip() {
+    if (!clip) return;
+    // Over the current selection, so copy then paste lands on the original, ready to drag off.
+    const at = selection ? { x: selection.x, y: selection.y } : { x: 0, y: 0 };
+    const place = (p: Point): Command => ({ type: 'paste', clip, at: p });
+    editor.apply(place(at));
+    const rect = { ...at, width: clip.width, height: clip.height };
+    setSelection(rect);
+    setFloating({ rect, place, state: editor.getState() });
+    setTool('select');
   }
 
   function press(at: Point) {
+    gesture.current = null;
+    // Even a command that changes nothing starts a new undo step, which a floating
+    // block's next drag would replace instead of its own.
+    if (tool !== 'select') setFloating(null);
     switch (tool) {
       case 'pencil':
       case 'eraser':
         editor.apply(strokeCommand([at]));
         return;
       case 'fill':
-        editor.apply({ type: 'fill', color, at });
+        editor.apply({ type: 'fill', color, at, mirror });
+        return;
+      case 'select':
+        if (selection && contains(selection, at)) {
+          const from = selection;
+          const block = placed ?? {
+            rect: from,
+            place: (to: Point) => ({ type: 'move', from, to }),
+          };
+          gesture.current = { kind: 'move', start: at, block, replace: !!placed };
+        } else {
+          gesture.current = { kind: 'select', start: at };
+          setSelection(rectBetween(drawing, at, at));
+          setFloating(null);
+        }
         return;
       case 'eyedropper': {
         const picked = getPixel(drawing, at.x, at.y);
@@ -232,6 +341,20 @@ export function Studio() {
   function drag(from: Point, to: Point) {
     if (tool === 'pencil' || tool === 'eraser') {
       editor.apply(strokeCommand([from, to]), { mergeWithLast: true });
+      return;
+    }
+    const g = gesture.current;
+    if (g?.kind === 'select') {
+      setSelection(rectBetween(drawing, g.start, to));
+    } else if (g?.kind === 'move') {
+      const { rect, place } = g.block;
+      const at = { x: rect.x + to.x - g.start.x, y: rect.y + to.y - g.start.y };
+      // The first drag of a fresh move is a new step; every later one replaces it.
+      editor.apply(place(at), { replaceLast: g.replace });
+      g.replace = true;
+      const moved = { ...rect, ...at };
+      setSelection(moved);
+      setFloating({ rect: moved, place, state: editor.getState() });
     }
   }
 
@@ -240,6 +363,7 @@ export function Studio() {
     const form = new FormData(e.currentTarget);
     setEditor(newEditor(Number(form.get('width')), Number(form.get('height'))));
     setView(FIT_VIEW);
+    setSelection(null);
     setNewDrawingOpen(false);
   }
 
@@ -385,6 +509,8 @@ export function Studio() {
                 onPress={press}
                 onDrag={drag}
                 showGrid={showGrid}
+                selection={selection && rectOnCanvas(drawing, selection)}
+                showMirrorAxis={mirror}
                 label={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
               />
             </div>

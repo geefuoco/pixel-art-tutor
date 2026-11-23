@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 const STUDIO_SIZE = 16;
 const RED = [0xe9, 0x45, 0x60, 255];
 const YELLOW = [0xf9, 0xa8, 0x26, 255];
@@ -179,4 +184,45 @@ test('a new drawing cannot be larger than 64x64', async ({ page }) => {
   await form.getByRole('button', { name: 'Create' }).click();
   await expect(form).toBeHidden();
   await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 64 by 64 pixels');
+});
+
+test('select, move, copy and paste pixels, and draw with mirror symmetry', async ({ page }) => {
+  await page.goto('#/studio');
+  const canvas = studioCanvas(page);
+  await expect(canvas).toBeVisible();
+  const blank = { at11: await pixelAt(canvas, 1, 1), at56: await pixelAt(canvas, 5, 6) };
+
+  async function dragPixels(from: Point, to: Point) {
+    const a = await pixelPosition(canvas, from.x, from.y);
+    const b = await pixelPosition(canvas, to.x, to.y);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 4 });
+    await page.mouse.up();
+  }
+
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 1, 1);
+
+  // Select around the dot, then drag it by the inside of the selection.
+  await page.keyboard.press('m');
+  await dragPixels({ x: 0, y: 0 }, { x: 2, y: 2 });
+  await dragPixels({ x: 1, y: 1 }, { x: 5, y: 1 });
+  await expect.poll(() => pixelAt(canvas, 5, 1)).toEqual(RED);
+  await expect.poll(() => pixelAt(canvas, 1, 1)).toEqual(blank.at11);
+
+  // Paste lands over the selection; dragging it leaves the original behind.
+  await page.keyboard.press('Control+c');
+  await page.keyboard.press('Control+v');
+  await dragPixels({ x: 5, y: 1 }, { x: 5, y: 6 });
+  await expect.poll(() => pixelAt(canvas, 5, 6)).toEqual(RED);
+  await expect.poll(() => pixelAt(canvas, 5, 1)).toEqual(RED);
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => pixelAt(canvas, 5, 6)).toEqual(blank.at56);
+
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Mirror symmetry' }).click();
+  await page.keyboard.press('b');
+  await clickPixel(page, canvas, 0, 10);
+  await expect.poll(() => pixelAt(canvas, 15, 10)).toEqual(RED);
 });

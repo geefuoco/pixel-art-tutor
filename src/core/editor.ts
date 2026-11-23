@@ -16,9 +16,12 @@ export interface Editor {
   /**
    * Applies a command as a new undo step. With `mergeWithLast`, it joins the step
    * the previous apply started instead, so a whole mouse stroke undoes at once.
-   * Undo and redo end the open step. Commands that change nothing add no step.
+   * With `replaceLast`, it first takes back the open step's changes and then becomes
+   * that step, so a block can be dragged on after a paste or move without leaving
+   * copies behind. Undo and redo end the open step, so after them both options act
+   * like a plain apply. Commands that change nothing add no step.
    */
-  apply(command: Command, options?: { mergeWithLast?: boolean }): void;
+  apply(command: Command, options?: { mergeWithLast?: boolean; replaceLast?: boolean }): void;
   undo(): void;
   redo(): void;
   subscribe(listener: () => void): () => void;
@@ -54,6 +57,29 @@ export function createEditor(initial: Drawing): Editor {
   return {
     getState: () => state,
     apply(command, options) {
+      if (options?.replaceLast && openStep) {
+        const replaced = openStep;
+        const base = withPixels(drawing, replaced.step, 'before');
+        const next = applyCommand(base, command);
+        if (next.pixels.every((p, i) => p === drawing.pixels[i])) return;
+        replaced.step.clear();
+        next.pixels.forEach((after, i) => {
+          const before = base.pixels[i]!;
+          if (after !== before) replaced.step.set(i, { before, after });
+        });
+        // A recorded open step is always the newest on the stack: undo and redo close it.
+        if (replaced.recorded && replaced.step.size === 0) {
+          undoStack.pop();
+          replaced.recorded = false;
+        } else if (!replaced.recorded && replaced.step.size > 0) {
+          undoStack.push(replaced.step);
+          redoStack.length = 0;
+          replaced.recorded = true;
+        }
+        drawing = next;
+        publish();
+        return;
+      }
       const next = applyCommand(drawing, command);
       if (!options?.mergeWithLast || !openStep) openStep = { step: new Map(), recorded: false };
       const { step } = openStep;

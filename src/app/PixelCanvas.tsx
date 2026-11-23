@@ -1,5 +1,5 @@
 import { useCallback, useRef, type CSSProperties, type PointerEvent } from 'react';
-import { getPixel, TRANSPARENT, type Drawing, type Point } from '../core/drawing';
+import { getPixel, TRANSPARENT, type Drawing, type Point, type Rect } from '../core/drawing';
 
 const CELL = 24;
 const CHECKER = ['#ffffff', '#f4f0ff'];
@@ -19,20 +19,24 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
 /**
  * Renders a Drawing on a plain canvas and reports the mouse in drawing pixels:
  * onPress with the pressed pixel, then onDrag for each pixel the drag moves to
- * (drag points can be outside the canvas). Sized by its parent; showGrid draws
- * a line around every pixel.
+ * (drag points can be outside the canvas). Sized by its parent; showGrid draws a line around every pixel, selection outlines
+ * a rectangle and showMirrorAxis marks the middle of the canvas.
  */
 export function PixelCanvas({
   drawing,
   onPress,
   onDrag,
   showGrid,
+  selection,
+  showMirrorAxis,
   label,
 }: {
   drawing: Drawing;
   onPress: (at: Point) => void;
   onDrag: (from: Point, to: Point) => void;
   showGrid: boolean;
+  selection: Rect | null;
+  showMirrorAxis: boolean;
   label: string;
 }) {
   const last = useRef<Point | null>(null);
@@ -86,6 +90,19 @@ export function PixelCanvas({
           className="pixel-grid"
           aria-hidden
           style={{ '--cols': drawing.width, '--rows': drawing.height } as CSSProperties}
+        />
+      )}
+      {showMirrorAxis && <div className="mirror-axis" aria-hidden />}
+      {selection && (
+        <div
+          className="selection-outline"
+          aria-hidden
+          style={{
+            left: `${(selection.x / drawing.width) * 100}%`,
+            top: `${(selection.y / drawing.height) * 100}%`,
+            width: `${(selection.width / drawing.width) * 100}%`,
+            height: `${(selection.height / drawing.height) * 100}%`,
+          }}
         />
       )}
     </div>
