@@ -2,11 +2,11 @@
 
 Tests go through three seams. Each test drives a public interface and asserts on what comes out of it, so it stays valid through behaviour-preserving refactors.
 
-| Seam               | What                                                                                                                    | Tool                      | Lives in                          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- | --------------------------------- |
-| 1. Core public API | The framework-free core in `src/core`: apply commands, assert the resulting pixels, scores, Mistakes, prompts and so on | Vitest                    | `src/core/**/*.test.ts`           |
-| 2. Persistence     | The store interface over IndexedDB: round-trips, autosave, backup and restore                                           | Vitest + `fake-indexeddb` | next to the store (not built yet) |
-| 3. Running app     | A few smoke tests of what a user does, against the production build                                                     | Playwright                | `e2e/`                            |
+| Seam               | What                                                                                                                    | Tool                      | Lives in                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------ |
+| 1. Core public API | The framework-free core in `src/core`: apply commands, assert the resulting pixels, scores, Mistakes, prompts and so on | Vitest                    | `src/core/**/*.test.ts`        |
+| 2. Persistence     | The store interface over IndexedDB: round-trips, autosave, backup and restore                                           | Vitest + `fake-indexeddb` | `src/persistence/**/*.test.ts` |
+| 3. Running app     | A few smoke tests of what a user does, against the production build                                                     | Playwright                | `e2e/`                         |
 
 Rules:
 
