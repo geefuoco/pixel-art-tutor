@@ -1,5 +1,5 @@
 import type { Color } from '../core/drawing';
-import { BUNDLED_PALETTES, STUDIO_PLACEHOLDER_PALETTE, type CustomPalette } from '../core/palettes';
+import { BUNDLED_PALETTES, STUDIO_STARTER_PALETTE, type CustomPalette } from '../core/palettes';
 
 export interface PaletteChoice {
   readonly value: string;
@@ -10,7 +10,7 @@ export interface PaletteChoice {
 export const STARTER_CHOICE: PaletteChoice = {
   value: 'starter',
   label: 'Studio starter',
-  colors: STUDIO_PLACEHOLDER_PALETTE,
+  colors: STUDIO_STARTER_PALETTE,
 };
 
 export const BUNDLED_CHOICES: readonly PaletteChoice[] = BUNDLED_PALETTES.map((p) => ({

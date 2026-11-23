@@ -3,6 +3,7 @@ import { useState, type ChangeEvent } from 'react';
 import { readBackup } from '../persistence/backup';
 import { downloadFile } from './download';
 import { Nav } from './Nav';
+import { plural } from './plural';
 import { Palettes } from './Palettes';
 import { routeHref } from './router';
 import { studio } from './studio-store';
@@ -14,10 +15,6 @@ interface ChosenBackup {
   readonly text: string;
   readonly drawingCount: number;
   readonly paletteCount: number;
-}
-
-function plural(n: number, noun: string) {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }
 
 function contentsOf({ drawingCount, paletteCount }: Omit<ChosenBackup, 'name' | 'text'>) {

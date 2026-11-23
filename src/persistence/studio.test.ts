@@ -132,6 +132,15 @@ describe('Studio custom palettes', () => {
     ]);
   });
 
+  it('refuses to save a palette that breaks the custom palette rules', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB);
+    await expect(
+      studio.savePalette({ id: 'p', name: 'Moss', colors: ['#334422', '#334422'] }),
+    ).rejects.toThrow(RangeError);
+    expect(await openStore(indexedDB).listCustomPalettes()).toEqual([]);
+  });
+
   it('refuses a palette save that storage cannot hold, keeping the palettes it had', async () => {
     const studio = await openStudio(new IDBFactory());
     await studio.savePalette({ id: 'm', name: 'Moss', colors: ['#334422'] });

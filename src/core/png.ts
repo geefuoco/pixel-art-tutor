@@ -1,5 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Color, type Drawing } from './drawing';
-import { STUDIO_PLACEHOLDER_PALETTE } from './palettes';
+import { STUDIO_STARTER_PALETTE } from './palettes';
 
 export const MAX_EXPORT_SCALE = 16;
 
@@ -219,7 +219,7 @@ export function drawingFromImage(image: RgbaImage): Drawing {
   return {
     width,
     height,
-    palette: palette.length > 0 ? palette : STUDIO_PLACEHOLDER_PALETTE,
+    palette: palette.length > 0 ? palette : STUDIO_STARTER_PALETTE,
     pixels,
   };
 }

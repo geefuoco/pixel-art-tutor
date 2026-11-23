@@ -1,6 +1,6 @@
 import type { Color } from './drawing';
 
-export const STUDIO_PLACEHOLDER_PALETTE: readonly Color[] = [
+export const STUDIO_STARTER_PALETTE: readonly Color[] = [
   '#1b1b2f',
   '#ffffff',
   '#e94560',
@@ -149,10 +149,11 @@ export interface CustomPalette {
 
 export const MAX_CUSTOM_PALETTE_COLORS = 32;
 
-export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+const OPAQUE_HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 function normalized(color: Color): Color {
-  if (!HEX_COLOR.test(color)) throw new RangeError(`${color} is not a hex color like #ff8800`);
+  if (!OPAQUE_HEX_COLOR.test(color))
+    throw new RangeError(`${color} is not a hex color like #ff8800`);
   return color.toLowerCase();
 }
 
@@ -177,4 +178,26 @@ export function changePaletteColor(
 
 export function removePaletteColor(colors: readonly Color[], index: number): readonly Color[] {
   return colors.length > 1 ? colors.filter((_, i) => i !== index) : colors;
+}
+
+export function checkCustomPalette(palette: {
+  readonly id: unknown;
+  readonly name: unknown;
+  readonly colors: unknown;
+}): CustomPalette | null {
+  const { id, name, colors } = palette;
+  if (typeof id !== 'string' || id === '' || typeof name !== 'string' || name.trim() === '') {
+    return null;
+  }
+  if (
+    !Array.isArray(colors) ||
+    colors.length < 1 ||
+    colors.length > MAX_CUSTOM_PALETTE_COLORS ||
+    !colors.every((c) => typeof c === 'string' && OPAQUE_HEX_COLOR.test(c))
+  ) {
+    return null;
+  }
+  const lowercase = colors.map((c: string) => c.toLowerCase());
+  if (new Set(lowercase).size !== lowercase.length) return null;
+  return { id, name: name.trim(), colors: lowercase };
 }

@@ -10,16 +10,13 @@ import {
 } from '../core/palettes';
 import { StorageError } from '../persistence/store';
 import { PaletteSwatches } from './PaletteSwatches';
+import { plural } from './plural';
 import { studio, useStudio } from './studio-store';
 
 const STORAGE_REFUSED = {
   unavailable: 'Browser storage is unavailable, so palettes cannot be saved.',
   full: 'Browser storage is full, so this palette could not be saved.',
 };
-
-function plural(n: number, noun: string) {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
-}
 
 function messageOf(error: unknown) {
   if (error instanceof StorageError) return STORAGE_REFUSED[error.problem];
@@ -53,7 +50,9 @@ export function Palettes() {
   }
 
   async function remove(id: string) {
-    if (await run(() => studio.deletePalette(id))) setDeleting(null);
+    if (!(await run(() => studio.deletePalette(id)))) return;
+    setDeleting(null);
+    if (editing?.id === id) setEditing(null);
   }
 
   return (

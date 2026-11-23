@@ -1,9 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
-import {
-  HEX_COLOR as CUSTOM_PALETTE_COLOR,
-  MAX_CUSTOM_PALETTE_COLORS,
-  type CustomPalette,
-} from '../core/palettes';
+import { checkCustomPalette, type CustomPalette } from '../core/palettes';
 import type { SavedDrawing, Store, StoreContents } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
@@ -64,17 +60,7 @@ function readSavedDrawing(value: unknown): SavedDrawing | null {
 function readCustomPalette(value: unknown): CustomPalette | null {
   if (!isRecord(value)) return null;
   const { id, name, colors } = value as Unchecked<CustomPalette>;
-  if (typeof id !== 'string' || id === '' || typeof name !== 'string') return null;
-  if (
-    !Array.isArray(colors) ||
-    colors.length < 1 ||
-    colors.length > MAX_CUSTOM_PALETTE_COLORS ||
-    new Set(colors).size !== colors.length ||
-    !colors.every((c) => typeof c === 'string' && CUSTOM_PALETTE_COLOR.test(c))
-  ) {
-    return null;
-  }
-  return { id, name, colors: [...colors] };
+  return checkCustomPalette({ id, name, colors });
 }
 
 function readAllWithUniqueIds<T extends { readonly id: string }>(

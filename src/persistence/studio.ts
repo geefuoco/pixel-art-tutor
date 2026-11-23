@@ -1,6 +1,6 @@
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
-import type { CustomPalette } from '../core/palettes';
+import { checkCustomPalette, type CustomPalette } from '../core/palettes';
 import { createBackup, readBackup } from './backup';
 import { StorageError, type SavedDrawing, type Store, type StorageProblem } from './store';
 
@@ -148,7 +148,9 @@ export function createStudio(options: {
       keep(id, entry.drawing);
     },
     async savePalette(palette) {
-      await store.putCustomPalette(palette);
+      const checked = checkCustomPalette(palette);
+      if (!checked) throw new RangeError('A palette needs a name and 1 to 32 distinct colors');
+      await store.putCustomPalette(checked);
       update({ palettes: await store.listCustomPalettes() });
     },
     async deletePalette(id) {

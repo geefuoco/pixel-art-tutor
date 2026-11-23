@@ -101,21 +101,25 @@ export function openStore(factory: IDBFactory | undefined): Store {
 
   return {
     async listStudioDrawings() {
-      const all = await transact<SavedDrawing[]>('readonly', (s) => s(STUDIO_DRAWINGS).getAll());
+      const all = await transact<SavedDrawing[]>('readonly', (objectStore) =>
+        objectStore(STUDIO_DRAWINGS).getAll(),
+      );
       return all.sort((a, b) => b.updatedAt - a.updatedAt);
     },
     async putStudioDrawing(entry) {
-      await transact('readwrite', (s) => s(STUDIO_DRAWINGS).put(entry));
+      await transact('readwrite', (objectStore) => objectStore(STUDIO_DRAWINGS).put(entry));
     },
     async listCustomPalettes() {
-      const all = await transact<CustomPalette[]>('readonly', (s) => s(CUSTOM_PALETTES).getAll());
+      const all = await transact<CustomPalette[]>('readonly', (objectStore) =>
+        objectStore(CUSTOM_PALETTES).getAll(),
+      );
       return all.sort((a, b) => a.name.localeCompare(b.name));
     },
     async putCustomPalette(palette) {
-      await transact('readwrite', (s) => s(CUSTOM_PALETTES).put(palette));
+      await transact('readwrite', (objectStore) => objectStore(CUSTOM_PALETTES).put(palette));
     },
     async deleteCustomPalette(id) {
-      await transact('readwrite', (s) => s(CUSTOM_PALETTES).delete(id));
+      await transact('readwrite', (objectStore) => objectStore(CUSTOM_PALETTES).delete(id));
     },
     async readAll() {
       const [studioDrawings, customPalettes] = await Promise.all([
@@ -125,11 +129,11 @@ export function openStore(factory: IDBFactory | undefined): Store {
       return { studioDrawings, customPalettes };
     },
     async replaceAll(contents) {
-      await transact('readwrite', (s) => {
-        s(CUSTOM_PALETTES).clear();
-        for (const palette of contents.customPalettes) s(CUSTOM_PALETTES).put(palette);
-        const cleared = s(STUDIO_DRAWINGS).clear();
-        for (const entry of contents.studioDrawings) s(STUDIO_DRAWINGS).put(entry);
+      await transact('readwrite', (objectStore) => {
+        objectStore(CUSTOM_PALETTES).clear();
+        for (const palette of contents.customPalettes) objectStore(CUSTOM_PALETTES).put(palette);
+        const cleared = objectStore(STUDIO_DRAWINGS).clear();
+        for (const entry of contents.studioDrawings) objectStore(STUDIO_DRAWINGS).put(entry);
         return cleared;
       });
     },

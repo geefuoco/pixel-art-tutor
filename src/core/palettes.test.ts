@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   addPaletteColor,
+  checkCustomPalette,
   BUNDLED_PALETTES,
   changePaletteColor,
-  MAX_CUSTOM_PALETTE_COLORS,
   removePaletteColor,
 } from './palettes';
 
@@ -44,7 +44,6 @@ describe('custom palette colors', () => {
   });
 
   it('holds at most 32 colors', () => {
-    expect(MAX_CUSTOM_PALETTE_COLORS).toBe(32);
     const full = Array.from({ length: 32 }, (_, i) => `#0000${i.toString(16).padStart(2, '0')}`);
     expect(() => addPaletteColor(full, '#ffffff')).toThrow(RangeError);
   });
@@ -58,6 +57,26 @@ describe('custom palette colors', () => {
     const colors = ['#000000', '#ffffff', '#ff0000'];
     expect(changePaletteColor(colors, 1, '#00FF00')).toEqual(['#000000', '#00ff00', '#ff0000']);
     expect(changePaletteColor(colors, 1, '#ff0000')).toEqual(colors);
+  });
+
+  it('checks a whole palette: a name, 1 to 32 distinct hex colors, stored in lowercase', () => {
+    expect(checkCustomPalette({ id: 'p', name: ' Moss ', colors: ['#AABBCC', '#112233'] })).toEqual(
+      { id: 'p', name: 'Moss', colors: ['#aabbcc', '#112233'] },
+    );
+    const thirtyThree = Array.from(
+      { length: 33 },
+      (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
+    );
+    for (const bad of [
+      { id: 'p', name: 'Moss', colors: [] },
+      { id: 'p', name: 'Moss', colors: thirtyThree },
+      { id: 'p', name: 'Moss', colors: ['#AABBCC', '#aabbcc'] },
+      { id: 'p', name: 'Moss', colors: ['green'] },
+      { id: 'p', name: '  ', colors: ['#000000'] },
+      { id: '', name: 'Moss', colors: ['#000000'] },
+    ]) {
+      expect(checkCustomPalette(bad)).toBeNull();
+    }
   });
 
   it('removes a color, but never the last one', () => {

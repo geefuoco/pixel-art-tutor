@@ -456,7 +456,7 @@ test('make a custom palette in Settings, then start drawings from it and from a 
   await expect.poll(() => pixelAt(studioCanvas(page), 4, 4)).toEqual([0x66, 0x77, 0x44, 255]);
 
   await page.keyboard.press('n');
-  await expect(form.getByLabel('Palette')).toHaveValue(/Moss|custom:/);
+  await expect(form.getByLabel('Palette').locator('option:checked')).toHaveText('Moss');
   await form.getByLabel('Palette').selectOption({ label: 'PICO-8 by Lexaloffle Games' });
   await form.getByRole('button', { name: 'Create' }).click();
   await expect(palette.getByRole('button')).toHaveCount(16);
