@@ -20,8 +20,10 @@ function browserIndexedDB(): IDBFactory | undefined {
   }
 }
 
+export const browserStore = openStore(browserIndexedDB());
+
 export const studio = createStudio({
-  store: openStore(browserIndexedDB()),
+  store: browserStore,
   firstDrawing: blankStudioDrawing(16, 16),
 });
 

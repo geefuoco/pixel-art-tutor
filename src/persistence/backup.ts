@@ -1,9 +1,10 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
+import { MODES, type Mode } from '../core/lesson';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
-import type { SavedDrawing, Store, StoreContents } from './store';
+import type { Attempt, InProgressAttempt, SavedDrawing, Store, StoreContents } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -63,15 +64,44 @@ function readCustomPalette(value: unknown): CustomPalette | null {
   return checkCustomPalette({ id, name, colors });
 }
 
-function readAllWithUniqueIds<T extends { readonly id: string }>(
+function isMode(value: unknown): value is Mode {
+  return (MODES as readonly unknown[]).includes(value);
+}
+
+function isText(value: unknown): value is string {
+  return typeof value === 'string' && value !== '';
+}
+
+function readAttempt(value: unknown): Attempt | null {
+  if (!isRecord(value)) return null;
+  const { id, lessonId, mode, drawing, score, finishedAt } = value as Unchecked<Attempt>;
+  const checked = readDrawing(drawing);
+  if (!isText(id) || !isText(lessonId) || !isMode(mode) || !checked) return null;
+  if (typeof score !== 'number' || !(score >= 0 && score <= 1)) return null;
+  if (!Number.isFinite(finishedAt)) return null;
+  return { id, lessonId, mode, drawing: checked, score, finishedAt: finishedAt as number };
+}
+
+function readInProgressAttempt(value: unknown): InProgressAttempt | null {
+  if (!isRecord(value)) return null;
+  const { lessonId, mode, drawing, updatedAt } = value as Unchecked<InProgressAttempt>;
+  const checked = readDrawing(drawing);
+  if (!isText(lessonId) || !isMode(mode) || !checked || !Number.isFinite(updatedAt)) return null;
+  return { lessonId, mode, drawing: checked, updatedAt: updatedAt as number };
+}
+
+function readAllWithUniqueKeys<T>(
   values: unknown,
   read: (value: unknown) => T | null,
+  keyOf: (value: T) => string,
 ): T[] | null {
   if (!Array.isArray(values)) return null;
   const checked = values.map(read);
   if (!checked.every((v) => v !== null)) return null;
-  return new Set(checked.map((v) => v.id)).size === checked.length ? checked : null;
+  return new Set(checked.map(keyOf)).size === checked.length ? checked : null;
 }
+
+const byId = (value: { readonly id: string }) => value.id;
 
 export function readBackup(text: string): BackupReading {
   let file: unknown;
@@ -88,10 +118,24 @@ export function readBackup(text: string): BackupReading {
         'This backup was made by a newer version of Pixel Art Tutor. Reload the page to update, then try again.',
     };
   }
-  if (file.version !== 1 && file.version !== BACKUP_VERSION) return { ok: false, message: DAMAGED };
-  const studioDrawings = readAllWithUniqueIds(file.studioDrawings, readSavedDrawing);
+  const { version } = file;
+  if (version !== 1 && version !== 2 && version !== BACKUP_VERSION) {
+    return { ok: false, message: DAMAGED };
+  }
+  const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);
   const customPalettes =
-    file.version === 1 ? [] : readAllWithUniqueIds(file.customPalettes, readCustomPalette);
-  if (!studioDrawings || !customPalettes) return { ok: false, message: DAMAGED };
-  return { ok: true, contents: { studioDrawings, customPalettes } };
+    version === 1 ? [] : readAllWithUniqueKeys(file.customPalettes, readCustomPalette, byId);
+  const hasAttempts = version === BACKUP_VERSION;
+  const attempts = hasAttempts ? readAllWithUniqueKeys(file.attempts, readAttempt, byId) : [];
+  const inProgressAttempts = hasAttempts
+    ? readAllWithUniqueKeys(
+        file.inProgressAttempts,
+        readInProgressAttempt,
+        (a) => `${a.lessonId}\n${a.mode}`,
+      )
+    : [];
+  if (!studioDrawings || !customPalettes || !attempts || !inProgressAttempts) {
+    return { ok: false, message: DAMAGED };
+  }
+  return { ok: true, contents: { studioDrawings, customPalettes, attempts, inProgressAttempts } };
 }

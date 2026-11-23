@@ -1,19 +1,44 @@
 import { useSyncExternalStore } from 'react';
+import { MODES, type Mode } from '../core/lesson';
 
-export type Route = 'home' | 'studio' | 'settings' | 'not-found';
+export type Page = 'home' | 'lessons' | 'studio' | 'settings';
 
-export const routeHref: Record<Exclude<Route, 'not-found'>, string> = {
+export type Route =
+  | { readonly page: Page }
+  | { readonly page: 'lesson'; readonly lessonId: string; readonly mode: Mode }
+  | { readonly page: 'not-found' };
+
+export const routeHref: Record<Page, string> = {
   home: '#/',
+  lessons: '#/lessons',
   studio: '#/studio',
   settings: '#/settings',
 };
 
+export function lessonHref(lessonId: string, mode: Mode): string {
+  return `#/lessons/${encodeURIComponent(lessonId)}/${mode}`;
+}
+
+const PAGES: Record<string, Page> = {
+  '/': 'home',
+  '/lessons': 'lessons',
+  '/studio': 'studio',
+  '/settings': 'settings',
+};
+
+function isMode(value: string): value is Mode {
+  return (MODES as readonly string[]).includes(value);
+}
+
 function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '') || '/';
-  if (path === '/') return 'home';
-  if (path === '/studio') return 'studio';
-  if (path === '/settings') return 'settings';
-  return 'not-found';
+  const page = PAGES[path];
+  if (page) return { page };
+  const lesson = /^\/lessons\/([^/]+)\/([^/]+)$/.exec(path);
+  if (lesson && isMode(lesson[2]!)) {
+    return { page: 'lesson', lessonId: decodeURIComponent(lesson[1]!), mode: lesson[2] };
+  }
+  return { page: 'not-found' };
 }
 
 function subscribe(onChange: () => void) {

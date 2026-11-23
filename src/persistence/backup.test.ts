@@ -111,6 +111,30 @@ describe('backup and restore', () => {
     JSON.stringify({ ...valid, studioDrawings: [{ ...valid.studioDrawings[0], drawing }] });
   const withPalette = (palette: object) =>
     JSON.stringify({ ...valid, customPalettes: [{ ...valid.customPalettes[0], ...palette }] });
+  const version3 = {
+    ...valid,
+    version: 3,
+    attempts: [
+      {
+        id: 't',
+        lessonId: 'pot',
+        mode: 'trace',
+        drawing: { width: 2, height: 1, palette: PALETTE, pixels: [1, 0] },
+        score: 0.5,
+        finishedAt: 7,
+      },
+    ],
+    inProgressAttempts: [
+      {
+        lessonId: 'pot',
+        mode: 'trace',
+        drawing: { width: 2, height: 1, palette: PALETTE, pixels: [_, 1] },
+        updatedAt: 9,
+      },
+    ],
+  };
+  const withAttempt = (attempt: object) =>
+    JSON.stringify({ ...version3, attempts: [{ ...version3.attempts[0], ...attempt }] });
   const thirtyThree = Array.from(
     { length: 33 },
     (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
@@ -119,7 +143,19 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 3 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 4 }), /newer version/],
+    ['an Attempt in an unknown Mode', withAttempt({ mode: 'speedrun' }), /damaged/],
+    ['an Attempt scored over 100%', withAttempt({ score: 1.5 }), /damaged/],
+    ['an Attempt with no Lesson', withAttempt({ lessonId: '' }), /damaged/],
+    ['an Attempt without its date', withAttempt({ finishedAt: undefined }), /damaged/],
+    [
+      'two in-progress Attempts for one Lesson and Mode',
+      JSON.stringify({
+        ...version3,
+        inProgressAttempts: [...version3.inProgressAttempts, ...version3.inProgressAttempts],
+      }),
+      /damaged/,
+    ],
     ['missing its drawings', JSON.stringify({ format: valid.format, version: 1 }), /damaged/],
     ['missing its palettes', JSON.stringify({ ...valid, customPalettes: undefined }), /damaged/],
     ['a palette with no colors', withPalette({ colors: [] }), /damaged/],
@@ -187,6 +223,27 @@ describe('backup and restore', () => {
     });
     expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
     expect(await store.listCustomPalettes()).toEqual(valid.customPalettes);
+  });
+
+  it('restores Attempts and in-progress Attempts along with the rest', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version3))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual(version3.attempts);
+    expect(await store.getInProgressAttempt('pot', 'trace')).toEqual(
+      version3.inProgressAttempts[0],
+    );
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores a version 2 backup, made before Attempts, as having none', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    await studio.restore(JSON.stringify(version3));
+    expect(await studio.restore(JSON.stringify(valid))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual([]);
+    expect(await store.getInProgressAttempt('pot', 'trace')).toBeUndefined();
   });
 
   it('restores a version 1 backup, made before custom palettes, as having none', async () => {

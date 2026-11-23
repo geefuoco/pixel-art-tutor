@@ -3,6 +3,16 @@ import { getPixel, TRANSPARENT, type Drawing, type Point, type Rect } from '../c
 
 const CELL = 24;
 const CHECKER = ['#ffffff', '#f4f0ff'];
+const GUIDE_OPACITY = 0.45;
+const GUIDE_EDGE = 'rgba(59, 51, 85, 0.45)';
+const MISSING_COLOR = '#f59e0b';
+const EXTRA_COLOR = '#e11d48';
+
+export interface CanvasOverlay {
+  readonly guide: readonly number[] | null;
+  readonly missing: readonly Point[];
+  readonly extra: readonly Point[];
+}
 
 function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
   const ctx = canvas.getContext('2d');
@@ -16,6 +26,39 @@ function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
   }
 }
 
+function paintOverlay(canvas: HTMLCanvasElement, drawing: Drawing, overlay: CanvasOverlay) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = GUIDE_EDGE;
+  overlay.guide?.forEach((p, i) => {
+    if (p === TRANSPARENT) return;
+    const x = (i % drawing.width) * CELL;
+    const y = Math.floor(i / drawing.width) * CELL;
+    ctx.globalAlpha = GUIDE_OPACITY;
+    ctx.fillStyle = drawing.palette[p]!;
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
+  });
+  ctx.setLineDash([]);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = MISSING_COLOR;
+  for (const { x, y } of overlay.missing)
+    ctx.strokeRect(x * CELL + 3, y * CELL + 3, CELL - 6, CELL - 6);
+  ctx.strokeStyle = EXTRA_COLOR;
+  for (const { x, y } of overlay.extra) {
+    ctx.beginPath();
+    ctx.moveTo(x * CELL + 5, y * CELL + 5);
+    ctx.lineTo(x * CELL + CELL - 5, y * CELL + CELL - 5);
+    ctx.moveTo(x * CELL + CELL - 5, y * CELL + 5);
+    ctx.lineTo(x * CELL + 5, y * CELL + CELL - 5);
+    ctx.stroke();
+  }
+}
+
 export function PixelCanvas({
   drawing,
   onPress,
@@ -23,6 +66,7 @@ export function PixelCanvas({
   showGrid,
   selection,
   showMirrorAxis,
+  overlay,
   label,
 }: {
   drawing: Drawing;
@@ -31,6 +75,7 @@ export function PixelCanvas({
   showGrid: boolean;
   selection: Rect | null;
   showMirrorAxis: boolean;
+  overlay?: CanvasOverlay;
   label: string;
 }) {
   const last = useRef<Point | null>(null);
@@ -39,6 +84,12 @@ export function PixelCanvas({
       if (canvas) paint(canvas, drawing);
     },
     [drawing],
+  );
+  const overlayRef = useCallback(
+    (canvas: HTMLCanvasElement | null) => {
+      if (canvas && overlay) paintOverlay(canvas, drawing, overlay);
+    },
+    [drawing, overlay],
   );
 
   function toPixel(e: PointerEvent<HTMLCanvasElement>): Point {
@@ -76,6 +127,15 @@ export function PixelCanvas({
         }}
         onLostPointerCapture={() => (last.current = null)}
       />
+      {overlay && (
+        <canvas
+          ref={overlayRef}
+          className="pixel-overlay"
+          aria-hidden
+          width={drawing.width * CELL}
+          height={drawing.height * CELL}
+        />
+      )}
       {showGrid && (
         <div
           className="pixel-grid"
