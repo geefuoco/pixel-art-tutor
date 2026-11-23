@@ -6,9 +6,15 @@ export interface SavedDrawing {
   readonly updatedAt: number;
 }
 
+export interface StoreContents {
+  readonly studioDrawings: readonly SavedDrawing[];
+}
+
 export interface Store {
   listStudioDrawings(): Promise<SavedDrawing[]>;
   putStudioDrawing(entry: SavedDrawing): Promise<void>;
+  readAll(): Promise<StoreContents>;
+  replaceAll(contents: StoreContents): Promise<void>;
 }
 
 export type StorageProblem = 'unavailable' | 'full';
@@ -65,7 +71,13 @@ export function openStore(factory: IDBFactory | undefined): Store {
       });
       database.catch(() => (database = undefined));
       const transaction = (await database).transaction(STUDIO_DRAWINGS, mode);
-      const request = run(transaction.objectStore(STUDIO_DRAWINGS));
+      let request: IDBRequest<T>;
+      try {
+        request = run(transaction.objectStore(STUDIO_DRAWINGS));
+      } catch (error) {
+        transaction.abort();
+        throw error;
+      }
       return await new Promise<T>((resolve, reject) => {
         transaction.oncomplete = () => resolve(request.result);
         transaction.onabort = () => reject(transaction.error ?? request.error);
@@ -82,6 +94,16 @@ export function openStore(factory: IDBFactory | undefined): Store {
     },
     async putStudioDrawing(entry) {
       await transact('readwrite', (s) => s.put(entry));
+    },
+    async readAll() {
+      return { studioDrawings: await this.listStudioDrawings() };
+    },
+    async replaceAll(contents) {
+      await transact('readwrite', (s) => {
+        const cleared = s.clear();
+        for (const entry of contents.studioDrawings) s.put(entry);
+        return cleared;
+      });
     },
   };
 }

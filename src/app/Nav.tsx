@@ -13,6 +13,13 @@ export function Nav({ current }: { current: Route }) {
       >
         Studio
       </a>
+      <a
+        className="nav-link"
+        href={routeHref.settings}
+        aria-current={current === 'settings' ? 'page' : undefined}
+      >
+        Settings
+      </a>
     </nav>
   );
 }
