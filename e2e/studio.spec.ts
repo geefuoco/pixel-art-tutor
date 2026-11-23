@@ -373,7 +373,7 @@ test('says so when the browser will not store drawings, and still lets you draw'
     });
   });
   await openStudio(page);
-  await expect(page.getByRole('alert')).toContainText("won't be kept");
+  await expect(page.getByRole('alert')).toContainText('Warning: drawings will not be saved');
   await page.getByRole('button', { name: 'Color #e94560' }).click();
   await clickPixel(page, studioCanvas(page), 2, 2);
   await expect.poll(() => pixelAt(studioCanvas(page), 2, 2)).toEqual(RED);

@@ -8,6 +8,7 @@ import {
   Grid3x3,
   ImageDown,
   Images,
+  TriangleAlert,
   PaintBucket,
   Pencil,
   Pipette,
@@ -88,8 +89,8 @@ function selectToolFor(editor: Editor): SelectTool {
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
   unavailable:
-    "This browser isn't letting the site store data, so your drawings won't be kept. Private windows and blocked site data can cause this.",
-  full: "Browser storage is full, so your latest changes aren't saved. Export a PNG to keep a copy, or free up space and keep drawing.",
+    'drawings will not be saved due to site store data being blocked. Try non-private mode, or another browser.',
+  full: "browser storage is full, so your latest changes aren't saved. Export a PNG to keep a copy, or free up space and keep drawing.",
 };
 
 const thumbnails = new WeakMap<Drawing, string>();
@@ -542,8 +543,11 @@ function StudioEditor({
             onChange={openPng}
           />
           {problem && (
-            <div className="card notice" role="alert">
-              <p>{STORAGE_MESSAGES[problem]}</p>
+            <div className="warning-banner" role="alert">
+              <TriangleAlert aria-hidden size={20} />
+              <p>
+                <strong>Warning:</strong> {STORAGE_MESSAGES[problem]}
+              </p>
             </div>
           )}
           {openError && (
