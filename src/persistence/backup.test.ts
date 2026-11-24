@@ -142,6 +142,14 @@ describe('backup and restore', () => {
   };
   const withProgress = (progress: object) =>
     JSON.stringify({ ...version4, progress: [{ ...version4.progress[0], ...progress }] });
+  const version5 = {
+    ...version4,
+    version: 5,
+    attempts: [{ ...version3.attempts[0]!, mode: 'hint', hintFlashes: 2 }],
+    inProgressAttempts: [{ ...version3.inProgressAttempts[0]!, mode: 'hint', hintFlashes: 1 }],
+  };
+  const withFlashes = (hintFlashes: unknown) =>
+    JSON.stringify({ ...version5, attempts: [{ ...version5.attempts[0], hintFlashes }] });
   const thirtyThree = Array.from(
     { length: 33 },
     (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
@@ -150,7 +158,7 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 5 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 6 }), /newer version/],
     ['progress in an unknown Mode', withProgress({ passedModes: ['speedrun'] }), /damaged/],
     ['progress with no Lesson', withProgress({ lessonId: '' }), /damaged/],
     [
@@ -168,6 +176,17 @@ describe('backup and restore', () => {
     ['an Attempt scored over 100%', withAttempt({ score: 1.5 }), /damaged/],
     ['an Attempt with no Lesson', withAttempt({ lessonId: '' }), /damaged/],
     ['an Attempt without its date', withAttempt({ finishedAt: undefined }), /damaged/],
+    ['an Attempt without its flash count', withFlashes(undefined), /damaged/],
+    ['an Attempt with a negative flash count', withFlashes(-1), /damaged/],
+    ['an Attempt with a fractional flash count', withFlashes(1.5), /damaged/],
+    [
+      'an in-progress Attempt without its flash count',
+      JSON.stringify({
+        ...version5,
+        inProgressAttempts: [{ ...version5.inProgressAttempts[0], hintFlashes: undefined }],
+      }),
+      /damaged/,
+    ],
     [
       'two in-progress Attempts for one Lesson and Mode',
       JSON.stringify({
@@ -245,13 +264,11 @@ describe('backup and restore', () => {
     expect(await store.listCustomPalettes()).toEqual(valid.customPalettes);
   });
 
-  it('restores Attempts and in-progress Attempts along with the rest', async () => {
+  it('restores Attempts and in-progress Attempts with their flash counts along with the rest', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
-    expect(await studio.restore(JSON.stringify(version3))).toMatchObject({ ok: true });
-    expect(await store.listAttempts()).toEqual(version3.attempts);
-    expect(await store.getInProgressAttempt('pot', 'trace')).toEqual(
-      version3.inProgressAttempts[0],
-    );
+    expect(await studio.restore(JSON.stringify(version5))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual(version5.attempts);
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(version5.inProgressAttempts[0]);
 
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
@@ -261,7 +278,7 @@ describe('backup and restore', () => {
   it('restores progress along with the rest, replacing the progress there was', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     await store.saveAttempt(
-      { ...version3.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
+      { ...version5.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
       { passed: true },
     );
     expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
@@ -270,6 +287,16 @@ describe('backup and restore', () => {
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
     expect(await again.store.listProgress()).toEqual(version4.progress);
+  });
+
+  it('restores a version 4 backup, made before Hint flashes were counted, as having none', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual([{ ...version4.attempts[0], hintFlashes: 0 }]);
+    expect(await store.getInProgressAttempt('pot', 'trace')).toEqual({
+      ...version4.inProgressAttempts[0],
+      hintFlashes: 0,
+    });
   });
 
   it('works out the progress of a version 3 backup, made before progress was kept, from its passing Attempts', async () => {
