@@ -1,10 +1,9 @@
 import { ChevronLeft, ChevronRight, CircleCheck, Eye, Lightbulb } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
-import { checkStep, type StepCheck } from '../core/evaluate';
+import { checkStep, passScore, type StepCheck } from '../core/evaluate';
 import type { Mode, StepKind } from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
-import { LESSON_PASS_SCORE } from '../core/thresholds';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
 import { DrawingEditor } from './DrawingEditor';
@@ -280,7 +279,7 @@ function LessonSession({
               <p>
                 Your drawing matches {percent(result.score)} of the Reference Sprite.
                 {!result.passed &&
-                  ` You need ${percent(LESSON_PASS_SCORE)} to pass. Check each Step to find the pixels to fix.`}
+                  ` You need ${percent(passScore(mode))} to pass. Check each Step to find the pixels to fix.`}
               </p>
               {mode === 'hint' && <p>{flashSummary(result.hintFlashes)}</p>}
               {result.inGallery && (

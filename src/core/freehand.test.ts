@@ -206,6 +206,34 @@ describe('passing Freehand', () => {
     expect(passesMode('hint', 0.95)).toBe(true);
   });
 
+  it('passes a drawing that scores exactly 90% overall, and fails one wrong Role more', () => {
+    const sixWrongRoles = pot([
+      '........',
+      '..OOOO..',
+      '.OBBBBO.',
+      '.OBBBBO.',
+      '..OOBB..',
+      '........',
+      '........',
+      '........',
+    ]);
+    const sevenWrongRoles = pot([
+      '........',
+      '..OOOO..',
+      '.OBBBBO.',
+      '.OBBBBO.',
+      '..OBBB..',
+      '........',
+      '........',
+      '........',
+    ]);
+    expect(scoreFreehand(POT, sixWrongRoles)).toMatchObject({ shape: 1, lineQuality: 1 });
+    expect(scoreFreehand(POT, sixWrongRoles).palette).toBeCloseTo(0.7, 12);
+    expect(passesMode('freehand', scoreFreehand(POT, sixWrongRoles).overall)).toBe(true);
+    expect(scoreFreehand(POT, sevenWrongRoles).overall).toBeCloseTo(2.65 / 3, 12);
+    expect(passesMode('freehand', scoreFreehand(POT, sevenWrongRoles).overall)).toBe(false);
+  });
+
   it('passes a shifted drawing shaded from the wrong side, but not a flat silhouette', () => {
     const lightFromTheRight = pot([
       '........',

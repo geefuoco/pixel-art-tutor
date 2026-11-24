@@ -13,16 +13,11 @@ import { MistakeList } from './MistakeList';
 import { Nav } from './Nav';
 import { percent } from './percent';
 import { lessonAttemptsHref, routeHref } from './router';
+import { SUB_SCORE_KEYS, SUB_SCORE_NAMES } from './sub-score-names';
 import { thumbnail } from './thumbnail';
 import { WarningBanner } from './WarningBanner';
 
 const LARGER_CANVAS_SIZES = [16, 24, 32, 48, MAX_DRAWING_SIZE];
-
-const SUB_SCORE_NAMES: Record<keyof FreehandSubScores, string> = {
-  shape: 'Shape',
-  palette: 'Palette',
-  lineQuality: 'Line quality',
-};
 
 function canvasSizes(lessonSize: number): number[] {
   return [lessonSize, ...LARGER_CANVAS_SIZES.filter((s) => s > lessonSize)];
@@ -31,7 +26,7 @@ function canvasSizes(lessonSize: number): number[] {
 function SubScores({ subScores }: { subScores: FreehandSubScores }) {
   return (
     <dl className="sub-scores" aria-label="Sub-scores">
-      {(Object.keys(SUB_SCORE_NAMES) as (keyof FreehandSubScores)[]).map((key) => (
+      {SUB_SCORE_KEYS.map((key) => (
         <div key={key}>
           <dt>{SUB_SCORE_NAMES[key]}</dt>
           <dd>{percent(subScores[key])}</dd>
@@ -116,6 +111,7 @@ export function FreehandSession({
             Canvas size
             <select
               value={drawing.width}
+              disabled={result !== null}
               onChange={(e) => play.enlargeCanvas(Number(e.currentTarget.value))}
             >
               {canvasSizes(lesson.size).map((size) => (

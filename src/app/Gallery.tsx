@@ -12,6 +12,7 @@ import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
 import { studio } from './studio-store';
+import { SUB_SCORE_KEYS, SUB_SCORE_NAMES } from './sub-score-names';
 import { thumbnail } from './thumbnail';
 import { WarningBanner } from './WarningBanner';
 
@@ -53,13 +54,9 @@ function attemptOutcome(attempt: Attempt, { showPass }: { showPass: boolean }) {
     percent(attempt.score),
     ...(showPass ? [passesMode(attempt.mode, attempt.score) ? 'passed' : 'not passed'] : []),
     ...(attempt.mode === 'hint' ? [`Show me used ${plural(attempt.hintFlashes, 'time')}`] : []),
-    ...(attempt.subScores
-      ? [
-          `Shape ${percent(attempt.subScores.shape)}`,
-          `Palette ${percent(attempt.subScores.palette)}`,
-          `Line quality ${percent(attempt.subScores.lineQuality)}`,
-        ]
-      : []),
+    ...SUB_SCORE_KEYS.flatMap((key) =>
+      attempt.subScores ? [`${SUB_SCORE_NAMES[key]} ${percent(attempt.subScores[key])}`] : [],
+    ),
   ].join(', ');
 }
 
