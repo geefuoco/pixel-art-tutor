@@ -150,6 +150,13 @@ describe('backup and restore', () => {
   };
   const withFlashes = (hintFlashes: unknown) =>
     JSON.stringify({ ...version5, attempts: [{ ...version5.attempts[0], hintFlashes }] });
+  const version6 = {
+    ...version5,
+    version: 6,
+    attempts: [{ ...version5.attempts[0]!, inGallery: true }],
+  };
+  const withInGallery = (inGallery: unknown) =>
+    JSON.stringify({ ...version6, attempts: [{ ...version6.attempts[0], inGallery }] });
   const thirtyThree = Array.from(
     { length: 33 },
     (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
@@ -158,7 +165,9 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 6 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 7 }), /newer version/],
+    ['an Attempt not saying whether it is in the Gallery', withInGallery(undefined), /damaged/],
+    ['an Attempt in the Gallery as a string', withInGallery('yes'), /damaged/],
     ['progress in an unknown Mode', withProgress({ passedModes: ['speedrun'] }), /damaged/],
     ['progress with no Lesson', withProgress({ lessonId: '' }), /damaged/],
     [
@@ -266,9 +275,9 @@ describe('backup and restore', () => {
 
   it('restores Attempts and in-progress Attempts with their flash counts along with the rest', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
-    expect(await studio.restore(JSON.stringify(version5))).toMatchObject({ ok: true });
-    expect(await store.listAttempts()).toEqual(version5.attempts);
-    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(version5.inProgressAttempts[0]);
+    expect(await studio.restore(JSON.stringify(version6))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual(version6.attempts);
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(version6.inProgressAttempts[0]);
 
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
@@ -278,7 +287,7 @@ describe('backup and restore', () => {
   it('restores progress along with the rest, replacing the progress there was', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     await store.saveAttempt(
-      { ...version5.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
+      { ...version6.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
       { passed: true },
     );
     expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
@@ -292,11 +301,24 @@ describe('backup and restore', () => {
   it('restores a version 4 backup, made before Hint flashes were counted, as having none', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
-    expect(await store.listAttempts()).toEqual([{ ...version4.attempts[0], hintFlashes: 0 }]);
+    expect(await store.listAttempts()).toEqual([
+      { ...version4.attempts[0], hintFlashes: 0, inGallery: false },
+    ]);
     expect(await store.getInProgressAttempt('pot', 'trace')).toEqual({
       ...version4.inProgressAttempts[0],
       hintFlashes: 0,
     });
+  });
+
+  it('puts the passing Attempts of a version 5 backup, made before the Gallery, in it', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    const passing = { ...version5.attempts[0]!, id: 'p', score: 0.95, finishedAt: 1 };
+    const file = { ...version5, attempts: [...version5.attempts, passing] };
+    expect(await studio.restore(JSON.stringify(file))).toMatchObject({ ok: true });
+    expect((await store.listAttempts()).map((a) => [a.id, a.inGallery])).toEqual([
+      ['t', false],
+      ['p', true],
+    ]);
   });
 
   it('works out the progress of a version 3 backup, made before progress was kept, from its passing Attempts', async () => {

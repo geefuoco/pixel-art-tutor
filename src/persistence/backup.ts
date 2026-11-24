@@ -1,4 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
+import { passesLesson } from '../core/evaluate';
 import { isMode, MODES, type Mode } from '../core/lesson';
 import type { LessonProgress } from '../core/progress';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
@@ -12,7 +13,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 5;
+export const BACKUP_VERSION = 6;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -85,7 +86,15 @@ function readHintFlashes(value: Record<string, unknown>, counted: boolean): numb
   return isCount(value.hintFlashes) ? value.hintFlashes : null;
 }
 
-function readAttempt(value: unknown, flashesCounted: boolean): Attempt | null {
+function readInGallery(value: Record<string, unknown>, score: number, recorded: boolean) {
+  if (!recorded) return passesLesson(score);
+  return typeof value.inGallery === 'boolean' ? value.inGallery : null;
+}
+
+function readAttempt(
+  value: unknown,
+  { flashesCounted, inGalleryRecorded }: { flashesCounted: boolean; inGalleryRecorded: boolean },
+): Attempt | null {
   if (!isRecord(value)) return null;
   const { id, lessonId, mode, drawing, score, finishedAt } = value as Unchecked<Attempt>;
   const checked = readDrawing(drawing);
@@ -93,6 +102,8 @@ function readAttempt(value: unknown, flashesCounted: boolean): Attempt | null {
   if (!isText(id) || !isText(lessonId) || !isMode(mode) || !checked) return null;
   if (typeof score !== 'number' || !(score >= 0 && score <= 1)) return null;
   if (!Number.isFinite(finishedAt) || hintFlashes === null) return null;
+  const inGallery = readInGallery(value, score, inGalleryRecorded);
+  if (inGallery === null) return null;
   return {
     id,
     lessonId,
@@ -100,6 +111,7 @@ function readAttempt(value: unknown, flashesCounted: boolean): Attempt | null {
     drawing: checked,
     score,
     hintFlashes,
+    inGallery,
     finishedAt: finishedAt as number,
   };
 }
@@ -159,8 +171,13 @@ export function readBackup(text: string): BackupReading {
     version === 1 ? [] : readAllWithUniqueKeys(file.customPalettes, readCustomPalette, byId);
   const hasAttempts = version >= 3;
   const flashesCounted = version >= 5;
+  const inGalleryRecorded = version >= 6;
   const attempts = hasAttempts
-    ? readAllWithUniqueKeys(file.attempts, (a) => readAttempt(a, flashesCounted), byId)
+    ? readAllWithUniqueKeys(
+        file.attempts,
+        (a) => readAttempt(a, { flashesCounted, inGalleryRecorded }),
+        byId,
+      )
     : [];
   const inProgressAttempts = hasAttempts
     ? readAllWithUniqueKeys(

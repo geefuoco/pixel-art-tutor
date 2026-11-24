@@ -109,6 +109,7 @@ describe('store: progress', () => {
     drawing,
     score,
     hintFlashes: 0,
+    inGallery: score >= 0.95,
     finishedAt: 1,
   });
 
@@ -194,6 +195,7 @@ describe('store: Hint flash counts', () => {
         drawing,
         score: 0.5,
         hintFlashes: 0,
+        inGallery: false,
         finishedAt: 1,
       },
     ]);
@@ -204,5 +206,71 @@ describe('store: Hint flash counts', () => {
       hintFlashes: 0,
       updatedAt: 2,
     });
+  });
+});
+
+describe('store: Gallery', () => {
+  const drawing = createDrawing({ width: 1, height: 1, palette: PALETTE });
+  const attempt = (id: string, score: number, inGallery: boolean) => ({
+    id,
+    lessonId: 'pot',
+    mode: 'trace' as const,
+    drawing,
+    score,
+    hintFlashes: 0,
+    inGallery,
+    finishedAt: Number(id),
+  });
+
+  it('saves an Attempt that did not pass to the Gallery on request, keeping the rest of it', async () => {
+    const indexedDB = new IDBFactory();
+    const store = openStore(indexedDB);
+    await store.saveAttempt(attempt('1', 0.5, false), { passed: false });
+    await store.saveAttempt(attempt('2', 0.4, false), { passed: false });
+
+    await store.saveAttemptToGallery('1');
+
+    expect(await openStore(indexedDB).listAttempts()).toEqual([
+      attempt('2', 0.4, false),
+      attempt('1', 0.5, true),
+    ]);
+  });
+
+  it('does nothing when asked to save an Attempt that is not there', async () => {
+    const store = openStore(new IDBFactory());
+    await store.saveAttemptToGallery('missing');
+    expect(await store.listAttempts()).toEqual([]);
+  });
+
+  it('puts the passing Attempts saved before the Gallery existed in it, and no others', async () => {
+    const indexedDB = new IDBFactory();
+    const beforeTheGallery = (id: string, score: number) => {
+      const record: Record<string, unknown> = { ...attempt(id, score, false) };
+      delete record.inGallery;
+      return record;
+    };
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 5);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        db.createObjectStore('studio-drawings', { keyPath: 'id' });
+        db.createObjectStore('custom-palettes', { keyPath: 'id' });
+        db.createObjectStore('progress', { keyPath: 'lessonId' });
+        db.createObjectStore('in-progress-attempts', { keyPath: ['lessonId', 'mode'] });
+        const attempts = db.createObjectStore('attempts', { keyPath: 'id' });
+        attempts.put(beforeTheGallery('1', 0.95));
+        attempts.put(beforeTheGallery('2', 0.94));
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    expect(await openStore(indexedDB).listAttempts()).toEqual([
+      attempt('2', 0.94, false),
+      attempt('1', 0.95, true),
+    ]);
   });
 });

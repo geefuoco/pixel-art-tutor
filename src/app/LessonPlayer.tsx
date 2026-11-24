@@ -16,6 +16,7 @@ import { Nav } from './Nav';
 import { useCourseProgress } from './progress-store';
 import { unlockMessage } from './unlock-message';
 import { WarningBanner } from './WarningBanner';
+import { percent } from './percent';
 import { plural } from './plural';
 import { routeHref } from './router';
 
@@ -34,10 +35,6 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
 };
 
 const GUIDE_FLASH_MS = 1500;
-
-function percent(score: number) {
-  return `${Math.floor(score * 100)}%`;
-}
 
 function Loading() {
   return (
@@ -288,10 +285,20 @@ function LessonSession({
                   ` You need ${percent(LESSON_PASS_SCORE)} to pass. Check each Step to find the pixels to fix.`}
               </p>
               {mode === 'hint' && <p>{flashSummary(result.hintFlashes)}</p>}
+              {result.inGallery && (
+                <p>
+                  Saved to the <a href={routeHref.gallery}>Gallery</a>.
+                </p>
+              )}
               <div className="lesson-actions">
                 {!result.passed && (
                   <button type="button" className="btn primary" onClick={play.dismissResult}>
                     Keep drawing
+                  </button>
+                )}
+                {!result.inGallery && (
+                  <button type="button" className="btn" onClick={() => void play.saveToGallery()}>
+                    Save to Gallery
                   </button>
                 )}
                 <button type="button" className="btn" onClick={() => void startOver()}>

@@ -25,6 +25,7 @@ export interface Attempt {
   readonly drawing: Drawing;
   readonly score: number;
   readonly hintFlashes: number;
+  readonly inGallery: boolean;
   readonly finishedAt: number;
 }
 
@@ -46,6 +47,7 @@ export interface Store {
   putInProgressAttempt(attempt: InProgressAttempt): Promise<void>;
   deleteInProgressAttempt(lessonId: string, mode: Mode): Promise<void>;
   saveAttempt(attempt: Attempt, options: { passed: boolean }): Promise<void>;
+  saveAttemptToGallery(attemptId: string): Promise<void>;
   listAttempts(): Promise<Attempt[]>;
   listProgress(): Promise<LessonProgress[]>;
   readAll(): Promise<StoreContents>;
@@ -73,7 +75,7 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
@@ -104,13 +106,18 @@ function addProgressFromSavedAttempts(transaction: IDBTransaction) {
   };
 }
 
-function backfillHintFlashes(transaction: IDBTransaction, name: ObjectStoreName) {
+function fillMissingFields(
+  transaction: IDBTransaction,
+  name: ObjectStoreName,
+  defaultsFor: (record: Record<string, unknown>) => Record<string, unknown>,
+) {
   const walking = transaction.objectStore(name).openCursor();
   walking.onsuccess = () => {
     const cursor = walking.result;
     if (!cursor) return;
-    const record = cursor.value as { hintFlashes?: number };
-    if (record.hintFlashes === undefined) cursor.update({ ...record, hintFlashes: 0 });
+    const record = cursor.value as Record<string, unknown>;
+    const filled = { ...defaultsFor(record), ...record };
+    if (Object.keys(filled).length !== Object.keys(record).length) cursor.update(filled);
     cursor.continue();
   };
 }
@@ -126,9 +133,12 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
       if (hadAttempts && !hadProgress) addProgressFromSavedAttempts(request.transaction!);
-      if (event.oldVersion < 5) {
-        backfillHintFlashes(request.transaction!, ATTEMPTS);
-        backfillHintFlashes(request.transaction!, IN_PROGRESS_ATTEMPTS);
+      if (event.oldVersion < 6) {
+        fillMissingFields(request.transaction!, ATTEMPTS, (attempt) => ({
+          hintFlashes: 0,
+          inGallery: passesLesson(attempt.score as number),
+        }));
+        fillMissingFields(request.transaction!, IN_PROGRESS_ATTEMPTS, () => ({ hintFlashes: 0 }));
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -219,6 +229,17 @@ export function openStore(factory: IDBFactory | undefined): Store {
           };
         }
         return objectStore(ATTEMPTS).put(attempt);
+      });
+    },
+    async saveAttemptToGallery(attemptId) {
+      await transact('readwrite', (objectStore) => {
+        const attempts = objectStore(ATTEMPTS);
+        const reading = attempts.get(attemptId);
+        reading.onsuccess = () => {
+          const attempt = reading.result as Attempt | undefined;
+          if (attempt) attempts.put({ ...attempt, inGallery: true });
+        };
+        return reading;
       });
     },
     async listAttempts() {
