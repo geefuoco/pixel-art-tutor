@@ -2,8 +2,7 @@ import { ChevronLeft, ChevronRight, CircleCheck, Eye } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, type StepCheck } from '../core/evaluate';
-import { MODES, type Mode, type StepKind } from '../core/lesson';
-import { canPlay, type Progress } from '../core/progress';
+import type { Mode, StepKind } from '../core/lesson';
 import { LESSON_PASS_SCORE } from '../core/thresholds';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { StorageProblem } from '../persistence/store';
@@ -15,6 +14,7 @@ import { useCourse, type CourseLesson } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
 import { useCourseProgress } from './progress-store';
+import { unlockMessage } from './unlock-message';
 import { WarningBanner } from './WarningBanner';
 import { plural } from './plural';
 import { routeHref } from './router';
@@ -74,15 +74,8 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
   if (course.status === 'loading' || progress.status === 'loading') return <Loading />;
   const entry = course.lessons.find((l) => l.lesson.id === lessonId);
   if (!entry) return <Problem message={`There is no Lesson called ${lessonId}.`} />;
-  const ids = course.lessons.map((l) => l.lesson.id);
-  if (!canPlay(ids, progress.progress, lessonId, mode)) {
-    return (
-      <Problem
-        title={`${MODE_NAMES[mode]} is locked`}
-        message={lockedMessage(course.lessons, progress.progress, entry, mode)}
-      />
-    );
-  }
+  const locked = unlockMessage(course.lessons, progress.progress, lessonId, mode);
+  if (locked) return <Problem title={`${MODE_NAMES[mode]} is locked`} message={locked} />;
   if (mode !== 'trace') {
     return (
       <Problem
@@ -92,22 +85,6 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
     );
   }
   return <TraceLesson entry={entry} mode={mode} />;
-}
-
-function lockedMessage(
-  lessons: readonly CourseLesson[],
-  progress: Progress,
-  entry: CourseLesson,
-  mode: Mode,
-): string {
-  const ids = lessons.map((l) => l.lesson.id);
-  const { title } = entry.lesson;
-  if (!canPlay(ids, progress, entry.lesson.id, 'trace')) {
-    const previous = lessons[ids.indexOf(entry.lesson.id) - 1]?.lesson.title;
-    return `Pass ${previous ?? 'the Lesson before it'} in Trace to unlock ${title}.`;
-  }
-  const before = MODE_NAMES[MODES[MODES.indexOf(mode) - 1]!];
-  return `Pass ${title} in ${before} to unlock ${MODE_NAMES[mode]}.`;
 }
 
 function TraceLesson({ entry, mode }: { entry: CourseLesson; mode: Mode }) {

@@ -1,5 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
-import { isMode } from '../core/lesson';
+import { isMode, MODES, type Mode } from '../core/lesson';
 import type { LessonProgress } from '../core/progress';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
 import {
@@ -97,9 +97,9 @@ function readInProgressAttempt(value: unknown): InProgressAttempt | null {
 function readLessonProgress(value: unknown): LessonProgress | null {
   if (!isRecord(value)) return null;
   const { lessonId, passedModes } = value as Unchecked<LessonProgress>;
-  if (!isText(lessonId) || !Array.isArray(passedModes) || !passedModes.every(isMode)) return null;
-  if (new Set(passedModes).size !== passedModes.length) return null;
-  return { lessonId, passedModes: [...passedModes] };
+  if (!isText(lessonId) || !Array.isArray(passedModes)) return null;
+  const passedInOrder = passedModes.every((mode, i) => mode === MODES[i]);
+  return passedInOrder ? { lessonId, passedModes: [...(passedModes as Mode[])] } : null;
 }
 
 function readAllWithUniqueKeys<T>(

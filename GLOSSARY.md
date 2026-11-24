@@ -48,6 +48,12 @@ The Mode in which the learner draws from the Reference Sprite shown beside the c
 The faint overlay showing the exact pixels for the current Step.
 _Avoid_: Overlay, ghost
 
+**Pass**:
+An Attempt that reaches its Mode's passing score. Passing a Mode unlocks the Lesson's next Mode, and passing a Lesson's Trace unlocks the next Lesson in the Course.
+
+**Progress**:
+Which Modes the learner has passed in each Lesson. A Lesson stays unlocked once any of its Modes has been passed, even if the Course order changes.
+
 ## Feedback
 
 **Attempt**:

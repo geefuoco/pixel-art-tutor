@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { MODES } from './lesson';
-import { lessonUnlocked, modeUnlocked, recordPass, type Progress } from './progress';
+import {
+  lessonUnlocked,
+  modeUnlocked,
+  recordPass,
+  unlockRequirement,
+  type Progress,
+} from './progress';
 
 const COURSE = ['silhouette', 'outline', 'shading'];
 
@@ -64,5 +70,32 @@ describe('recording a pass', () => {
       { lessonId: 'outline', passedModes: ['trace'] },
       { lessonId: 'shading', passedModes: ['trace'] },
     ]);
+  });
+});
+
+describe('what to pass to play a Lesson in a Mode', () => {
+  it('needs nothing for an unlocked Lesson and Mode', () => {
+    expect(unlockRequirement(COURSE, [], 'silhouette', 'trace')).toBeNull();
+  });
+
+  it("needs the Lesson's previous Mode passed", () => {
+    const progress = recordPass([], 'silhouette', 'trace');
+    expect(unlockRequirement(COURSE, progress, 'silhouette', 'freehand')).toEqual({
+      lessonId: 'silhouette',
+      mode: 'hint',
+    });
+  });
+
+  it("needs the previous Lesson's Trace passed first, whatever the Mode", () => {
+    for (const mode of MODES) {
+      expect(unlockRequirement(COURSE, [], 'outline', mode)).toEqual({
+        lessonId: 'silhouette',
+        mode: 'trace',
+      });
+    }
+  });
+
+  it('refuses a Lesson that is not in the Course', () => {
+    expect(() => unlockRequirement(COURSE, [], 'elsewhere', 'trace')).toThrow(RangeError);
   });
 });

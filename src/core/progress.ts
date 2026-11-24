@@ -36,11 +36,24 @@ export function lessonUnlocked(
   return passedBefore || hasPassed(progress, course[position - 1]!, 'trace');
 }
 
-export function canPlay(
+export interface UnlockRequirement {
+  readonly lessonId: string;
+  readonly mode: Mode;
+}
+
+export function unlockRequirement(
   course: readonly string[],
   progress: Progress,
   lessonId: string,
   mode: Mode,
-): boolean {
-  return lessonUnlocked(course, progress, lessonId) && modeUnlocked(progress, lessonId, mode);
+): UnlockRequirement | null {
+  const position = course.indexOf(lessonId);
+  if (position < 0) throw new RangeError(`${lessonId} is not in the Course`);
+  if (!lessonUnlocked(course, progress, lessonId)) {
+    return { lessonId: course[position - 1]!, mode: 'trace' };
+  }
+  if (!modeUnlocked(progress, lessonId, mode)) {
+    return { lessonId, mode: MODES[MODES.indexOf(mode) - 1]! };
+  }
+  return null;
 }

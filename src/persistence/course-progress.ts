@@ -22,7 +22,7 @@ export function createCourseProgress(options: { store: Store }): CourseProgress 
   const { store } = options;
   let state: CourseProgressState = { status: 'loading' };
   let loading: Promise<void> | undefined;
-  let noted: Progress = [];
+  let passesThisVisit: Progress = [];
   const listeners = new Set<() => void>();
 
   function publish(next: CourseProgressState) {
@@ -30,8 +30,8 @@ export function createCourseProgress(options: { store: Store }): CourseProgress 
     for (const listener of listeners) listener();
   }
 
-  function withNoted(progress: Progress): Progress {
-    return noted.reduce(
+  function withPassesThisVisit(progress: Progress): Progress {
+    return passesThisVisit.reduce(
       (all, { lessonId, passedModes }) =>
         passedModes.reduce((p, mode) => recordPass(p, lessonId, mode), all),
       progress,
@@ -46,7 +46,7 @@ export function createCourseProgress(options: { store: Store }): CourseProgress 
     } catch (error) {
       problem = error instanceof StorageError ? error.problem : 'unavailable';
     }
-    publish({ status: 'ready', progress: withNoted(progress), problem });
+    publish({ status: 'ready', progress: withPassesThisVisit(progress), problem });
   }
 
   return {
@@ -60,12 +60,12 @@ export function createCourseProgress(options: { store: Store }): CourseProgress 
       return loading;
     },
     reload() {
-      noted = [];
+      passesThisVisit = [];
       loading = read();
       return loading;
     },
     notePass(lessonId, mode) {
-      noted = recordPass(noted, lessonId, mode);
+      passesThisVisit = recordPass(passesThisVisit, lessonId, mode);
       if (state.status === 'ready') {
         publish({ ...state, progress: recordPass(state.progress, lessonId, mode) });
       }

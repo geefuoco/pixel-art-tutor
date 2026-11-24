@@ -158,6 +158,7 @@ describe('backup and restore', () => {
       withProgress({ passedModes: ['trace', 'trace'] }),
       /damaged/,
     ],
+    ['progress passing Hint without Trace', withProgress({ passedModes: ['hint'] }), /damaged/],
     [
       'progress for one Lesson twice',
       JSON.stringify({ ...version4, progress: [...version4.progress, ...version4.progress] }),

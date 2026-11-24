@@ -1,25 +1,27 @@
 import { Check, Lock } from 'lucide-react';
 import { MODES, type Mode } from '../core/lesson';
-import { hasPassed, lessonUnlocked, modeUnlocked, type Progress } from '../core/progress';
+import { hasPassed, type Progress } from '../core/progress';
 import { useCourse, type CourseLesson } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
 import { useCourseProgress } from './progress-store';
 import { lessonHref } from './router';
+import { unlockMessage } from './unlock-message';
+import { WarningBanner } from './WarningBanner';
 
 function ModeLink({
   lesson,
   mode,
   progress,
-  lessonOpen,
+  locked,
 }: {
   lesson: CourseLesson['lesson'];
   mode: Mode;
   progress: Progress;
-  lessonOpen: boolean;
+  locked: boolean;
 }) {
   const name = MODE_NAMES[mode];
-  if (!lessonOpen || !modeUnlocked(progress, lesson.id, mode)) {
+  if (locked) {
     return (
       <span className="btn mode-locked">
         <Lock size={16} aria-hidden="true" />
@@ -51,6 +53,13 @@ export function Lessons() {
       <Nav current="lessons" />
       <main className="card lessons" aria-busy={loading}>
         <h1>Lessons</h1>
+        {progress.status === 'ready' && progress.problem && (
+          <WarningBanner>
+            {progress.problem === 'full'
+              ? 'browser storage is full, so the Lessons you pass may not stay unlocked.'
+              : "site data is blocked, so the Lessons you pass won't stay unlocked after you leave."}
+          </WarningBanner>
+        )}
         {course.status === 'failed' && <p role="alert">{course.message}</p>}
         {course.status === 'ready' && progress.status === 'ready' && (
           <CourseList lessons={course.lessons} progress={progress.progress} />
@@ -67,27 +76,30 @@ function CourseList({
   lessons: readonly CourseLesson[];
   progress: Progress;
 }) {
-  const ids = lessons.map((l) => l.lesson.id);
   return (
     <ol className="lesson-list">
-      {lessons.map(({ lesson, referenceUrl }, i) => {
-        const open = lessonUnlocked(ids, progress, lesson.id);
-        const previous = lessons[i - 1]?.lesson;
+      {lessons.map(({ lesson, referenceUrl }) => {
+        const lockedBy = (mode: Mode) => unlockMessage(lessons, progress, lesson.id, mode);
+        const lessonLocked = lockedBy('trace');
         return (
-          <li key={lesson.id} className={open ? undefined : 'locked'}>
+          <li key={lesson.id} className={lessonLocked ? 'locked' : undefined}>
             <img className="lesson-thumbnail" src={referenceUrl} alt="" />
             <div>
               <h2>{lesson.title}</h2>
               <p className="hint">
-                {open || !previous
-                  ? `${lesson.size}x${lesson.size}, ${lesson.palette.length} colors, ${lesson.steps.length} Steps`
-                  : `Locked. Pass ${previous.title} in Trace to unlock it.`}
+                {lessonLocked ??
+                  `${lesson.size}x${lesson.size}, ${lesson.palette.length} colors, ${lesson.steps.length} Steps`}
               </p>
             </div>
             <ul className="mode-list" aria-label={`${lesson.title} Modes`}>
               {MODES.map((mode) => (
                 <li key={mode}>
-                  <ModeLink lesson={lesson} mode={mode} progress={progress} lessonOpen={open} />
+                  <ModeLink
+                    lesson={lesson}
+                    mode={mode}
+                    progress={progress}
+                    locked={lockedBy(mode) !== null}
+                  />
                 </li>
               ))}
             </ul>
