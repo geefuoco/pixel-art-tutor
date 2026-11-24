@@ -1,6 +1,6 @@
 import { TRANSPARENT, type Drawing, type Point } from './drawing';
-import type { Lesson } from './lesson';
-import { LESSON_PASS_SCORE } from './thresholds';
+import type { Lesson, Mode } from './lesson';
+import { FREEHAND_PASS_SCORE, LESSON_PASS_SCORE } from './thresholds';
 
 export interface StepCheck {
   readonly missing: readonly Point[];
@@ -44,6 +44,10 @@ export function scoreLessonDrawing(lesson: Lesson, drawing: Drawing): number {
   return compared === 0 ? 0 : correct / compared;
 }
 
-export function passesLesson(score: number): boolean {
-  return score >= LESSON_PASS_SCORE;
+export function passScore(mode: Mode): number {
+  return mode === 'freehand' ? FREEHAND_PASS_SCORE : LESSON_PASS_SCORE;
+}
+
+export function passesMode(mode: Mode, score: number): boolean {
+  return score >= passScore(mode);
 }

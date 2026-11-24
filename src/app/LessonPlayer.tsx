@@ -6,10 +6,11 @@ import type { Mode, StepKind } from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import { LESSON_PASS_SCORE } from '../core/thresholds';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
-import type { StorageProblem } from '../persistence/store';
 import type { Control } from './controls';
 import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
+import { FreehandSession } from './FreehandSession';
+import { LESSON_STORAGE_MESSAGES } from './lesson-storage-messages';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
 import { useCourse, type CourseLesson } from './lessons-store';
 import { MistakeList } from './MistakeList';
@@ -28,12 +29,6 @@ const STEP_NAMES: Record<StepKind, string> = {
   base: 'Base colors',
   shadow: 'Shadow',
   highlight: 'Highlight',
-};
-
-const STORAGE_MESSAGES: Record<StorageProblem, string> = {
-  unavailable:
-    'this Lesson will not be saved because site data is blocked. Try non-private mode, or another browser.',
-  full: "browser storage is full, so your latest pixels and Attempts aren't saved.",
 };
 
 const GUIDE_FLASH_MS = 1500;
@@ -77,23 +72,17 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
   if (!entry) return <Problem message={`There is no Lesson called ${lessonId}.`} />;
   const locked = unlockMessage(course.lessons, progress.progress, lessonId, mode);
   if (locked) return <Problem title={`${MODE_NAMES[mode]} is locked`} message={locked} />;
-  if (mode === 'freehand') {
-    return (
-      <Problem
-        title={`${MODE_NAMES[mode]} is unlocked`}
-        message={`You have unlocked ${MODE_NAMES[mode]} for ${entry.lesson.title}, but it can't be played yet. It is coming in a later update.`}
-      />
-    );
-  }
   return <PlayedLesson entry={entry} mode={mode} />;
 }
 
 type StepMode = Exclude<Mode, 'freehand'>;
 
-function PlayedLesson({ entry, mode }: { entry: CourseLesson; mode: StepMode }) {
+function PlayedLesson({ entry, mode }: { entry: CourseLesson; mode: Mode }) {
   const handle = lessonPlayFor(entry.lesson, mode);
   const state = useLessonPlay(handle);
   if (state.status === 'loading') return <Loading />;
+  if (mode === 'freehand')
+    return <FreehandSession entry={entry} play={handle.play} state={state} />;
   return <LessonSession entry={entry} mode={mode} play={handle.play} state={state} />;
 }
 
@@ -227,7 +216,7 @@ function LessonSession({
             mistakes: freshCheck?.mistakes.flatMap((m) => m.pixels) ?? [],
           }}
         >
-          {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
+          {problem && <WarningBanner>{LESSON_STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="lesson-title">
           <p className="hint">{MODE_NAMES[mode]}</p>

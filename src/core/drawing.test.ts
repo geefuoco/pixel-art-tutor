@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSPARENT, applyCommand, createDrawing, getPixel, type Drawing } from './drawing';
+import {
+  TRANSPARENT,
+  applyCommand,
+  createDrawing,
+  enlargeCanvas,
+  getPixel,
+  type Drawing,
+} from './drawing';
+import { drawingOf, rowsOf } from './test-grids';
 
 const palette = ['#000000', '#ffffff', '#ff0000'];
 
@@ -186,5 +194,36 @@ describe('drawing document', () => {
     const d = createDrawing({ width: 4, height: 4, palette });
     expect(() => getPixel(d, 4, 0)).toThrow(RangeError);
     expect(() => getPixel(d, 0, -1)).toThrow(RangeError);
+  });
+});
+
+describe('enlarging the canvas', () => {
+  const _ = TRANSPARENT;
+
+  it('grows the canvas around the drawing, keeping it in the middle', () => {
+    const small = drawingOf([
+      [0, 1],
+      [2, _],
+    ]);
+    expect(rowsOf(enlargeCanvas(small, 4))).toEqual([
+      [_, _, _, _],
+      [_, 0, 1, _],
+      [_, 2, _, _],
+      [_, _, _, _],
+    ]);
+    expect(rowsOf(enlargeCanvas(small, 5))).toEqual([
+      [_, _, _, _, _],
+      [_, 0, 1, _, _],
+      [_, 2, _, _, _],
+      [_, _, _, _, _],
+      [_, _, _, _, _],
+    ]);
+  });
+
+  it('only grows, up to 64x64', () => {
+    const square = createDrawing({ width: 8, height: 8, palette });
+    expect(enlargeCanvas(square, 64).width).toBe(64);
+    expect(() => enlargeCanvas(square, 65)).toThrow(RangeError);
+    expect(() => enlargeCanvas(square, 4)).toThrow(RangeError);
   });
 });

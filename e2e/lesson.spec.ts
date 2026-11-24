@@ -232,3 +232,54 @@ test('keep passed Attempts, chosen Attempts and Studio drawings in the Gallery',
   await expect(studioCanvas).toBeVisible();
   await expect(page).toHaveURL(/#\/studio$/);
 });
+
+async function drawPotionOn(page: Page, size: number, offset: number) {
+  const canvas = lessonCanvas(page);
+  const box = (await canvas.boundingBox())!;
+  for (const letter of 'abcdivy') {
+    await page.getByRole('button', { name: `Color ${COLORS[letter]}` }).click();
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (RED_POTION[y]![x] !== letter) continue;
+        await page.mouse.click(
+          box.x + ((x + offset + 0.5) * box.width) / size,
+          box.y + ((y + offset + 0.5) * box.height) / size,
+        );
+      }
+    }
+  }
+}
+
+test('play Freehand from the Reference Sprite on a bigger canvas, kept in the Gallery', async ({
+  page,
+}) => {
+  for (const mode of ['trace', 'hint']) {
+    await page.goto(`#/lessons/red-potion/${mode}`);
+    await drawEveryStep(page);
+    await page.getByRole('button', { name: 'Finish Lesson' }).click();
+    await expect(page.getByRole('region', { name: 'Result' })).toContainText('Lesson passed');
+  }
+
+  await page.goto('#/lessons');
+  await page.getByRole('link', { name: 'Freehand Red potion' }).click();
+  await expect(page.getByRole('img', { name: 'Reference Sprite: Red potion' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Step/ })).toHaveCount(0);
+  await expect(lessonCanvas(page)).toHaveAccessibleName(/8 by 8/);
+
+  await page.getByLabel('Canvas size').selectOption('16');
+  await expect(lessonCanvas(page)).toHaveAccessibleName(/16 by 16/);
+  await drawPotionOn(page, 16, 7);
+
+  await page.getByRole('button', { name: 'Finish Lesson' }).click();
+  const result = page.getByRole('region', { name: 'Result' });
+  await expect(result).toContainText('Lesson passed');
+  await expect(result).toContainText('Your overall score is 100%.');
+  const subScores = result.getByRole('definition');
+  await expect(subScores).toHaveText(['100%', '100%', '100%']);
+  await expect(result).toContainText('Saved to the Gallery.');
+
+  await page.goto('#/gallery');
+  await expect(page.getByRole('article').first()).toContainText(
+    'Freehand, 100%, Shape 100%, Palette 100%, Line quality 100%',
+  );
+});

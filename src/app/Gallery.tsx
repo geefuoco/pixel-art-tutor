@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Drawing } from '../core/drawing';
-import { passesLesson } from '../core/evaluate';
+import { passesMode } from '../core/evaluate';
 import type { GalleryEntry, GalleryState } from '../persistence/gallery';
 import type { Attempt, SavedDrawing, StorageProblem } from '../persistence/store';
 import { dateTime } from './date-time';
@@ -51,8 +51,15 @@ function attemptOutcome(attempt: Attempt, { showPass }: { showPass: boolean }) {
   return [
     MODE_NAMES[attempt.mode],
     percent(attempt.score),
-    ...(showPass ? [passesLesson(attempt.score) ? 'passed' : 'not passed'] : []),
+    ...(showPass ? [passesMode(attempt.mode, attempt.score) ? 'passed' : 'not passed'] : []),
     ...(attempt.mode === 'hint' ? [`Show me used ${plural(attempt.hintFlashes, 'time')}`] : []),
+    ...(attempt.subScores
+      ? [
+          `Shape ${percent(attempt.subScores.shape)}`,
+          `Palette ${percent(attempt.subScores.palette)}`,
+          `Line quality ${percent(attempt.subScores.lineQuality)}`,
+        ]
+      : []),
   ].join(', ');
 }
 

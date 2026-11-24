@@ -1,5 +1,6 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
-import { passesLesson } from '../core/evaluate';
+import { passesMode } from '../core/evaluate';
+import type { FreehandSubScores } from '../core/freehand';
 import { isMode, MODES, type Mode } from '../core/lesson';
 import type { LessonProgress } from '../core/progress';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
@@ -13,7 +14,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 6;
+export const BACKUP_VERSION = 7;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -86,9 +87,25 @@ function readHintFlashes(value: Record<string, unknown>, counted: boolean): numb
   return isCount(value.hintFlashes) ? value.hintFlashes : null;
 }
 
-function readInGallery(value: Record<string, unknown>, score: number, recorded: boolean) {
-  if (!recorded) return passesLesson(score);
+function readInGallery(
+  value: Record<string, unknown>,
+  mode: Mode,
+  score: number,
+  recorded: boolean,
+) {
+  if (!recorded) return passesMode(mode, score);
   return typeof value.inGallery === 'boolean' ? value.inGallery : null;
+}
+
+function isShare(n: unknown): n is number {
+  return typeof n === 'number' && n >= 0 && n <= 1;
+}
+
+function readSubScores(value: unknown): FreehandSubScores | null {
+  if (!isRecord(value)) return null;
+  const { shape, palette, lineQuality } = value as Unchecked<FreehandSubScores>;
+  if (!isShare(shape) || !isShare(palette) || !isShare(lineQuality)) return null;
+  return { shape, palette, lineQuality };
 }
 
 function readAttempt(
@@ -100,9 +117,11 @@ function readAttempt(
   const checked = readDrawing(drawing);
   const hintFlashes = readHintFlashes(value, flashesCounted);
   if (!isText(id) || !isText(lessonId) || !isMode(mode) || !checked) return null;
-  if (typeof score !== 'number' || !(score >= 0 && score <= 1)) return null;
+  if (!isShare(score)) return null;
+  const subScores = value.subScores === undefined ? undefined : readSubScores(value.subScores);
+  if (subScores === null) return null;
   if (!Number.isFinite(finishedAt) || hintFlashes === null) return null;
-  const inGallery = readInGallery(value, score, inGalleryRecorded);
+  const inGallery = readInGallery(value, mode, score, inGalleryRecorded);
   if (inGallery === null) return null;
   return {
     id,
@@ -110,6 +129,7 @@ function readAttempt(
     mode,
     drawing: checked,
     score,
+    ...(subScores && { subScores }),
     hintFlashes,
     inGallery,
     finishedAt: finishedAt as number,

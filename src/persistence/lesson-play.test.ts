@@ -205,3 +205,74 @@ describe('playing a Lesson', () => {
     expect(ready(pot).result).toMatchObject({ inGallery: false });
   });
 });
+
+describe('playing a Lesson in Freehand', () => {
+  const freehand = (indexedDB: IDBFactory | undefined, now = () => 1000) =>
+    play(indexedDB, POT, now, 'freehand');
+  const drawAt = (p: LessonPlay, y: number, ...pixels: [x: number, color: number][]) => {
+    for (const [x, color] of pixels) {
+      ready(p).editor.apply({ type: 'pencil', color, points: [{ x, y }] });
+    }
+  };
+
+  it('scores a shifted copy with sub-scores, passes it, and saves it to the Gallery', async () => {
+    const indexedDB = new IDBFactory();
+    const pot = await freehand(indexedDB, () => 7000);
+    drawAt(pot, 5, [2, 0], [3, 1], [4, 1], [5, 0]);
+
+    const expected = {
+      score: 1,
+      passed: true,
+      hintFlashes: 0,
+      inGallery: true,
+      subScores: { shape: 1, palette: 1, lineQuality: 1 },
+      mistakes: [],
+    };
+    expect(await pot.finish()).toEqual(expected);
+    expect(ready(pot).result).toEqual(expected);
+    expect(await openStore(indexedDB).listAttempts()).toMatchObject([
+      {
+        lessonId: 'pot',
+        mode: 'freehand',
+        score: 1,
+        subScores: { shape: 1, palette: 1, lineQuality: 1 },
+        inGallery: true,
+        finishedAt: 7000,
+      },
+    ]);
+    expect(await openStore(indexedDB).listProgress()).toEqual([
+      { lessonId: 'pot', passedModes: ['freehand'] },
+    ]);
+  });
+
+  it('saves every finished Freehand drawing to the Gallery, even one that did not pass', async () => {
+    const indexedDB = new IDBFactory();
+    const pot = await freehand(indexedDB);
+    drawAt(pot, 5, [2, 0]);
+
+    const result = await pot.finish();
+    expect(result).toMatchObject({ passed: false, inGallery: true });
+    expect(result.mistakes).toEqual([{ kind: 'orphan-pixel', pixels: [{ x: 2, y: 5 }] }]);
+    expect(await openStore(indexedDB).listAttempts()).toMatchObject([
+      { mode: 'freehand', inGallery: true },
+    ]);
+    expect(await openStore(indexedDB).listProgress()).toEqual([]);
+  });
+
+  it('enlarges the canvas up to 64x64, autosaving it so it resumes enlarged', async () => {
+    const indexedDB = new IDBFactory();
+    const pot = await freehand(indexedDB);
+    drawAt(pot, 0, [0, 0]);
+    pot.enlargeCanvas(32);
+    drawAt(pot, 31, [31, 1]);
+    await pot.flush();
+
+    const resumed = drawingOf(await freehand(indexedDB));
+    expect([resumed.width, resumed.height]).toEqual([32, 32]);
+    expect(resumed.pixels[12 * 32 + 12]).toBe(0);
+    expect(resumed.pixels[31 * 32 + 31]).toBe(1);
+
+    await pot.startOver();
+    expect([drawingOf(pot).width, drawingOf(pot).height]).toEqual([8, 8]);
+  });
+});

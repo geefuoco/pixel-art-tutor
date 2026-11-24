@@ -157,6 +157,22 @@ describe('backup and restore', () => {
   };
   const withInGallery = (inGallery: unknown) =>
     JSON.stringify({ ...version6, attempts: [{ ...version6.attempts[0], inGallery }] });
+  const version7 = {
+    ...version6,
+    version: 7,
+    attempts: [
+      ...version6.attempts,
+      {
+        ...version6.attempts[0]!,
+        id: 'f',
+        mode: 'freehand',
+        score: 0.8,
+        subScores: { shape: 0.9, palette: 0.6, lineQuality: 0.9 },
+      },
+    ],
+  };
+  const withSubScores = (subScores: unknown) =>
+    JSON.stringify({ ...version7, attempts: [{ ...version7.attempts[1], subScores }] });
   const thirtyThree = Array.from(
     { length: 33 },
     (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
@@ -165,7 +181,13 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 7 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 8 }), /newer version/],
+    [
+      'an Attempt with a sub-score above 100%',
+      withSubScores({ shape: 1.5, palette: 1, lineQuality: 1 }),
+      /damaged/,
+    ],
+    ['an Attempt missing a sub-score', withSubScores({ shape: 1, palette: 1 }), /damaged/],
     ['an Attempt not saying whether it is in the Gallery', withInGallery(undefined), /damaged/],
     ['an Attempt in the Gallery as a string', withInGallery('yes'), /damaged/],
     ['progress in an unknown Mode', withProgress({ passedModes: ['speedrun'] }), /damaged/],
@@ -278,6 +300,16 @@ describe('backup and restore', () => {
     expect(await studio.restore(JSON.stringify(version6))).toMatchObject({ ok: true });
     expect(await store.listAttempts()).toEqual(version6.attempts);
     expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(version6.inProgressAttempts[0]);
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores Freehand Attempts with their sub-scores', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version7))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual(expect.arrayContaining(version7.attempts));
 
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());

@@ -1,6 +1,7 @@
 import type { Drawing } from '../core/drawing';
+import type { FreehandSubScores } from '../core/freehand';
 import type { Mode } from '../core/lesson';
-import { passesLesson } from '../core/evaluate';
+import { passesMode } from '../core/evaluate';
 import type { CustomPalette } from '../core/palettes';
 import { recordPass, type LessonProgress, type Progress } from '../core/progress';
 
@@ -24,6 +25,7 @@ export interface Attempt {
   readonly mode: Mode;
   readonly drawing: Drawing;
   readonly score: number;
+  readonly subScores?: FreehandSubScores;
   readonly hintFlashes: number;
   readonly inGallery: boolean;
   readonly finishedAt: number;
@@ -94,7 +96,7 @@ type ObjectStoreName = (typeof OBJECT_STORES)[number];
 
 export function progressFromAttempts(attempts: readonly Attempt[]): Progress {
   return attempts
-    .filter((attempt) => passesLesson(attempt.score))
+    .filter((attempt) => passesMode(attempt.mode, attempt.score))
     .reduce<Progress>((progress, a) => recordPass(progress, a.lessonId, a.mode), []);
 }
 
@@ -136,7 +138,7 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       if (event.oldVersion < 6) {
         fillMissingFields(request.transaction!, ATTEMPTS, (attempt) => ({
           hintFlashes: 0,
-          inGallery: passesLesson(attempt.score as number),
+          inGallery: passesMode(attempt.mode as Mode, attempt.score as number),
         }));
         fillMissingFields(request.transaction!, IN_PROGRESS_ATTEMPTS, () => ({ hintFlashes: 0 }));
       }

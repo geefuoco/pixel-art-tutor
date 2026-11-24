@@ -29,6 +29,21 @@ export function createDrawing(options: {
   return { width, height, palette, pixels: new Array<number>(width * height).fill(TRANSPARENT) };
 }
 
+export function enlargeCanvas(drawing: Drawing, size: number): Drawing {
+  if (!isValidSize(size) || size < drawing.width || size < drawing.height) {
+    throw new RangeError(
+      `A ${drawing.width}x${drawing.height} canvas can only grow, up to ${MAX_DRAWING_SIZE}x${MAX_DRAWING_SIZE}, not to ${size}x${size}`,
+    );
+  }
+  const left = Math.floor((size - drawing.width) / 2);
+  const top = Math.floor((size - drawing.height) / 2);
+  const pixels = new Array<number>(size * size).fill(TRANSPARENT);
+  drawing.pixels.forEach((p, i) => {
+    pixels[(top + Math.floor(i / drawing.width)) * size + left + (i % drawing.width)] = p;
+  });
+  return { ...drawing, width: size, height: size, pixels };
+}
+
 function inBounds(drawing: Drawing, x: number, y: number): boolean {
   return (
     Number.isInteger(x) &&
