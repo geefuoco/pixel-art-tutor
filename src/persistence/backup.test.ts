@@ -135,6 +135,13 @@ describe('backup and restore', () => {
   };
   const withAttempt = (attempt: object) =>
     JSON.stringify({ ...version3, attempts: [{ ...version3.attempts[0], ...attempt }] });
+  const version4 = {
+    ...version3,
+    version: 4,
+    progress: [{ lessonId: 'pot', passedModes: ['trace', 'hint'] }],
+  };
+  const withProgress = (progress: object) =>
+    JSON.stringify({ ...version4, progress: [{ ...version4.progress[0], ...progress }] });
   const thirtyThree = Array.from(
     { length: 33 },
     (_, i) => `#0000${i.toString(16).padStart(2, '0')}`,
@@ -143,7 +150,20 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 4 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 5 }), /newer version/],
+    ['progress in an unknown Mode', withProgress({ passedModes: ['speedrun'] }), /damaged/],
+    ['progress with no Lesson', withProgress({ lessonId: '' }), /damaged/],
+    [
+      'progress with a Mode passed twice',
+      withProgress({ passedModes: ['trace', 'trace'] }),
+      /damaged/,
+    ],
+    ['progress passing Hint without Trace', withProgress({ passedModes: ['hint'] }), /damaged/],
+    [
+      'progress for one Lesson twice',
+      JSON.stringify({ ...version4, progress: [...version4.progress, ...version4.progress] }),
+      /damaged/,
+    ],
     ['an Attempt in an unknown Mode', withAttempt({ mode: 'speedrun' }), /damaged/],
     ['an Attempt scored over 100%', withAttempt({ score: 1.5 }), /damaged/],
     ['an Attempt with no Lesson', withAttempt({ lessonId: '' }), /damaged/],
@@ -236,6 +256,28 @@ describe('backup and restore', () => {
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
     expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores progress along with the rest, replacing the progress there was', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    await store.saveAttempt(
+      { ...version3.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
+      { passed: true },
+    );
+    expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
+    expect(await store.listProgress()).toEqual(version4.progress);
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.listProgress()).toEqual(version4.progress);
+  });
+
+  it('works out the progress of a version 3 backup, made before progress was kept, from its passing Attempts', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    const passing = { ...version3.attempts[0]!, id: 'p', lessonId: 'jar', score: 0.95 };
+    const file = { ...version3, attempts: [...version3.attempts, passing] };
+    expect(await studio.restore(JSON.stringify(file))).toMatchObject({ ok: true });
+    expect(await store.listProgress()).toEqual([{ lessonId: 'jar', passedModes: ['trace'] }]);
   });
 
   it('restores a version 2 backup, made before Attempts, as having none', async () => {

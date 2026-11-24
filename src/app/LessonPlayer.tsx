@@ -11,7 +11,10 @@ import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
 import { useCourse, type CourseLesson } from './lessons-store';
+import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
+import { useCourseProgress } from './progress-store';
+import { unlockMessage } from './unlock-message';
 import { WarningBanner } from './WarningBanner';
 import { plural } from './plural';
 import { routeHref } from './router';
@@ -43,12 +46,18 @@ function Loading() {
   );
 }
 
-function Problem({ message }: { message: string }) {
+function Problem({
+  message,
+  title = "This Lesson can't be played",
+}: {
+  message: string;
+  title?: string;
+}) {
   return (
     <div className="page">
       <Nav current="lessons" />
       <main className="card message-card">
-        <h1>This Lesson can't be played</h1>
+        <h1>{title}</h1>
         <p role="alert">{message}</p>
         <a className="btn primary" href={routeHref.lessons}>
           Back to Lessons
@@ -60,10 +69,21 @@ function Problem({ message }: { message: string }) {
 
 export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode }) {
   const course = useCourse();
-  if (course.status === 'loading') return <Loading />;
+  const progress = useCourseProgress();
   if (course.status === 'failed') return <Problem message={course.message} />;
+  if (course.status === 'loading' || progress.status === 'loading') return <Loading />;
   const entry = course.lessons.find((l) => l.lesson.id === lessonId);
   if (!entry) return <Problem message={`There is no Lesson called ${lessonId}.`} />;
+  const locked = unlockMessage(course.lessons, progress.progress, lessonId, mode);
+  if (locked) return <Problem title={`${MODE_NAMES[mode]} is locked`} message={locked} />;
+  if (mode !== 'trace') {
+    return (
+      <Problem
+        title={`${MODE_NAMES[mode]} is unlocked`}
+        message={`You have unlocked ${MODE_NAMES[mode]} for ${entry.lesson.title}, but it can't be played yet. It is coming in a later update.`}
+      />
+    );
+  }
   return <TraceLesson entry={entry} mode={mode} />;
 }
 

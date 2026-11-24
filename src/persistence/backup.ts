@@ -1,10 +1,18 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
-import { isMode } from '../core/lesson';
+import { isMode, MODES, type Mode } from '../core/lesson';
+import type { LessonProgress } from '../core/progress';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
-import type { Attempt, InProgressAttempt, SavedDrawing, Store, StoreContents } from './store';
+import {
+  progressFromAttempts,
+  type Attempt,
+  type InProgressAttempt,
+  type SavedDrawing,
+  type Store,
+  type StoreContents,
+} from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -86,6 +94,14 @@ function readInProgressAttempt(value: unknown): InProgressAttempt | null {
   return { lessonId, mode, drawing: checked, updatedAt: updatedAt as number };
 }
 
+function readLessonProgress(value: unknown): LessonProgress | null {
+  if (!isRecord(value)) return null;
+  const { lessonId, passedModes } = value as Unchecked<LessonProgress>;
+  if (!isText(lessonId) || !Array.isArray(passedModes)) return null;
+  const passedInOrder = passedModes.every((mode, i) => mode === MODES[i]);
+  return passedInOrder ? { lessonId, passedModes: [...(passedModes as Mode[])] } : null;
+}
+
 function readAllWithUniqueKeys<T>(
   values: unknown,
   read: (value: unknown) => T | null,
@@ -115,7 +131,7 @@ export function readBackup(text: string): BackupReading {
     };
   }
   const { version } = file;
-  if (version !== 1 && version !== 2 && version !== BACKUP_VERSION) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== BACKUP_VERSION) {
     return { ok: false, message: DAMAGED };
   }
   const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);
@@ -130,8 +146,15 @@ export function readBackup(text: string): BackupReading {
         (a) => `${a.lessonId}\n${a.mode}`,
       )
     : [];
-  if (!studioDrawings || !customPalettes || !attempts || !inProgressAttempts) {
+  const progress =
+    version === BACKUP_VERSION
+      ? readAllWithUniqueKeys(file.progress, readLessonProgress, (p) => p.lessonId)
+      : attempts && progressFromAttempts(attempts);
+  if (!studioDrawings || !customPalettes || !attempts || !inProgressAttempts || !progress) {
     return { ok: false, message: DAMAGED };
   }
-  return { ok: true, contents: { studioDrawings, customPalettes, attempts, inProgressAttempts } };
+  return {
+    ok: true,
+    contents: { studioDrawings, customPalettes, attempts, inProgressAttempts, progress },
+  };
 }

@@ -106,4 +106,25 @@ test('complete a Trace Lesson step by step, resuming after a reload', async ({ p
   await page.reload();
   await expect(lessonCanvas(page)).toBeVisible();
   await expect.poll(() => pixelColor(lessonCanvas(page), 3, 3)).not.toBe(COLORS.v);
+
+  await page.goto('#/lessons');
+  await page.reload();
+  const modes = page.getByRole('list', { name: 'Red potion Modes' });
+  await expect(modes.getByRole('link', { name: 'Trace Red potion, passed' })).toBeVisible();
+  await expect(modes.getByRole('link', { name: 'Hint Red potion' })).toBeVisible();
+  await expect(modes.getByRole('link')).toHaveCount(2);
+  await expect(modes).toContainText('Freehand locked');
+});
+
+test('Hint and Freehand stay locked until the Mode before them is passed', async ({ page }) => {
+  await page.goto('#/lessons');
+  const modes = page.getByRole('list', { name: 'Red potion Modes' });
+  await expect(modes.getByRole('link')).toHaveText(['Trace Red potion']);
+  await expect(modes).toContainText('Hint locked');
+  await expect(modes).toContainText('Freehand locked');
+
+  await page.goto('#/lessons/red-potion/hint');
+  await expect(page.getByRole('heading', { name: 'Hint is locked' })).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Pass Red potion in Trace to unlock Hint.');
+  await expect(lessonCanvas(page)).toBeHidden();
 });

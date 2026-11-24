@@ -1,6 +1,7 @@
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDrawing, TRANSPARENT } from '../core/drawing';
+import type { Mode } from '../core/lesson';
 import { openStore, StorageError } from './store';
 
 const PALETTE = ['#000000', '#ff0000'];
@@ -96,5 +97,56 @@ describe('store: custom palettes', () => {
     expect(await store.listCustomPalettes()).toEqual([]);
     await store.putCustomPalette({ id: 'p', name: 'New', colors: ['#000000'] });
     expect(await store.listCustomPalettes()).toHaveLength(1);
+  });
+});
+
+describe('store: progress', () => {
+  const drawing = createDrawing({ width: 1, height: 1, palette: PALETTE });
+  const attempt = (id: string, lessonId: string, mode: Mode, score: number) => ({
+    id,
+    lessonId,
+    mode,
+    drawing,
+    score,
+    finishedAt: 1,
+  });
+
+  it('records a pass with the passing Attempt, once per Lesson and Mode', async () => {
+    const indexedDB = new IDBFactory();
+    const store = openStore(indexedDB);
+    await store.saveAttempt(attempt('1', 'pot', 'trace', 1), { passed: true });
+    await store.saveAttempt(attempt('2', 'pot', 'trace', 0.96), { passed: true });
+    await store.saveAttempt(attempt('3', 'pot', 'hint', 0.2), { passed: false });
+    await store.saveAttempt(attempt('4', 'jar', 'trace', 0.5), { passed: false });
+
+    expect(await openStore(indexedDB).listProgress()).toEqual([
+      { lessonId: 'pot', passedModes: ['trace'] },
+    ]);
+  });
+
+  it('works out progress from the passing Attempts saved before progress was kept', async () => {
+    const indexedDB = new IDBFactory();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 3);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        db.createObjectStore('studio-drawings', { keyPath: 'id' });
+        db.createObjectStore('custom-palettes', { keyPath: 'id' });
+        db.createObjectStore('in-progress-attempts', { keyPath: ['lessonId', 'mode'] });
+        const attempts = db.createObjectStore('attempts', { keyPath: 'id' });
+        attempts.put(attempt('1', 'pot', 'trace', 0.95));
+        attempts.put(attempt('2', 'jar', 'trace', 0.94));
+        attempts.put(attempt('3', 'pot', 'trace', 1));
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const store = openStore(indexedDB);
+    expect(await store.listProgress()).toEqual([{ lessonId: 'pot', passedModes: ['trace'] }]);
+    expect(await store.listAttempts()).toHaveLength(3);
   });
 });

@@ -1,6 +1,8 @@
 import type { Drawing } from '../core/drawing';
 import type { Mode } from '../core/lesson';
+import { passesLesson } from '../core/evaluate';
 import type { CustomPalette } from '../core/palettes';
+import { recordPass, type LessonProgress, type Progress } from '../core/progress';
 
 export interface SavedDrawing {
   readonly id: string;
@@ -29,6 +31,7 @@ export interface StoreContents {
   readonly customPalettes: readonly CustomPalette[];
   readonly attempts: readonly Attempt[];
   readonly inProgressAttempts: readonly InProgressAttempt[];
+  readonly progress: Progress;
 }
 
 export interface Store {
@@ -40,8 +43,9 @@ export interface Store {
   getInProgressAttempt(lessonId: string, mode: Mode): Promise<InProgressAttempt | undefined>;
   putInProgressAttempt(attempt: InProgressAttempt): Promise<void>;
   deleteInProgressAttempt(lessonId: string, mode: Mode): Promise<void>;
-  saveAttempt(attempt: Attempt, options: { clearInProgress: boolean }): Promise<void>;
+  saveAttempt(attempt: Attempt, options: { passed: boolean }): Promise<void>;
   listAttempts(): Promise<Attempt[]>;
+  listProgress(): Promise<LessonProgress[]>;
   readAll(): Promise<StoreContents>;
   replaceAll(contents: StoreContents): Promise<void>;
 }
@@ -67,29 +71,48 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
 const IN_PROGRESS_ATTEMPTS = 'in-progress-attempts';
+const PROGRESS = 'progress';
 const KEY_PATHS: Record<string, string | string[]> = {
   [STUDIO_DRAWINGS]: 'id',
   [CUSTOM_PALETTES]: 'id',
   [ATTEMPTS]: 'id',
   [IN_PROGRESS_ATTEMPTS]: ['lessonId', 'mode'],
+  [PROGRESS]: 'lessonId',
 };
 const OBJECT_STORES = Object.keys(KEY_PATHS);
 
 type ObjectStoreName = (typeof OBJECT_STORES)[number];
+
+export function progressFromAttempts(attempts: readonly Attempt[]): Progress {
+  return attempts
+    .filter((attempt) => passesLesson(attempt.score))
+    .reduce<Progress>((progress, a) => recordPass(progress, a.lessonId, a.mode), []);
+}
+
+function addProgressFromSavedAttempts(transaction: IDBTransaction) {
+  const reading = transaction.objectStore(ATTEMPTS).getAll();
+  reading.onsuccess = () => {
+    const progress = transaction.objectStore(PROGRESS);
+    for (const entry of progressFromAttempts(reading.result as Attempt[])) progress.put(entry);
+  };
+}
 
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
+      const hadAttempts = db.objectStoreNames.contains(ATTEMPTS);
+      const hadProgress = db.objectStoreNames.contains(PROGRESS);
       for (const [name, keyPath] of Object.entries(KEY_PATHS)) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
+      if (hadAttempts && !hadProgress) addProgressFromSavedAttempts(request.transaction!);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -166,10 +189,17 @@ export function openStore(factory: IDBFactory | undefined): Store {
         objectStore(IN_PROGRESS_ATTEMPTS).delete([lessonId, mode]),
       );
     },
-    async saveAttempt(attempt, { clearInProgress }) {
+    async saveAttempt(attempt, { passed }) {
       await transact('readwrite', (objectStore) => {
-        if (clearInProgress) {
+        if (passed) {
           objectStore(IN_PROGRESS_ATTEMPTS).delete([attempt.lessonId, attempt.mode]);
+          const progress = objectStore(PROGRESS);
+          const reading = progress.get(attempt.lessonId);
+          reading.onsuccess = () => {
+            const before = reading.result as LessonProgress | undefined;
+            const [after] = recordPass(before ? [before] : [], attempt.lessonId, attempt.mode);
+            progress.put(after);
+          };
         }
         return objectStore(ATTEMPTS).put(attempt);
       });
@@ -180,16 +210,23 @@ export function openStore(factory: IDBFactory | undefined): Store {
       );
       return all.sort((a, b) => b.finishedAt - a.finishedAt);
     },
+    async listProgress() {
+      return transact<LessonProgress[]>('readonly', (objectStore) =>
+        objectStore(PROGRESS).getAll(),
+      );
+    },
     async readAll() {
-      const [studioDrawings, customPalettes, attempts, inProgressAttempts] = await Promise.all([
-        this.listStudioDrawings(),
-        this.listCustomPalettes(),
-        this.listAttempts(),
-        transact<InProgressAttempt[]>('readonly', (objectStore) =>
-          objectStore(IN_PROGRESS_ATTEMPTS).getAll(),
-        ),
-      ]);
-      return { studioDrawings, customPalettes, attempts, inProgressAttempts };
+      const [studioDrawings, customPalettes, attempts, inProgressAttempts, progress] =
+        await Promise.all([
+          this.listStudioDrawings(),
+          this.listCustomPalettes(),
+          this.listAttempts(),
+          transact<InProgressAttempt[]>('readonly', (objectStore) =>
+            objectStore(IN_PROGRESS_ATTEMPTS).getAll(),
+          ),
+          this.listProgress(),
+        ]);
+      return { studioDrawings, customPalettes, attempts, inProgressAttempts, progress };
     },
     async replaceAll(contents) {
       await transact('readwrite', (objectStore) => {
@@ -201,6 +238,8 @@ export function openStore(factory: IDBFactory | undefined): Store {
         for (const attempt of contents.inProgressAttempts) {
           objectStore(IN_PROGRESS_ATTEMPTS).put(attempt);
         }
+        objectStore(PROGRESS).clear();
+        for (const entry of contents.progress) objectStore(PROGRESS).put(entry);
         const cleared = objectStore(STUDIO_DRAWINGS).clear();
         for (const entry of contents.studioDrawings) objectStore(STUDIO_DRAWINGS).put(entry);
         return cleared;

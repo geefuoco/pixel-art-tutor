@@ -6,7 +6,7 @@ export type Role = (typeof ROLES)[number];
 export const STEP_KINDS = ['silhouette', ...ROLES] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 
-export const MODES = ['trace'] as const;
+export const MODES = ['trace', 'hint', 'freehand'] as const;
 export type Mode = (typeof MODES)[number];
 
 export function isMode(value: unknown): value is Mode {

@@ -2,6 +2,7 @@ import { createDrawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
 import { passesLesson, scoreLessonDrawing } from '../core/evaluate';
 import type { Lesson, Mode } from '../core/lesson';
+import type { CourseProgress } from './course-progress';
 import { StorageError, type Store, type StorageProblem } from './store';
 
 export interface AttemptResult {
@@ -36,9 +37,10 @@ export function createLessonPlay(options: {
   store: Store;
   lesson: Lesson;
   mode: Mode;
+  progress: Pick<CourseProgress, 'notePass'>;
   now?: () => number;
 }): LessonPlay {
-  const { store, lesson, mode, now = Date.now } = options;
+  const { store, lesson, mode, progress, now = Date.now } = options;
   let state: LessonPlayState = { status: 'loading' };
   let loading: Promise<void> | undefined;
   let stopAutosave = () => {};
@@ -125,9 +127,10 @@ export function createLessonPlay(options: {
             score,
             finishedAt: now(),
           },
-          { clearInProgress: result.passed },
+          { passed: result.passed },
         ),
       );
+      if (result.passed) progress.notePass(lesson.id, mode);
       update({ result });
       return result;
     },

@@ -7,6 +7,7 @@ import { plural } from './plural';
 import { Palettes } from './Palettes';
 import { routeHref } from './router';
 import { forgetLessonPlays } from './lesson-plays';
+import { courseProgress } from './progress-store';
 import { studio } from './studio-store';
 
 type Notice = { readonly kind: 'error' | 'done'; readonly text: string };
@@ -79,7 +80,10 @@ export function Settings() {
   async function restoreChosen(backup: ChosenBackup) {
     setBusy(true);
     const result = await studio.restore(backup.text);
-    if (result.ok) forgetLessonPlays();
+    if (result.ok) {
+      forgetLessonPlays();
+      await courseProgress.reload();
+    }
     setBusy(false);
     setChosen(null);
     setNotice(
