@@ -2,7 +2,8 @@ import { ChevronLeft, ChevronRight, CircleCheck, Eye } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, type StepCheck } from '../core/evaluate';
-import type { Mode, StepKind } from '../core/lesson';
+import { MODES, type Mode, type StepKind } from '../core/lesson';
+import { canPlay, type Progress } from '../core/progress';
 import { LESSON_PASS_SCORE } from '../core/thresholds';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { StorageProblem } from '../persistence/store';
@@ -11,7 +12,9 @@ import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
 import { useCourse, type CourseLesson } from './lessons-store';
+import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
+import { useCourseProgress } from './progress-store';
 import { WarningBanner } from './WarningBanner';
 import { plural } from './plural';
 import { routeHref } from './router';
@@ -43,12 +46,18 @@ function Loading() {
   );
 }
 
-function Problem({ message }: { message: string }) {
+function Problem({
+  message,
+  title = "This Lesson can't be played",
+}: {
+  message: string;
+  title?: string;
+}) {
   return (
     <div className="page">
       <Nav current="lessons" />
       <main className="card message-card">
-        <h1>This Lesson can't be played</h1>
+        <h1>{title}</h1>
         <p role="alert">{message}</p>
         <a className="btn primary" href={routeHref.lessons}>
           Back to Lessons
@@ -60,11 +69,45 @@ function Problem({ message }: { message: string }) {
 
 export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode }) {
   const course = useCourse();
-  if (course.status === 'loading') return <Loading />;
+  const progress = useCourseProgress();
   if (course.status === 'failed') return <Problem message={course.message} />;
+  if (course.status === 'loading' || progress.status === 'loading') return <Loading />;
   const entry = course.lessons.find((l) => l.lesson.id === lessonId);
   if (!entry) return <Problem message={`There is no Lesson called ${lessonId}.`} />;
+  const ids = course.lessons.map((l) => l.lesson.id);
+  if (!canPlay(ids, progress.progress, lessonId, mode)) {
+    return (
+      <Problem
+        title={`${MODE_NAMES[mode]} is locked`}
+        message={lockedMessage(course.lessons, progress.progress, entry, mode)}
+      />
+    );
+  }
+  if (mode !== 'trace') {
+    return (
+      <Problem
+        title={`${MODE_NAMES[mode]} is unlocked`}
+        message={`You have unlocked ${MODE_NAMES[mode]} for ${entry.lesson.title}, but it can't be played yet. It is coming in a later update.`}
+      />
+    );
+  }
   return <TraceLesson entry={entry} mode={mode} />;
+}
+
+function lockedMessage(
+  lessons: readonly CourseLesson[],
+  progress: Progress,
+  entry: CourseLesson,
+  mode: Mode,
+): string {
+  const ids = lessons.map((l) => l.lesson.id);
+  const { title } = entry.lesson;
+  if (!canPlay(ids, progress, entry.lesson.id, 'trace')) {
+    const previous = lessons[ids.indexOf(entry.lesson.id) - 1]?.lesson.title;
+    return `Pass ${previous ?? 'the Lesson before it'} in Trace to unlock ${title}.`;
+  }
+  const before = MODE_NAMES[MODES[MODES.indexOf(mode) - 1]!];
+  return `Pass ${title} in ${before} to unlock ${MODE_NAMES[mode]}.`;
 }
 
 function TraceLesson({ entry, mode }: { entry: CourseLesson; mode: Mode }) {

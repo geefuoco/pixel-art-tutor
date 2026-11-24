@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { TRANSPARENT as _, type Drawing } from '../core/drawing';
 import { createLesson, type Lesson } from '../core/lesson';
 import { spriteOf } from '../core/test-grids';
+import { createCourseProgress } from './course-progress';
 import { createLessonPlay, type LessonPlay } from './lesson-play';
 import { openStore } from './store';
 
@@ -34,7 +35,9 @@ function lessonOf(id: string): Lesson {
 const POT = lessonOf('pot');
 
 async function play(indexedDB: IDBFactory | undefined, lesson = POT, now = () => 1000) {
-  const p = createLessonPlay({ store: openStore(indexedDB), lesson, mode: 'trace', now });
+  const store = openStore(indexedDB);
+  const progress = createCourseProgress({ store });
+  const p = createLessonPlay({ store, lesson, mode: 'trace', progress, now });
   await p.load();
   return p;
 }

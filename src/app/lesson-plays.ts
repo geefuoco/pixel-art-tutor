@@ -6,6 +6,7 @@ import {
   type LessonPlayState,
 } from '../persistence/lesson-play';
 import { browserStore } from './browser-store';
+import { courseProgress } from './progress-store';
 
 export interface PlayHandle {
   readonly play: LessonPlay;
@@ -18,7 +19,7 @@ export function lessonPlayFor(lesson: Lesson, mode: Mode): PlayHandle {
   const key = `${lesson.id}/${mode}`;
   let handle = plays.get(key);
   if (!handle) {
-    const play = createLessonPlay({ store: browserStore, lesson, mode });
+    const play = createLessonPlay({ store: browserStore, lesson, mode, progress: courseProgress });
     handle = {
       play,
       subscribe(listener) {
