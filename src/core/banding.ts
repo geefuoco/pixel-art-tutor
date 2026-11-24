@@ -1,25 +1,32 @@
 import type { Drawing, Point } from './drawing';
 import { inReadingOrder } from './pixel-grid';
-import { axes, type Axis, type Run, type Staircase } from './staircases';
+import { axes, runLength, type Axis, type Run, type Staircase } from './staircases';
 import { BANDING_MIN_ALIGNED_RUNS } from './thresholds';
 
-function alignedBand(run: Run, side: 1 | -1, { runAt }: Axis): Run | undefined {
+type NeighbouringLine = 1 | -1;
+
+type AlignedPair = readonly [line: Run, band: Run];
+
+function alignedBand(run: Run, side: NeighbouringLine, { runAt }: Axis): Run | undefined {
   const band = runAt(run.y + side, run.from, run.to);
   return band && band.color !== run.color ? band : undefined;
 }
 
-function bandedRuns(staircase: Staircase, axis: Axis, side: 1 | -1): Point[] {
+function isBanding(pairs: readonly AlignedPair[]): boolean {
+  const stepsWiderThanAPixel = pairs.some(([line]) => runLength(line) > 1);
+  return pairs.length >= BANDING_MIN_ALIGNED_RUNS && stepsWiderThanAPixel;
+}
+
+function bandedRuns(staircase: Staircase, axis: Axis, side: NeighbouringLine): Point[] {
   const flagged: Point[] = [];
-  let stretch: (readonly [Run, Run])[] = [];
+  let pairs: AlignedPair[] = [];
   const endStretch = () => {
-    if (stretch.length >= BANDING_MIN_ALIGNED_RUNS) {
-      flagged.push(...stretch.flat().flatMap(axis.pixelsOf));
-    }
-    stretch = [];
+    if (isBanding(pairs)) flagged.push(...pairs.flat().flatMap(axis.pixelsOf));
+    pairs = [];
   };
   for (const run of staircase) {
     const band = alignedBand(run, side, axis);
-    if (band) stretch.push([run, band]);
+    if (band) pairs.push([run, band]);
     else endStretch();
   }
   endStretch();

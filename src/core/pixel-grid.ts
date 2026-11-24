@@ -1,10 +1,33 @@
-import type { Drawing, Point } from './drawing';
+import { TRANSPARENT, type Drawing, type Point } from './drawing';
+
+export type Offset = readonly [dx: number, dy: number];
+
+export const SIDES: readonly Offset[] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+export const DIAGONALS: readonly Offset[] = [
+  [1, 1],
+  [-1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+export const NEIGHBOURS = [...SIDES, ...DIAGONALS];
 
 export const OFF_CANVAS = undefined;
 
 export function colorAt(drawing: Drawing, x: number, y: number): number | typeof OFF_CANVAS {
   if (x < 0 || y < 0 || x >= drawing.width || y >= drawing.height) return OFF_CANVAS;
   return drawing.pixels[y * drawing.width + x];
+}
+
+export function isOpaque(drawing: Drawing, x: number, y: number): boolean {
+  const color = colorAt(drawing, x, y);
+  return color !== OFF_CANVAS && color !== TRANSPARENT;
 }
 
 export function transposed(drawing: Drawing): Drawing {

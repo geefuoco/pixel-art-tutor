@@ -2,8 +2,8 @@ import { bandedPixels } from './banding';
 import { deltaE } from './color';
 import { TRANSPARENT, type Drawing, type Point } from './drawing';
 import { jaggedPixels } from './jaggies';
-import { pillowShading } from './pillow-shading';
-import { colorAt, OFF_CANVAS } from './pixel-grid';
+import { pillowShadedPixels } from './pillow-shading';
+import { colorAt, DIAGONALS, NEIGHBOURS, OFF_CANVAS, SIDES } from './pixel-grid';
 import { LOW_CONTRAST_DELTA_E } from './thresholds';
 
 export type MistakeKind =
@@ -23,24 +23,6 @@ export interface Mistake {
 interface ColoredPixel extends Point {
   readonly color: number;
 }
-
-type Offset = readonly [dx: number, dy: number];
-
-const SIDES: readonly Offset[] = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
-
-const DIAGONALS: readonly Offset[] = [
-  [1, 1],
-  [-1, 1],
-  [1, -1],
-  [-1, -1],
-];
-
-const NEIGHBOURS = [...SIDES, ...DIAGONALS];
 
 function* opaquePixels(drawing: Drawing): Generator<ColoredPixel> {
   for (let y = 0; y < drawing.height; y++) {
@@ -112,7 +94,7 @@ export function findMistakes(drawing: Drawing, options: { colorBudget?: number }
   add('jaggies', jaggedPixels(drawing));
   add('doubles', pixelsWhere(drawing, isDouble));
   add('banding', bandedPixels(drawing));
-  add('pillow-shading', pillowShading(drawing));
+  add('pillow-shading', pillowShadedPixels(drawing));
   add('too-many-colors', overBudgetPixels(drawing, options.colorBudget));
   add('low-contrast', pixelsWhere(drawing, hasLowContrastEdge));
   return found;

@@ -62,8 +62,8 @@ describe('jaggies', () => {
     ]);
   });
 
-  it('flags a run that sticks out of a steep line, and a flat bump in a diagonal', () => {
-    const steep = sprite([
+  it('flags a run that sticks out of a steep line', () => {
+    const drawing = sprite([
       'O....',
       'O....',
       '.O...',
@@ -75,14 +75,17 @@ describe('jaggies', () => {
       '...O.',
       '....O',
     ]);
-    expect(findMistakes(steep)).toEqual([
+    expect(findMistakes(drawing)).toEqual([
       {
         kind: 'jaggies',
         pixels: pointsOf(['.....', '.....', '.....', '.....', '..x..', '..x..', '..x..']),
       },
     ]);
-    const bump = sprite(['O.......', '.O......', '..OO....', '....O...', '.....O..']);
-    expect(findMistakes(bump)).toEqual([
+  });
+
+  it('flags a flat bump in a diagonal line', () => {
+    const drawing = sprite(['O.......', '.O......', '..OO....', '....O...', '.....O..']);
+    expect(findMistakes(drawing)).toEqual([
       { kind: 'jaggies', pixels: pointsOf(['........', '........', '..xx....']) },
     ]);
   });
@@ -134,19 +137,16 @@ describe('banding', () => {
     ]);
   });
 
-  it('does not flag bands whose steps are offset, short bands, or an outline around a fill', () => {
-    const offset = sprite([
-      'OOO.........',
-      'SSSOOO......',
-      '..SSSSOOO...',
-      '.....SSSSOOO',
-      '........SSSS',
-    ]);
-    const short = sprite(['OOO...', 'SSSOOO', '...SSS']);
-    const filled = sprite(['...OOO...', '.OO.BB.OO', 'O.BBBBBB.', 'OBBBBBBBO', '.OOOOOOO.']);
-    for (const drawing of [offset, short, filled]) {
-      expect(findMistakes(drawing).map((m) => m.kind)).not.toContain('banding');
-    }
+  it.each([
+    [
+      'steps offset by a pixel',
+      ['OOO.........', 'SSSOOO......', '..SSSSOOO...', '.....SSSSOOO', '........SSSS'],
+    ],
+    ['a band only two steps long', ['OOO...', 'SSSOOO', '...SSS']],
+    ['an outline around a fill', ['...OOO...', '.OO.BB.OO', 'O.BBBBBB.', 'OBBBBBBBO', '.OOOOOOO.']],
+    ['checkerboard dithering', ['OSOSOSOS', 'SOSOSOSO', 'OSOSOSOS', 'SOSOSOSO', 'OSOSOSOS']],
+  ])('does not flag %s', (_, rows) => {
+    expect(findMistakes(sprite(rows)).map((m) => m.kind)).not.toContain('banding');
   });
 });
 
@@ -181,34 +181,54 @@ describe('pillow shading', () => {
     ]);
   });
 
-  it('does not flag shading lit from one side, flat colors, a glint or a rim', () => {
-    const litFromTopLeft = sprite([
+  it('flags rings that get darker toward the middle too', () => {
+    const drawing = sprite([
       '.OOOOOOO.',
-      'OHHBBBBBO',
-      'OHBBBBBSO',
-      'OBBBBBSSO',
-      'OBBBBBSSO',
-      'OBBBBSSSO',
-      'OBBBSSSSO',
-      'OBSSSSSSO',
+      'OHHHHHHHO',
+      'OHBBBBBHO',
+      'OHBSSSBHO',
+      'OHBSSSBHO',
+      'OHBSSSBHO',
+      'OHBBBBBHO',
+      'OHHHHHHHO',
       '.OOOOOOO.',
     ]);
-    const flat = sprite(['.OOOOO.', 'OBBBBBO', 'OBBBBBO', 'OBBBBBO', '.OOOOO.']);
-    const glint = sprite(['OOOOO', 'OBBBO', 'OBHBO', 'OBBBO', 'OOOOO']);
-    const coin = sprite([
-      'OOOOOOOOO',
-      'OBBBBBBBO',
-      'OBOOOOOBO',
-      'OBOBBBOBO',
-      'OBOBBBOBO',
-      'OBOBBBOBO',
-      'OBOOOOOBO',
-      'OBBBBBBBO',
-      'OOOOOOOOO',
-    ]);
-    for (const drawing of [litFromTopLeft, flat, glint, coin]) {
-      expect(findMistakes(drawing).map((m) => m.kind)).not.toContain('pillow-shading');
-    }
+    expect(findMistakes(drawing).map((m) => m.kind)).toEqual(['pillow-shading']);
+  });
+
+  it.each([
+    [
+      'shading lit from one side',
+      [
+        '.OOOOOOO.',
+        'OHHBBBBBO',
+        'OHBBBBBSO',
+        'OBBBBBSSO',
+        'OBBBBBSSO',
+        'OBBBBSSSO',
+        'OBBBSSSSO',
+        'OBSSSSSSO',
+        '.OOOOOOO.',
+      ],
+    ],
+    ['flat colors', ['.OOOOO.', 'OBBBBBO', 'OBBBBBO', 'OBBBBBO', '.OOOOO.']],
+    ['a one-pixel glint', ['OOOOO', 'OBBBO', 'OBHBO', 'OBBBO', 'OOOOO']],
+    [
+      'a rim inside the outline',
+      [
+        'OOOOOOOOO',
+        'OBBBBBBBO',
+        'OBOOOOOBO',
+        'OBOBBBOBO',
+        'OBOBBBOBO',
+        'OBOBBBOBO',
+        'OBOOOOOBO',
+        'OBBBBBBBO',
+        'OOOOOOOOO',
+      ],
+    ],
+  ])('does not flag %s', (_, rows) => {
+    expect(findMistakes(sprite(rows)).map((m) => m.kind)).not.toContain('pillow-shading');
   });
 });
 

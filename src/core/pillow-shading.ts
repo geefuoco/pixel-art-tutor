@@ -1,6 +1,6 @@
 import { lightness } from './color';
-import { TRANSPARENT, type Drawing, type Point } from './drawing';
-import { colorAt, inReadingOrder, OFF_CANVAS } from './pixel-grid';
+import type { Drawing, Point } from './drawing';
+import { inReadingOrder, isOpaque, NEIGHBOURS, SIDES } from './pixel-grid';
 import { PILLOW_MIN_LAYER_PIXELS, PILLOW_MIN_LAYERS, PILLOW_RING_SHARE } from './thresholds';
 
 interface DepthPixel extends Point {
@@ -11,20 +11,6 @@ interface DepthPixel extends Point {
 interface Layer {
   readonly color: number;
   readonly pixels: Point[];
-}
-
-const SIDES = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
-
-const AROUND = [...SIDES, [1, 1], [1, -1], [-1, 1], [-1, -1]] as const;
-
-function isOpaque(drawing: Drawing, x: number, y: number): boolean {
-  const color = colorAt(drawing, x, y);
-  return color !== OFF_CANVAS && color !== TRANSPARENT;
 }
 
 function depthsFromEdge(drawing: Drawing): Map<number, number> {
@@ -68,7 +54,7 @@ function shapes(drawing: Drawing): DepthPixel[][] {
       const x = i % drawing.width;
       const y = Math.floor(i / drawing.width);
       shape.push({ x, y, color: drawing.pixels[i]!, depth: depths.get(i)! });
-      for (const [dx, dy] of AROUND) {
+      for (const [dx, dy] of NEIGHBOURS) {
         const j = (y + dy) * drawing.width + x + dx;
         if (isOpaque(drawing, x + dx, y + dy) && !seen.has(j)) {
           seen.add(j);
@@ -90,13 +76,13 @@ function dominantColor(ring: readonly DepthPixel[]): number | undefined {
 
 function concentricLayers(shape: readonly DepthPixel[]): Layer[][] {
   const deepest = Math.max(...shape.map((p) => p.depth));
-  const stretches: Layer[][] = [[]];
+  const uniformRingStretches: Layer[][] = [[]];
   for (let depth = 1; depth <= deepest; depth++) {
     const ring = shape.filter((p) => p.depth === depth);
     const color = dominantColor(ring);
-    const current = stretches.at(-1)!;
+    const current = uniformRingStretches.at(-1)!;
     if (color === undefined) {
-      stretches.push([]);
+      uniformRingStretches.push([]);
       continue;
     }
     const pixels = ring.filter((p) => p.color === color).map(({ x, y }) => ({ x, y }));
@@ -104,7 +90,7 @@ function concentricLayers(shape: readonly DepthPixel[]): Layer[][] {
     if (last?.color === color) last.pixels.push(...pixels);
     else current.push({ color, pixels });
   }
-  return stretches;
+  return uniformRingStretches;
 }
 
 function shadesSteadilyInward(drawing: Drawing, shading: readonly Layer[]): boolean {
@@ -118,7 +104,7 @@ function shadesSteadilyInward(drawing: Drawing, shading: readonly Layer[]): bool
   return steps.every((step) => step !== 0 && step === steps[0]);
 }
 
-function pillowShadedPixels(drawing: Drawing, shape: readonly DepthPixel[]): Point[] {
+function pillowShadedPixelsOf(drawing: Drawing, shape: readonly DepthPixel[]): Point[] {
   return concentricLayers(shape)
     .map((layers) => layers.filter((layer) => layer.pixels.length >= PILLOW_MIN_LAYER_PIXELS))
     .filter((layers) => layers.length >= PILLOW_MIN_LAYERS)
@@ -127,6 +113,6 @@ function pillowShadedPixels(drawing: Drawing, shape: readonly DepthPixel[]): Poi
     .flatMap((shading) => shading.flatMap((layer) => layer.pixels));
 }
 
-export function pillowShading(drawing: Drawing): Point[] {
-  return inReadingOrder(shapes(drawing).flatMap((shape) => pillowShadedPixels(drawing, shape)));
+export function pillowShadedPixels(drawing: Drawing): Point[] {
+  return inReadingOrder(shapes(drawing).flatMap((shape) => pillowShadedPixelsOf(drawing, shape)));
 }
