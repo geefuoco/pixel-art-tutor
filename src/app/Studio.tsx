@@ -13,6 +13,8 @@ import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
 import { PaletteSwatches } from './PaletteSwatches';
 import { decodePng } from './png-image';
+import { dateTime } from './date-time';
+import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
@@ -23,21 +25,6 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
     'drawings will not be saved due to site store data being blocked. Try non-private mode, or another browser.',
   full: "browser storage is full, so your latest changes aren't saved. Export a PNG to keep a copy, or free up space and keep drawing.",
 };
-
-const thumbnails = new WeakMap<Drawing, string>();
-
-function thumbnail(drawing: Drawing): string {
-  let url = thumbnails.get(drawing);
-  if (!url) {
-    let binary = '';
-    for (const byte of exportPng(drawing, 1)) binary += String.fromCharCode(byte);
-    url = `data:image/png;base64,${btoa(binary)}`;
-    thumbnails.set(drawing, url);
-  }
-  return url;
-}
-
-const lastUsed = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
@@ -229,7 +216,7 @@ function StudioEditor({
                       <span className="drawing-size">
                         {d.drawing.width}x{d.drawing.height}
                       </span>
-                      <span className="hint">{lastUsed.format(d.updatedAt)}</span>
+                      <span className="hint">{dateTime.format(d.updatedAt)}</span>
                     </button>
                   </li>
                 ))}

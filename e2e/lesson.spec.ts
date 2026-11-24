@@ -190,3 +190,45 @@ test('play Hint with no persistent Guide, flashing it with "show me"', async ({ 
   await expect(modes.getByRole('link', { name: 'Hint Red potion, passed' })).toBeVisible();
   await expect(modes.getByRole('link', { name: 'Freehand Red potion' })).toBeVisible();
 });
+
+test('keep passed Attempts, chosen Attempts and Studio drawings in the Gallery', async ({
+  page,
+}) => {
+  await page.goto('#/lessons/red-potion/trace');
+  await drawEveryStep(page);
+  await page.getByRole('button', { name: 'Finish Lesson' }).click();
+  const result = page.getByRole('region', { name: 'Result' });
+  await expect(result).toContainText('Lesson passed');
+  await expect(result).toContainText('Saved to the Gallery.');
+
+  await result.getByRole('button', { name: 'Start over' }).click();
+  await page.getByRole('button', { name: '5. Highlight' }).click();
+  await page.getByRole('button', { name: 'Finish Lesson' }).click();
+  await expect(result).toContainText('Not passed yet');
+  await result.getByRole('button', { name: 'Save to Gallery' }).click();
+  await expect(result).toContainText('Saved to the Gallery.');
+
+  await page.goto('#/studio');
+  const studioCanvas = page.getByRole('img', { name: /studio canvas/i });
+  const box = (await studioCanvas.boundingBox())!;
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await page.mouse.click(box.x + box.width / 32, box.y + box.height / 32);
+
+  await page.getByRole('link', { name: 'Gallery' }).click();
+  const entries = page.getByRole('main').getByRole('article');
+  await expect(entries).toHaveCount(3);
+  await expect(entries.nth(0)).toContainText('Studio drawing');
+  await expect(entries.nth(1)).toContainText('Red potion');
+  await expect(entries.nth(1)).toContainText('Trace, 0%');
+  await expect(entries.nth(2)).toContainText('Trace, 100%');
+
+  await entries.nth(2).getByRole('link', { name: 'All Attempts at Red potion' }).click();
+  await expect(page.getByRole('heading', { name: 'Red potion Attempts' })).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Attempt 1' })).toContainText('100%, passed');
+  await expect(page.getByRole('article', { name: 'Attempt 2' })).toContainText('0%, not passed');
+
+  await page.getByRole('link', { name: 'Back to the Gallery' }).click();
+  await entries.nth(0).getByRole('button', { name: 'Open in Studio' }).click();
+  await expect(studioCanvas).toBeVisible();
+  await expect(page).toHaveURL(/#\/studio$/);
+});

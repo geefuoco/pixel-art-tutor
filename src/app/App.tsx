@@ -1,3 +1,4 @@
+import { Gallery, LessonAttempts } from './Gallery';
 import { Home } from './Home';
 import { LessonPlayer } from './LessonPlayer';
 import { Lessons } from './Lessons';
@@ -23,6 +24,10 @@ export function App() {
       );
     case 'studio':
       return <Studio />;
+    case 'gallery':
+      return <Gallery />;
+    case 'lesson-attempts':
+      return <LessonAttempts lessonId={route.lessonId} />;
     case 'settings':
       return <Settings />;
     case 'not-found':

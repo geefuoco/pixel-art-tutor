@@ -9,6 +9,7 @@ export interface AttemptResult {
   readonly score: number;
   readonly passed: boolean;
   readonly hintFlashes: number;
+  readonly inGallery: boolean;
 }
 
 export type LessonPlayState =
@@ -27,6 +28,7 @@ export interface LessonPlay {
   load(): Promise<void>;
   finish(): Promise<AttemptResult>;
   flashGuide(): void;
+  saveToGallery(): Promise<void>;
   dismissResult(): void;
   startOver(): Promise<void>;
   flush(): Promise<void>;
@@ -47,21 +49,24 @@ export function createLessonPlay(options: {
   let state: LessonPlayState = { status: 'loading' };
   let loading: Promise<void> | undefined;
   let stopAutosave = () => {};
+  let finishedAttemptId: string | undefined;
   const listeners = new Set<() => void>();
-  const pending = new Set<Promise<void>>();
+  const pending = new Set<Promise<boolean>>();
 
   function update(next: Partial<Extract<LessonPlayState, { status: 'ready' }>>) {
     state = { ...ready(), ...next };
     for (const listener of listeners) listener();
   }
 
-  function track(saving: Promise<void>) {
+  function track(saving: Promise<void>): Promise<boolean> {
     const done = saving.then(
       () => {
         if (state.status === 'ready' && state.problem !== null) update({ problem: null });
+        return true;
       },
       (error: unknown) => {
         if (state.status === 'ready') update({ problem: problemOf(error) });
+        return false;
       },
     );
     pending.add(done);
@@ -132,22 +137,26 @@ export function createLessonPlay(options: {
       const { editor, hintFlashes } = ready();
       const drawing = editor.getState().drawing;
       const score = scoreLessonDrawing(lesson, drawing);
-      const result = { score, passed: passesLesson(score), hintFlashes };
+      const passed = passesLesson(score);
+      const id = crypto.randomUUID();
       await flush();
-      await track(
+      const saved = await track(
         store.saveAttempt(
           {
-            id: crypto.randomUUID(),
+            id,
             lessonId: lesson.id,
             mode,
             drawing,
             score,
             hintFlashes,
+            inGallery: passed,
             finishedAt: now(),
           },
-          { passed: result.passed },
+          { passed },
         ),
       );
+      finishedAttemptId = saved ? id : undefined;
+      const result = { score, passed, hintFlashes, inGallery: saved && passed };
       if (result.passed) progress.notePass(lesson.id, mode);
       update({ result });
       return result;
@@ -155,6 +164,13 @@ export function createLessonPlay(options: {
     flashGuide() {
       update({ hintFlashes: ready().hintFlashes + 1 });
       autosave();
+    },
+    async saveToGallery() {
+      const { result } = ready();
+      if (!result || !finishedAttemptId) return;
+      if (await track(store.saveAttemptToGallery(finishedAttemptId))) {
+        update({ result: { ...result, inGallery: true } });
+      }
     },
     dismissResult() {
       update({ result: null });

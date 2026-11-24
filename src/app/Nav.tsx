@@ -3,6 +3,7 @@ import { routeHref, type Page } from './router';
 const LINKS: { page: Page; label: string }[] = [
   { page: 'lessons', label: 'Lessons' },
   { page: 'studio', label: 'Studio' },
+  { page: 'gallery', label: 'Gallery' },
   { page: 'settings', label: 'Settings' },
 ];
 
