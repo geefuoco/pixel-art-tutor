@@ -13,8 +13,3 @@ export function thumbnail(drawing: Drawing): string {
   }
   return url;
 }
-
-export const dateTime = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});

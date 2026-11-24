@@ -109,7 +109,7 @@ describe('store: progress', () => {
     drawing,
     score,
     hintFlashes: 0,
-    inGallery: score >= 0.95,
+    inGallery: false,
     finishedAt: 1,
   });
 

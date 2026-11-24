@@ -108,5 +108,5 @@ A Studio-only toggle that repeats each pencil, eraser or fill flipped left to ri
 A live 3x3 repetition of the canvas that shows how a tile looks when repeated.
 
 **Gallery**:
-The learner's saved record of drawings and Attempts over time.
+The learner's saved record of drawings and Attempts over time. It holds every Studio drawing, every passed Attempt, and any other Attempt the learner saves to it.
 _Avoid_: Portfolio, history

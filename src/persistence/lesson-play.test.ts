@@ -199,7 +199,9 @@ describe('playing a Lesson', () => {
     expect(ready(pot).problem).toBe('unavailable');
     draw(pot, 0, 0, 3);
     draw(pot, 1, 1, 2);
-    expect(await pot.finish()).toMatchObject({ score: 1, passed: true });
+    expect(await pot.finish()).toMatchObject({ score: 1, passed: true, inGallery: false });
     expect(ready(pot).problem).toBe('unavailable');
+    await pot.saveToGallery();
+    expect(ready(pot).result).toMatchObject({ inGallery: false });
   });
 });

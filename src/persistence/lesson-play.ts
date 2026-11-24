@@ -51,20 +51,22 @@ export function createLessonPlay(options: {
   let stopAutosave = () => {};
   let finishedAttemptId: string | undefined;
   const listeners = new Set<() => void>();
-  const pending = new Set<Promise<void>>();
+  const pending = new Set<Promise<boolean>>();
 
   function update(next: Partial<Extract<LessonPlayState, { status: 'ready' }>>) {
     state = { ...ready(), ...next };
     for (const listener of listeners) listener();
   }
 
-  function track(saving: Promise<void>) {
+  function track(saving: Promise<void>): Promise<boolean> {
     const done = saving.then(
       () => {
         if (state.status === 'ready' && state.problem !== null) update({ problem: null });
+        return true;
       },
       (error: unknown) => {
         if (state.status === 'ready') update({ problem: problemOf(error) });
+        return false;
       },
     );
     pending.add(done);
@@ -136,10 +138,9 @@ export function createLessonPlay(options: {
       const drawing = editor.getState().drawing;
       const score = scoreLessonDrawing(lesson, drawing);
       const passed = passesLesson(score);
-      const result = { score, passed, hintFlashes, inGallery: passed };
       const id = crypto.randomUUID();
       await flush();
-      await track(
+      const saved = await track(
         store.saveAttempt(
           {
             id,
@@ -154,7 +155,8 @@ export function createLessonPlay(options: {
           { passed },
         ),
       );
-      finishedAttemptId = id;
+      finishedAttemptId = saved ? id : undefined;
+      const result = { score, passed, hintFlashes, inGallery: saved && passed };
       if (result.passed) progress.notePass(lesson.id, mode);
       update({ result });
       return result;
@@ -165,15 +167,10 @@ export function createLessonPlay(options: {
     },
     async saveToGallery() {
       const { result } = ready();
-      if (!result || !finishedAttemptId) throw new Error('No Attempt has been finished');
-      let saved = true;
-      await track(
-        store.saveAttemptToGallery(finishedAttemptId).catch((error: unknown) => {
-          saved = false;
-          throw error;
-        }),
-      );
-      if (saved) update({ result: { ...result, inGallery: true } });
+      if (!result || !finishedAttemptId) return;
+      if (await track(store.saveAttemptToGallery(finishedAttemptId))) {
+        update({ result: { ...result, inGallery: true } });
+      }
     },
     dismissResult() {
       update({ result: null });

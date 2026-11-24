@@ -1,6 +1,9 @@
+import type { ReactNode } from 'react';
+import type { Drawing } from '../core/drawing';
 import { passesLesson } from '../core/evaluate';
-import type { Attempt, StorageProblem } from '../persistence/store';
-import type { GalleryEntry } from '../persistence/gallery';
+import type { GalleryEntry, GalleryState } from '../persistence/gallery';
+import type { Attempt, SavedDrawing, StorageProblem } from '../persistence/store';
+import { dateTime } from './date-time';
 import { gallery, useGallery } from './gallery-store';
 import { useCourse } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
@@ -9,7 +12,7 @@ import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
 import { studio } from './studio-store';
-import { dateTime, thumbnail } from './thumbnail';
+import { thumbnail } from './thumbnail';
 import { WarningBanner } from './WarningBanner';
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
@@ -17,16 +20,14 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
   full: 'browser storage is full, so the Gallery could not be read.',
 };
 
-function useLessonTitle() {
+type TitleOf = (lessonId: string) => string;
+
+function useLessonTitles(): TitleOf {
   const course = useCourse();
-  return (lessonId: string) =>
+  return (lessonId) =>
     (course.status === 'ready'
       ? course.lessons.find((l) => l.lesson.id === lessonId)?.lesson.title
       : undefined) ?? lessonId;
-}
-
-function flashes(hintFlashes: number) {
-  return `Show me used ${plural(hintFlashes, 'time')}`;
 }
 
 async function openInStudio(id: string) {
@@ -35,8 +36,7 @@ async function openInStudio(id: string) {
   window.location.hash = routeHref.studio;
 }
 
-function Thumbnail({ entry }: { entry: Pick<GalleryEntry, 'drawing'> }) {
-  const { drawing } = entry;
+function Thumbnail({ drawing }: { drawing: Drawing }) {
   return (
     <img
       className="gallery-image"
@@ -47,68 +47,96 @@ function Thumbnail({ entry }: { entry: Pick<GalleryEntry, 'drawing'> }) {
   );
 }
 
-function GalleryCard({ entry, title }: { entry: GalleryEntry; title: (id: string) => string }) {
-  if (entry.kind === 'studio') {
-    return (
-      <article
-        className="gallery-card"
-        aria-label={`Studio drawing, ${dateTime.format(entry.date)}`}
-      >
-        <Thumbnail entry={entry} />
-        <h2>Studio drawing</h2>
-        <p className="hint">
-          {entry.drawing.width}x{entry.drawing.height}, {dateTime.format(entry.date)}
-        </p>
-        <button type="button" className="btn" onClick={() => void openInStudio(entry.id)}>
-          Open in Studio
-        </button>
-      </article>
-    );
-  }
-  const lessonTitle = title(entry.lessonId);
+function attemptOutcome(attempt: Attempt, { showPass }: { showPass: boolean }) {
+  return [
+    MODE_NAMES[attempt.mode],
+    percent(attempt.score),
+    ...(showPass ? [passesLesson(attempt.score) ? 'passed' : 'not passed'] : []),
+    ...(attempt.mode === 'hint' ? [`Show me used ${plural(attempt.hintFlashes, 'time')}`] : []),
+  ].join(', ');
+}
+
+function DrawingCard({
+  label,
+  drawing,
+  heading,
+  date,
+  children,
+}: {
+  label: string;
+  drawing: Drawing;
+  heading: string;
+  date: string;
+  children: ReactNode;
+}) {
   return (
-    <article
-      className="gallery-card"
-      aria-label={`${lessonTitle} in ${MODE_NAMES[entry.mode]}, ${dateTime.format(entry.date)}`}
-    >
-      <Thumbnail entry={entry} />
-      <h2>{lessonTitle}</h2>
-      <p className="hint">{dateTime.format(entry.date)}</p>
-      <p>
-        {MODE_NAMES[entry.mode]}, {percent(entry.score)}
-        {entry.mode === 'hint' && `, ${flashes(entry.hintFlashes)}`}
-      </p>
-      <a className="btn" href={lessonAttemptsHref(entry.lessonId)}>
-        All Attempts<span className="visually-hidden"> at {lessonTitle}</span>
-      </a>
+    <article className="gallery-card" aria-label={label}>
+      <Thumbnail drawing={drawing} />
+      <h2>{heading}</h2>
+      <p className="hint">{date}</p>
+      {children}
     </article>
   );
 }
 
-export function Gallery() {
-  const state = useGallery();
-  const title = useLessonTitle();
+function StudioCard({ studioDrawing }: { studioDrawing: SavedDrawing }) {
+  const { id, drawing, updatedAt } = studioDrawing;
+  const date = dateTime.format(updatedAt);
+  return (
+    <DrawingCard
+      label={`Studio drawing, ${date}`}
+      drawing={drawing}
+      heading="Studio drawing"
+      date={`${drawing.width}x${drawing.height}, ${date}`}
+    >
+      <button type="button" className="btn" onClick={() => void openInStudio(id)}>
+        Open in Studio
+      </button>
+    </DrawingCard>
+  );
+}
+
+function GalleryAttemptCard({ attempt, titleOf }: { attempt: Attempt; titleOf: TitleOf }) {
+  const lessonTitle = titleOf(attempt.lessonId);
+  const date = dateTime.format(attempt.finishedAt);
+  return (
+    <DrawingCard
+      label={`${lessonTitle} in ${MODE_NAMES[attempt.mode]}, ${date}`}
+      drawing={attempt.drawing}
+      heading={lessonTitle}
+      date={date}
+    >
+      <p>{attemptOutcome(attempt, { showPass: false })}</p>
+      <a className="btn" href={lessonAttemptsHref(attempt.lessonId)}>
+        All Attempts<span className="visually-hidden"> at {lessonTitle}</span>
+      </a>
+    </DrawingCard>
+  );
+}
+
+function GalleryCard({ entry, titleOf }: { entry: GalleryEntry; titleOf: TitleOf }) {
+  return entry.kind === 'studio' ? (
+    <StudioCard studioDrawing={entry.studioDrawing} />
+  ) : (
+    <GalleryAttemptCard attempt={entry.attempt} titleOf={titleOf} />
+  );
+}
+
+function GalleryPage({
+  state,
+  children,
+}: {
+  state: GalleryState;
+  children: (ready: Extract<GalleryState, { status: 'ready' }>) => ReactNode;
+}) {
   return (
     <div className="page">
       <Nav current="gallery" />
       <main className="card gallery" aria-busy={state.status === 'loading'}>
-        <h1>Gallery</h1>
         {state.status === 'ready' && (
           <>
             {state.problem && <WarningBanner>{STORAGE_MESSAGES[state.problem]}</WarningBanner>}
-            {state.entries.length === 0 ? (
-              <p className="hint">
-                Nothing here yet. Lessons you pass and your Studio drawings show up here.
-              </p>
-            ) : (
-              <ul className="gallery-list">
-                {state.entries.map((entry) => (
-                  <li key={`${entry.kind}/${entry.id}`}>
-                    <GalleryCard entry={entry} title={title} />
-                  </li>
-                ))}
-              </ul>
-            )}
+            {children(state)}
           </>
         )}
       </main>
@@ -116,43 +144,76 @@ export function Gallery() {
   );
 }
 
-function AttemptCard({ attempt, number }: { attempt: Attempt; number: number }) {
-  const passed = passesLesson(attempt.score);
+export function Gallery() {
+  const state = useGallery();
+  const titleOf = useLessonTitles();
   return (
-    <article className="gallery-card" aria-label={`Attempt ${number}`}>
-      <Thumbnail entry={attempt} />
-      <h2>Attempt {number}</h2>
-      <p className="hint">{dateTime.format(attempt.finishedAt)}</p>
-      <p>
-        {MODE_NAMES[attempt.mode]}, {percent(attempt.score)}, {passed ? 'passed' : 'not passed'}
-        {attempt.mode === 'hint' && `, ${flashes(attempt.hintFlashes)}`}
-      </p>
+    <GalleryPage state={state}>
+      {({ entries }) => (
+        <>
+          <h1>Gallery</h1>
+          {entries.length === 0 ? (
+            <p className="hint">
+              Nothing here yet. Lessons you pass and your Studio drawings show up here.
+            </p>
+          ) : (
+            <ul className="gallery-list">
+              {entries.map((entry) => (
+                <li
+                  key={
+                    entry.kind === 'studio'
+                      ? `studio/${entry.studioDrawing.id}`
+                      : `attempt/${entry.attempt.id}`
+                  }
+                >
+                  <GalleryCard entry={entry} titleOf={titleOf} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </GalleryPage>
+  );
+}
+
+function NumberedAttemptCard({ attempt, number }: { attempt: Attempt; number: number }) {
+  return (
+    <DrawingCard
+      label={`Attempt ${number}`}
+      drawing={attempt.drawing}
+      heading={`Attempt ${number}`}
+      date={dateTime.format(attempt.finishedAt)}
+    >
+      <p>{attemptOutcome(attempt, { showPass: true })}</p>
       {attempt.inGallery ? (
         <p className="hint">In the Gallery</p>
       ) : (
-        <button type="button" className="btn" onClick={() => void gallery.saveAttempt(attempt.id)}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => void gallery.saveAttemptToGallery(attempt.id)}
+        >
           Save to Gallery
         </button>
       )}
-    </article>
+    </DrawingCard>
   );
 }
 
 export function LessonAttempts({ lessonId }: { lessonId: string }) {
   const state = useGallery();
-  const lessonTitle = useLessonTitle()(lessonId);
-  const attempts = state.status === 'ready' ? (state.attemptsByLesson.get(lessonId) ?? []) : [];
+  const lessonTitle = useLessonTitles()(lessonId);
   return (
-    <div className="page">
-      <Nav current="gallery" />
-      <main className="card gallery" aria-busy={state.status === 'loading'}>
-        <a className="hint" href={routeHref.gallery}>
-          Back to the Gallery
-        </a>
-        <h1>{lessonTitle} Attempts</h1>
-        {state.status === 'ready' && (
+    <GalleryPage state={state}>
+      {({ attemptsByLesson }) => {
+        const attempts = attemptsByLesson.get(lessonId) ?? [];
+        return (
           <>
-            {state.problem && <WarningBanner>{STORAGE_MESSAGES[state.problem]}</WarningBanner>}
+            <a className="hint" href={routeHref.gallery}>
+              Back to the Gallery
+            </a>
+            <h1>{lessonTitle} Attempts</h1>
             {attempts.length === 0 ? (
               <p className="hint">No Attempts at {lessonTitle} yet.</p>
             ) : (
@@ -161,15 +222,15 @@ export function LessonAttempts({ lessonId }: { lessonId: string }) {
                 <ol className="gallery-list">
                   {attempts.map((attempt, i) => (
                     <li key={attempt.id}>
-                      <AttemptCard attempt={attempt} number={i + 1} />
+                      <NumberedAttemptCard attempt={attempt} number={i + 1} />
                     </li>
                   ))}
                 </ol>
               </>
             )}
           </>
-        )}
-      </main>
-    </div>
+        );
+      }}
+    </GalleryPage>
   );
 }

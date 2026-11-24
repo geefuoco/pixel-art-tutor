@@ -1,24 +1,14 @@
-import type { Drawing } from '../core/drawing';
-import type { Mode } from '../core/lesson';
-import { StorageError, type Attempt, type Store, type StorageProblem } from './store';
+import {
+  StorageError,
+  type Attempt,
+  type SavedDrawing,
+  type Store,
+  type StorageProblem,
+} from './store';
 
 export type GalleryEntry =
-  | {
-      readonly kind: 'studio';
-      readonly id: string;
-      readonly drawing: Drawing;
-      readonly date: number;
-    }
-  | {
-      readonly kind: 'attempt';
-      readonly id: string;
-      readonly drawing: Drawing;
-      readonly date: number;
-      readonly lessonId: string;
-      readonly mode: Mode;
-      readonly score: number;
-      readonly hintFlashes: number;
-    };
+  | { readonly kind: 'studio'; readonly date: number; readonly studioDrawing: SavedDrawing }
+  | { readonly kind: 'attempt'; readonly date: number; readonly attempt: Attempt };
 
 export type GalleryState =
   | { readonly status: 'loading' }
@@ -33,12 +23,7 @@ export interface Gallery {
   getState(): GalleryState;
   subscribe(listener: () => void): () => void;
   refresh(): Promise<void>;
-  saveAttempt(attemptId: string): Promise<void>;
-}
-
-function attemptEntry(attempt: Attempt): GalleryEntry {
-  const { id, drawing, finishedAt, lessonId, mode, score, hintFlashes } = attempt;
-  return { kind: 'attempt', id, drawing, date: finishedAt, lessonId, mode, score, hintFlashes };
+  saveAttemptToGallery(attemptId: string): Promise<void>;
 }
 
 function groupByLesson(attempts: readonly Attempt[]): Map<string, Attempt[]> {
@@ -64,13 +49,14 @@ export function createGallery(options: { store: Store }): Gallery {
         store.listAttempts(),
       ]);
       const entries: GalleryEntry[] = [
-        ...studioDrawings.map(({ id, drawing, updatedAt }) => ({
+        ...studioDrawings.map((studioDrawing) => ({
           kind: 'studio' as const,
-          id,
-          drawing,
-          date: updatedAt,
+          date: studioDrawing.updatedAt,
+          studioDrawing,
         })),
-        ...attempts.filter((a) => a.inGallery).map(attemptEntry),
+        ...attempts
+          .filter((attempt) => attempt.inGallery)
+          .map((attempt) => ({ kind: 'attempt' as const, date: attempt.finishedAt, attempt })),
       ].sort((a, b) => b.date - a.date);
       return { status: 'ready', entries, attemptsByLesson: groupByLesson(attempts), problem: null };
     } catch (error) {
@@ -94,7 +80,7 @@ export function createGallery(options: { store: Store }): Gallery {
       return () => listeners.delete(listener);
     },
     refresh,
-    async saveAttempt(attemptId) {
+    async saveAttemptToGallery(attemptId) {
       await store.saveAttemptToGallery(attemptId);
       await refresh();
     },

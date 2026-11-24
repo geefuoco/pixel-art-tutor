@@ -18,7 +18,7 @@ import { unlockMessage } from './unlock-message';
 import { WarningBanner } from './WarningBanner';
 import { percent } from './percent';
 import { plural } from './plural';
-import { routeHref } from './router';
+import { lessonAttemptsHref, routeHref } from './router';
 
 const STEP_NAMES: Record<StepKind, string> = {
   silhouette: 'Silhouette',
@@ -306,6 +306,9 @@ function LessonSession({
                 </button>
                 <a className={`btn${result.passed ? ' primary' : ''}`} href={routeHref.lessons}>
                   Back to Lessons
+                </a>
+                <a className="btn" href={lessonAttemptsHref(lesson.id)}>
+                  All Attempts
                 </a>
               </div>
             </section>

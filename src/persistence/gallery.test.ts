@@ -55,18 +55,30 @@ describe('the Gallery', () => {
     });
 
     expect(ready(await galleryOver(indexedDB)).entries).toEqual([
-      { kind: 'studio', id: 's2', drawing: drawingOf(0, 1), date: 40 },
+      {
+        kind: 'studio',
+        date: 40,
+        studioDrawing: { id: 's2', drawing: drawingOf(0, 1), updatedAt: 40 },
+      },
       {
         kind: 'attempt',
-        id: 'passed',
-        drawing: drawingOf(1),
         date: 30,
-        lessonId: 'pot',
-        mode: 'hint',
-        score: 1,
-        hintFlashes: 2,
+        attempt: {
+          id: 'passed',
+          lessonId: 'pot',
+          mode: 'hint',
+          drawing: drawingOf(1),
+          score: 1,
+          hintFlashes: 2,
+          inGallery: true,
+          finishedAt: 30,
+        },
       },
-      { kind: 'studio', id: 's1', drawing: drawingOf(0), date: 10 },
+      {
+        kind: 'studio',
+        date: 10,
+        studioDrawing: { id: 's1', drawing: drawingOf(0), updatedAt: 10 },
+      },
     ]);
   });
 
@@ -98,11 +110,13 @@ describe('the Gallery', () => {
     const gallery = await galleryOver(indexedDB);
     expect(ready(gallery).entries).toEqual([]);
 
-    await gallery.saveAttempt('1');
+    await gallery.saveAttemptToGallery('1');
 
-    expect(ready(gallery).entries).toMatchObject([{ kind: 'attempt', id: '1', score: 0.5 }]);
+    expect(ready(gallery).entries).toMatchObject([
+      { kind: 'attempt', attempt: { id: '1', score: 0.5 } },
+    ]);
     expect(ready(gallery).attemptsByLesson.get('pot')).toMatchObject([{ inGallery: true }]);
-    expect(ready(await galleryOver(indexedDB)).entries).toMatchObject([{ id: '1' }]);
+    expect(ready(await galleryOver(indexedDB)).entries).toMatchObject([{ attempt: { id: '1' } }]);
   });
 
   it('shows what has been saved since it last looked when it looks again', async () => {
@@ -113,7 +127,7 @@ describe('the Gallery', () => {
 
     await gallery.refresh();
 
-    expect(ready(gallery).entries).toMatchObject([{ kind: 'studio', id: 's' }]);
+    expect(ready(gallery).entries).toMatchObject([{ kind: 'studio', studioDrawing: { id: 's' } }]);
   });
 
   it('says so when storage is unavailable, showing nothing', async () => {

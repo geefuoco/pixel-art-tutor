@@ -13,7 +13,8 @@ import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
 import { PaletteSwatches } from './PaletteSwatches';
 import { decodePng } from './png-image';
-import { dateTime, thumbnail } from './thumbnail';
+import { dateTime } from './date-time';
+import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
