@@ -96,8 +96,8 @@ describe('playing a Lesson', () => {
     draw(pot, 0, 0, 3);
     draw(pot, 1, 1, 2);
 
-    expect(await pot.finish()).toEqual({ score: 1, passed: true });
-    expect(ready(pot).result).toEqual({ score: 1, passed: true });
+    expect(await pot.finish()).toEqual({ score: 1, passed: true, hintFlashes: 0 });
+    expect(ready(pot).result).toEqual({ score: 1, passed: true, hintFlashes: 0 });
     const attempts = await openStore(indexedDB).listAttempts();
     expect(attempts).toEqual([
       {
@@ -122,7 +122,7 @@ describe('playing a Lesson', () => {
     const indexedDB = new IDBFactory();
     const pot = await play(indexedDB);
     draw(pot, 0, 0, 3);
-    expect(await pot.finish()).toEqual({ score: 0.5, passed: false });
+    expect(await pot.finish()).toMatchObject({ score: 0.5, passed: false });
     expect(await openStore(indexedDB).listAttempts()).toMatchObject([{ score: 0.5 }]);
     expect(firstRow(drawingOf(await play(indexedDB)))).toEqual([0, _, _, 0, _, _, _, _]);
 
@@ -154,7 +154,9 @@ describe('playing a Lesson', () => {
     pot.flashGuide();
     expect(ready(pot).hintFlashes).toBe(3);
 
-    expect(await pot.finish()).toEqual({ score: 1, passed: true });
+    expect(await pot.finish()).toEqual({ score: 1, passed: true, hintFlashes: 3 });
+    pot.flashGuide();
+    expect(ready(pot).result).toEqual({ score: 1, passed: true, hintFlashes: 3 });
     expect(await openStore(indexedDB).listAttempts()).toMatchObject([
       { mode: 'hint', score: 1, hintFlashes: 3 },
     ]);
@@ -181,7 +183,7 @@ describe('playing a Lesson', () => {
     expect(ready(pot).problem).toBe('unavailable');
     draw(pot, 0, 0, 3);
     draw(pot, 1, 1, 2);
-    expect(await pot.finish()).toEqual({ score: 1, passed: true });
+    expect(await pot.finish()).toMatchObject({ score: 1, passed: true });
     expect(ready(pot).problem).toBe('unavailable');
   });
 });

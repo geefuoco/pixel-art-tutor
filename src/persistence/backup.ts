@@ -151,7 +151,7 @@ export function readBackup(text: string): BackupReading {
     };
   }
   const { version } = file;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) {
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return { ok: false, message: DAMAGED };
   }
   const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);

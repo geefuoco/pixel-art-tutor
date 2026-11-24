@@ -123,7 +123,7 @@ function LessonSession({
   state: Extract<LessonPlayState, { status: 'ready' }>;
 }) {
   const { lesson } = entry;
-  const { editor, hintFlashes, problem, result } = state;
+  const { editor, problem, result } = state;
   const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
   const [stepIndex, setStepIndex] = useState(0);
   const [showGuide, setShowGuide] = useState(true);
@@ -199,7 +199,6 @@ function LessonSession({
           Icon: Lightbulb,
           chords: [{ key: 'h' }],
           run: showMe,
-          pressed: flashing,
         },
     {
       label: 'Check Step',
@@ -261,7 +260,7 @@ function LessonSession({
               Check Step
             </button>
             {mode === 'hint' && (
-              <button type="button" className="btn" aria-pressed={flashing} onClick={showMe}>
+              <button type="button" className="btn" onClick={showMe}>
                 Show me
               </button>
             )}
@@ -288,7 +287,7 @@ function LessonSession({
                 {!result.passed &&
                   ` You need ${percent(LESSON_PASS_SCORE)} to pass. Check each Step to find the pixels to fix.`}
               </p>
-              {mode === 'hint' && <p>{flashSummary(hintFlashes)}</p>}
+              {mode === 'hint' && <p>{flashSummary(result.hintFlashes)}</p>}
               <div className="lesson-actions">
                 {!result.passed && (
                   <button type="button" className="btn primary" onClick={play.dismissResult}>

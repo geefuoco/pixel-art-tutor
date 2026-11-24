@@ -8,6 +8,7 @@ import { StorageError, type Store, type StorageProblem } from './store';
 export interface AttemptResult {
   readonly score: number;
   readonly passed: boolean;
+  readonly hintFlashes: number;
 }
 
 export type LessonPlayState =
@@ -131,7 +132,7 @@ export function createLessonPlay(options: {
       const { editor, hintFlashes } = ready();
       const drawing = editor.getState().drawing;
       const score = scoreLessonDrawing(lesson, drawing);
-      const result = { score, passed: passesLesson(score) };
+      const result = { score, passed: passesLesson(score), hintFlashes };
       await flush();
       await track(
         store.saveAttempt(

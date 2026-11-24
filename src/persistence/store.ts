@@ -104,7 +104,7 @@ function addProgressFromSavedAttempts(transaction: IDBTransaction) {
   };
 }
 
-function countNoHintFlashes(transaction: IDBTransaction, name: ObjectStoreName) {
+function backfillHintFlashes(transaction: IDBTransaction, name: ObjectStoreName) {
   const walking = transaction.objectStore(name).openCursor();
   walking.onsuccess = () => {
     const cursor = walking.result;
@@ -127,8 +127,8 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       }
       if (hadAttempts && !hadProgress) addProgressFromSavedAttempts(request.transaction!);
       if (event.oldVersion < 5) {
-        countNoHintFlashes(request.transaction!, ATTEMPTS);
-        countNoHintFlashes(request.transaction!, IN_PROGRESS_ATTEMPTS);
+        backfillHintFlashes(request.transaction!, ATTEMPTS);
+        backfillHintFlashes(request.transaction!, IN_PROGRESS_ATTEMPTS);
       }
     };
     request.onsuccess = () => resolve(request.result);
