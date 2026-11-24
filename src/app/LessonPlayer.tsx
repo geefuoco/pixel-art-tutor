@@ -136,9 +136,9 @@ function LessonSession({
   const [finishing, setFinishing] = useState(false);
   const step = lesson.steps[stepIndex]!;
   const stepName = STEP_NAMES[step.kind];
-  const current =
+  const freshCheck =
     checked && checked.stepIndex === stepIndex && checked.drawing === drawing ? checked : null;
-  const check = current?.check ?? null;
+  const check = freshCheck?.check ?? null;
   const isLastStep = stepIndex === lesson.steps.length - 1;
 
   function goToStep(index: number) {
@@ -150,7 +150,7 @@ function LessonSession({
       stepIndex,
       drawing,
       check: checkStep(lesson, stepIndex, drawing),
-      mistakes: findMistakes(drawing, { colorBudget: lesson.palette.length }),
+      mistakes: findMistakes(drawing),
     });
   }
 
@@ -224,7 +224,7 @@ function LessonSession({
             guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,
             missing: check?.missing ?? [],
             extra: check?.extra ?? [],
-            mistakes: current?.mistakes.flatMap((m) => m.pixels) ?? [],
+            mistakes: freshCheck?.mistakes.flatMap((m) => m.pixels) ?? [],
           }}
         >
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
@@ -260,7 +260,7 @@ function LessonSession({
           <p className="check-result" role="status">
             {check && checkSummary(check, stepName)}
           </p>
-          {current && <MistakeList mistakes={current.mistakes} />}
+          {freshCheck && <MistakeList mistakes={freshCheck.mistakes} />}
           <div className="lesson-actions">
             <button type="button" className="btn" onClick={runCheck}>
               Check Step

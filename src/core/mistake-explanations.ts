@@ -9,7 +9,7 @@ export const MISTAKE_EXPLANATIONS: Record<MistakeKind, MistakeExplanation> = {
   'orphan-pixel': {
     name: 'Orphan pixels',
     explanation:
-      'An orphan pixel is a single pixel on its own: floating away from the sprite, or a lone speck of another color in the middle of a flat area. At 1x it reads as noise or dirt, not detail.\n\nRemove it, or grow it into a small cluster that belongs to a shape.',
+      'An orphan pixel is a single pixel floating on its own, touching nothing else in the drawing. At 1x it reads as noise or dirt, not detail.\n\nRemove it, or join it to a shape it belongs to.',
   },
   doubles: {
     name: 'Doubles',

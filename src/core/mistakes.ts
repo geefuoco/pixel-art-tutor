@@ -1,79 +1,77 @@
-import { TRANSPARENT, type Color, type Drawing, type Point } from './drawing';
-import { LOW_CONTRAST_DISTANCE } from './thresholds';
+import { deltaE } from './color';
+import { TRANSPARENT, type Drawing, type Point } from './drawing';
+import { LOW_CONTRAST_DELTA_E } from './thresholds';
 
-export const MISTAKE_KINDS = [
-  'orphan-pixel',
-  'doubles',
-  'too-many-colors',
-  'low-contrast',
-] as const;
-export type MistakeKind = (typeof MISTAKE_KINDS)[number];
+export type MistakeKind = 'orphan-pixel' | 'doubles' | 'too-many-colors' | 'low-contrast';
 
 export interface Mistake {
   readonly kind: MistakeKind;
   readonly pixels: readonly Point[];
 }
 
-const AROUND = [
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-  [-1, 0],
-  [1, 0],
-  [-1, 1],
-  [0, 1],
-  [1, 1],
-] as const;
+interface ColoredPixel extends Point {
+  readonly color: number;
+}
 
-function colorAt(drawing: Drawing, x: number, y: number): number | undefined {
-  if (x < 0 || y < 0 || x >= drawing.width || y >= drawing.height) return undefined;
+type Offset = readonly [dx: number, dy: number];
+
+const SIDES: readonly Offset[] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
+const DIAGONALS: readonly Offset[] = [
+  [1, 1],
+  [-1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+const NEIGHBOURS = [...SIDES, ...DIAGONALS];
+
+const OFF_CANVAS = undefined;
+
+function colorAt(drawing: Drawing, x: number, y: number): number | typeof OFF_CANVAS {
+  if (x < 0 || y < 0 || x >= drawing.width || y >= drawing.height) return OFF_CANVAS;
   return drawing.pixels[y * drawing.width + x];
 }
 
-function* opaquePixels(drawing: Drawing): Generator<Point & { readonly color: number }> {
+function* opaquePixels(drawing: Drawing): Generator<ColoredPixel> {
   for (let y = 0; y < drawing.height; y++) {
     for (let x = 0; x < drawing.width; x++) {
-      const color = drawing.pixels[y * drawing.width + x]!;
+      const color = colorAt(drawing, x, y)!;
       if (color !== TRANSPARENT) yield { x, y, color };
     }
   }
 }
 
-function isOrphan(drawing: Drawing, { x, y, color }: Point & { color: number }): boolean {
-  const around = new Set(
-    AROUND.map(([dx, dy]) => colorAt(drawing, x + dx, y + dy)).filter((c) => c !== undefined),
-  );
-  return !around.has(color) && around.size === 1;
-}
-
-const L_CORNERS = [
-  [1, 1],
-  [-1, 1],
-  [1, -1],
-  [-1, -1],
-] as const;
-
-function isDouble(drawing: Drawing, p: Point & { color: number }): boolean {
-  const at = (dx: number, dy: number) => colorAt(drawing, p.x + dx, p.y + dy) ?? TRANSPARENT;
-  const is = (dx: number, dy: number) => at(dx, dy) === p.color;
-  const open = (dx: number, dy: number) => at(dx, dy) === TRANSPARENT;
-  return L_CORNERS.some(
-    ([dx, dy]) =>
-      is(dx, 0) &&
-      is(0, dy) &&
-      !is(dx, dy) &&
-      !is(-dx, 0) &&
-      !is(0, -dy) &&
-      (open(dx, dy) || (open(-dx, 0) && open(0, -dy))) &&
-      !(is(2 * dx, 0) && is(0, 2 * dy)),
-  );
-}
-
 function pixelsWhere(
   drawing: Drawing,
-  test: (drawing: Drawing, p: Point & { color: number }) => boolean,
+  test: (drawing: Drawing, pixel: ColoredPixel) => boolean,
 ): Point[] {
-  return [...opaquePixels(drawing)].filter((p) => test(drawing, p)).map(({ x, y }) => ({ x, y }));
+  return [...opaquePixels(drawing)]
+    .filter((pixel) => test(drawing, pixel))
+    .map(({ x, y }) => ({ x, y }));
+}
+
+function isOrphan(drawing: Drawing, { x, y }: ColoredPixel): boolean {
+  return NEIGHBOURS.every(([dx, dy]) => {
+    const neighbour = colorAt(drawing, x + dx, y + dy);
+    return neighbour === OFF_CANVAS || neighbour === TRANSPARENT;
+  });
+}
+
+function isDouble(drawing: Drawing, pixel: ColoredPixel): boolean {
+  const at = (dx: number, dy: number) => colorAt(drawing, pixel.x + dx, pixel.y + dy);
+  const same = (dx: number, dy: number) => at(dx, dy) === pixel.color;
+  return DIAGONALS.some(([dx, dy]) => {
+    const bendsIntoL = same(dx, 0) && same(0, dy) && !same(-dx, 0) && !same(0, -dy);
+    const couldStepDiagonally = at(dx, dy) === TRANSPARENT;
+    const joinsTwoStraightRuns = same(2 * dx, 0) && same(0, 2 * dy);
+    return bendsIntoL && couldStepDiagonally && !joinsTwoStraightRuns;
+  });
 }
 
 function overBudgetPixels(drawing: Drawing, colorBudget: number | undefined): Point[] {
@@ -86,47 +84,17 @@ function overBudgetPixels(drawing: Drawing, colorBudget: number | undefined): Po
       .slice(0, colorBudget)
       .map(([color]) => color),
   );
-  return pixelsWhere(drawing, (_, p) => !kept.has(p.color));
+  return pixelsWhere(drawing, (_, pixel) => !kept.has(pixel.color));
 }
 
-function linear(channel: number): number {
-  const c = channel / 255;
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-function labOf(color: Color): readonly [number, number, number] {
-  const [r, g, b] = [1, 3, 5].map((i) => linear(parseInt(color.slice(i, i + 2), 16))) as [
-    number,
-    number,
-    number,
-  ];
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 / 116) * t + 16 / 116);
-  const fx = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047);
-  const fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
-  const fz = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
-  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
-}
-
-function colorDistance(a: Color, b: Color): number {
-  const [l1, a1, b1] = labOf(a);
-  const [l2, a2, b2] = labOf(b);
-  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
-}
-
-const SIDES = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-] as const;
-
-function hasLowContrastEdge(drawing: Drawing, p: Point & { color: number }): boolean {
+function hasLowContrastEdge(drawing: Drawing, { x, y, color }: ColoredPixel): boolean {
   return SIDES.some(([dx, dy]) => {
-    const other = colorAt(drawing, p.x + dx, p.y + dy) ?? TRANSPARENT;
+    const other = colorAt(drawing, x + dx, y + dy);
     return (
+      other !== OFF_CANVAS &&
       other !== TRANSPARENT &&
-      other !== p.color &&
-      colorDistance(drawing.palette[p.color]!, drawing.palette[other]!) < LOW_CONTRAST_DISTANCE
+      other !== color &&
+      deltaE(drawing.palette[color]!, drawing.palette[other]!) < LOW_CONTRAST_DELTA_E
     );
   });
 }

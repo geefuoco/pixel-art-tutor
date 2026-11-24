@@ -491,7 +491,7 @@ test('check a Studio drawing for Mistakes, see them circled and read why', async
   await expect.poll(() => markedAt(3, 5)).toBe(true);
 
   await orphans.getByText('Orphan pixels').click();
-  await expect(orphans).toContainText('single pixel on its own');
+  await expect(orphans).toContainText('single pixel floating on its own');
 
   await clickPixel(page, canvas, 4, 5);
   await expect(panel).toContainText('No Mistakes found.');

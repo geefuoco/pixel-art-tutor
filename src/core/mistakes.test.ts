@@ -23,28 +23,32 @@ describe('a clean sprite', () => {
 });
 
 describe('orphan pixels', () => {
-  it('flags a lone pixel floating on transparency and a speck inside a flat area', () => {
+  it('flags a lone pixel floating away from the rest of the drawing', () => {
     const drawing = sprite([
       'O.......',
       '........',
       '...BBB..',
-      '...BSB..',
       '...BBB..',
       '........',
+      '......H.',
     ]);
     expect(findMistakes(drawing)).toEqual([
-      { kind: 'orphan-pixel', pixels: pointsOf(['x.......', '........', '........', '....x...']) },
+      {
+        kind: 'orphan-pixel',
+        pixels: pointsOf(['x.......', '........', '........', '........', '........', '......x.']),
+      },
     ]);
   });
 
-  it('does not flag a pixel that touches its own color, or sits where two areas meet', () => {
+  it('does not flag one-pixel details inside a shape, like eyes or a glint', () => {
     const drawing = sprite([
-      'OO......',
-      '........',
-      '...BBB..',
-      '...BBSS.',
-      '...BBB..',
-      '..H.....',
+      'OOOOOOO',
+      'OBBBBBO',
+      'OBSBSBO',
+      'OBBBBBO',
+      'OBBHBBO',
+      'OBBBBBO',
+      'OOOOOOO',
     ]);
     expect(findMistakes(drawing)).toEqual([]);
   });
@@ -58,11 +62,17 @@ describe('doubles', () => {
     ]);
   });
 
-  it('flags the clump where an outline around a filled shape bunches up', () => {
+  it('flags the extra pixel inside the step of an outline around a filled shape', () => {
     const drawing = sprite(['...OO...', '..OOBO..', '..OBBO..', '...OO...']);
     expect(findMistakes(drawing)).toEqual([
-      { kind: 'doubles', pixels: pointsOf(['...x....', '..xx....']) },
+      { kind: 'doubles', pixels: pointsOf(['........', '...x....']) },
     ]);
+  });
+
+  it('does not flag where colors meet inside a filled shape or along the canvas edge', () => {
+    const halfway = sprite(['...BB...', '...BO...', '...BO...', '..BBBO..']);
+    expect(findMistakes(halfway).map((m) => m.kind)).not.toContain('doubles');
+    expect(findMistakes(sprite(['BBS', 'BSS']))).toEqual([]);
   });
 
   it('does not flag clean staircase lines, the corners of a box or a filled shape', () => {
