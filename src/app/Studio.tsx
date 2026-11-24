@@ -1,6 +1,14 @@
-import { CaretsToAxisDashedVertical, FilePlus, FolderOpen, ImageDown, Images } from 'lucide-react';
+import {
+  CaretsToAxisDashedVertical,
+  FilePlus,
+  FolderOpen,
+  ImageDown,
+  Images,
+  ScanSearch,
+} from 'lucide-react';
 import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
+import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
 import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
@@ -8,6 +16,7 @@ import type { CurrentDrawing } from '../persistence/studio';
 import type { Control } from './controls';
 import { downloadFile } from './download';
 import { DrawingEditor } from './DrawingEditor';
+import { MistakeList } from './MistakeList';
 import { Nav } from './Nav';
 import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
@@ -18,7 +27,7 @@ import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
-type Panel = 'new-drawing' | 'export' | 'drawings' | null;
+type Panel = 'new-drawing' | 'export' | 'drawings' | 'mistakes' | null;
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
   unavailable:
@@ -90,6 +99,9 @@ function StudioEditor({
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
+  const [chosenBudget, setChosenBudget] = useState<number | null>(null);
+  const colorBudget = Math.min(chosenBudget ?? drawing.palette.length, drawing.palette.length);
+  const mistakes = panel === 'mistakes' ? findMistakes(drawing, { colorBudget }) : null;
 
   const leadingActions: Control[] = [
     {
@@ -126,6 +138,13 @@ function StudioEditor({
       chords: [{ key: 's' }],
       run: () => setMirror((m) => !m),
       pressed: mirror,
+    },
+    {
+      label: 'Check for Mistakes',
+      Icon: ScanSearch,
+      chords: [{ key: 'c' }],
+      run: () => setPanel((p) => (p === 'mistakes' ? null : 'mistakes')),
+      pressed: panel === 'mistakes',
     },
   ];
 
@@ -171,6 +190,11 @@ function StudioEditor({
         mirror={mirror}
         leadingActions={leadingActions}
         trailingActions={trailingActions}
+        marks={
+          mistakes
+            ? { guide: null, missing: [], extra: [], mistakes: mistakes.flatMap((m) => m.pixels) }
+            : undefined
+        }
       >
         <input
           ref={setFileInput}
@@ -222,6 +246,33 @@ function StudioEditor({
                 ))}
               </ul>
             )}
+            <button type="button" className="btn" onClick={() => setPanel(null)}>
+              Close
+            </button>
+          </section>
+        )}
+        {mistakes && (
+          <section
+            className="card mistakes-panel"
+            aria-label="Check for Mistakes"
+            onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
+          >
+            <label>
+              Color budget
+              <input
+                type="number"
+                min={1}
+                max={drawing.palette.length}
+                step={1}
+                value={colorBudget}
+                onChange={(e) => {
+                  const value = e.currentTarget.valueAsNumber;
+                  if (Number.isInteger(value) && value >= 1) setChosenBudget(value);
+                }}
+              />
+            </label>
+            <MistakeList mistakes={mistakes} />
+            <p className="hint">The check updates as you draw.</p>
             <button type="button" className="btn" onClick={() => setPanel(null)}>
               Close
             </button>

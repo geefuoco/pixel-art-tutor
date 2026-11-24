@@ -7,11 +7,13 @@ const GUIDE_OPACITY = 0.45;
 const GUIDE_EDGE = 'rgba(59, 51, 85, 0.45)';
 const MISSING_COLOR = '#f59e0b';
 const EXTRA_COLOR = '#e11d48';
+const MISTAKE_COLOR = '#7c3aed';
 
 export interface CanvasMarks {
   readonly guide: readonly number[] | null;
   readonly missing: readonly Point[];
   readonly extra: readonly Point[];
+  readonly mistakes: readonly Point[];
 }
 
 function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
@@ -55,6 +57,13 @@ function paintMarks(canvas: HTMLCanvasElement, drawing: Drawing, marks: CanvasMa
     ctx.lineTo(x * CELL + CELL - 5, y * CELL + CELL - 5);
     ctx.moveTo(x * CELL + CELL - 5, y * CELL + 5);
     ctx.lineTo(x * CELL + 5, y * CELL + CELL - 5);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = MISTAKE_COLOR;
+  for (const { x, y } of marks.mistakes) {
+    ctx.beginPath();
+    ctx.arc(x * CELL + CELL / 2, y * CELL + CELL / 2, CELL / 2 - 2, 0, 2 * Math.PI);
     ctx.stroke();
   }
 }
