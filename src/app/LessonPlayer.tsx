@@ -3,6 +3,7 @@ import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, type StepCheck } from '../core/evaluate';
 import type { Mode, StepKind } from '../core/lesson';
+import { findMistakes, type Mistake } from '../core/mistakes';
 import { LESSON_PASS_SCORE } from '../core/thresholds';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { StorageProblem } from '../persistence/store';
@@ -11,6 +12,7 @@ import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
 import { useCourse, type CourseLesson } from './lessons-store';
+import { MistakeList } from './MistakeList';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
 import { useCourseProgress } from './progress-store';
@@ -129,14 +131,14 @@ function LessonSession({
     stepIndex: number;
     drawing: Drawing;
     check: StepCheck;
+    mistakes: readonly Mistake[];
   } | null>(null);
   const [finishing, setFinishing] = useState(false);
   const step = lesson.steps[stepIndex]!;
   const stepName = STEP_NAMES[step.kind];
-  const check =
-    checked && checked.stepIndex === stepIndex && checked.drawing === drawing
-      ? checked.check
-      : null;
+  const freshCheck =
+    checked && checked.stepIndex === stepIndex && checked.drawing === drawing ? checked : null;
+  const check = freshCheck?.check ?? null;
   const isLastStep = stepIndex === lesson.steps.length - 1;
 
   function goToStep(index: number) {
@@ -144,7 +146,12 @@ function LessonSession({
   }
 
   function runCheck() {
-    setChecked({ stepIndex, drawing, check: checkStep(lesson, stepIndex, drawing) });
+    setChecked({
+      stepIndex,
+      drawing,
+      check: checkStep(lesson, stepIndex, drawing),
+      mistakes: findMistakes(drawing),
+    });
   }
 
   function showMe() {
@@ -217,6 +224,7 @@ function LessonSession({
             guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,
             missing: check?.missing ?? [],
             extra: check?.extra ?? [],
+            mistakes: freshCheck?.mistakes.flatMap((m) => m.pixels) ?? [],
           }}
         >
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
@@ -252,6 +260,7 @@ function LessonSession({
           <p className="check-result" role="status">
             {check && checkSummary(check, stepName)}
           </p>
+          {freshCheck && <MistakeList mistakes={freshCheck.mistakes} />}
           <div className="lesson-actions">
             <button type="button" className="btn" onClick={runCheck}>
               Check Step

@@ -667,6 +667,47 @@ a {
   display: none;
 }
 
+.mistakes h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.mistake-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mistake-list summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.mistake-list .explanation {
+  margin-top: 6px;
+}
+
+.mistakes-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  width: min(100%, 560px);
+}
+
+.mistakes-panel input {
+  font: inherit;
+  width: 5em;
+  margin-left: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
 .lesson-result {
   border-top: 2px solid var(--line);
   padding-top: 12px;

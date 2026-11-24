@@ -466,3 +466,34 @@ test('make a custom palette in Settings, then start drawings from it and from a 
   await moss.getByRole('button', { name: 'Delete Moss' }).click();
   await expect(moss).toBeHidden();
 });
+
+test('check a Studio drawing for Mistakes, see them circled and read why', async ({ page }) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 3, 5);
+
+  await page.keyboard.press('c');
+  const panel = page.getByRole('region', { name: 'Check for Mistakes' });
+  const orphans = panel.getByRole('group').filter({ hasText: 'Orphan pixels: 1 pixel' });
+  await expect(orphans).toBeVisible();
+  const marks = page.locator('.pixel-marks');
+  const markedAt = (x: number, y: number) =>
+    marks.evaluate(
+      (c: HTMLCanvasElement, { x, y, size }) =>
+        Array.from(
+          c
+            .getContext('2d')!
+            .getImageData(((x + 0.1) * c.width) / size, ((y + 0.5) * c.height) / size, 1, 1).data,
+        )[3]! > 0,
+      { x, y, size: STUDIO_SIZE },
+    );
+  await expect.poll(() => markedAt(3, 5)).toBe(true);
+
+  await orphans.getByText('Orphan pixels').click();
+  await expect(orphans).toContainText('single pixel floating on its own');
+
+  await clickPixel(page, canvas, 4, 5);
+  await expect(panel).toContainText('No Mistakes found.');
+  await expect.poll(() => markedAt(3, 5)).toBe(false);
+});
