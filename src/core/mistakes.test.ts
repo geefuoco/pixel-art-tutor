@@ -54,6 +54,164 @@ describe('orphan pixels', () => {
   });
 });
 
+describe('jaggies', () => {
+  it('flags a run that breaks the rhythm of a line', () => {
+    const drawing = sprite(['OOO........', '...O.......', '....OOO....', '.......OOOO']);
+    expect(findMistakes(drawing)).toEqual([
+      { kind: 'jaggies', pixels: pointsOf(['...........', '...x.......']) },
+    ]);
+  });
+
+  it('flags a run that sticks out of a steep line, and a flat bump in a diagonal', () => {
+    const steep = sprite([
+      'O....',
+      'O....',
+      '.O...',
+      '.O...',
+      '..O..',
+      '..O..',
+      '..O..',
+      '...O.',
+      '...O.',
+      '....O',
+    ]);
+    expect(findMistakes(steep)).toEqual([
+      {
+        kind: 'jaggies',
+        pixels: pointsOf(['.....', '.....', '.....', '.....', '..x..', '..x..', '..x..']),
+      },
+    ]);
+    const bump = sprite(['O.......', '.O......', '..OO....', '....O...', '.....O..']);
+    expect(findMistakes(bump)).toEqual([
+      { kind: 'jaggies', pixels: pointsOf(['........', '........', '..xx....']) },
+    ]);
+  });
+
+  it('does not flag steady lines, curves that ease in, alternations or dithering', () => {
+    const drawing = sprite([
+      'OO..........OOOO.......',
+      '..OO............OOO....',
+      '....OO.............OO..',
+      '......OO.............O.',
+      '.....................O.',
+      'OO...........H.H.H.H...',
+      '..O...........H.H.H.H..',
+      '...OO........H.H.H.H...',
+      '.....O........H.H.H.H..',
+      '......OO...............',
+    ]);
+    expect(findMistakes(drawing).map((m) => m.kind)).not.toContain('jaggies');
+  });
+});
+
+describe('banding', () => {
+  it('flags bands of different colors whose steps line up along a line', () => {
+    const drawing = sprite([
+      'OOO.........',
+      'SSSOOO......',
+      '...SSSOOO...',
+      '......SSSOOO',
+      '.........SSS',
+    ]);
+    expect(findMistakes(drawing)).toEqual([
+      {
+        kind: 'banding',
+        pixels: pointsOf([
+          'xxx.........',
+          'xxxxxx......',
+          '...xxxxxx...',
+          '......xxxxxx',
+          '.........xxx',
+        ]),
+      },
+    ]);
+  });
+
+  it('flags bands along a steep line too', () => {
+    const drawing = sprite(['OS...', 'OS...', '.OS..', '.OS..', '..OS.', '..OS.']);
+    expect(findMistakes(drawing)).toEqual([
+      { kind: 'banding', pixels: pointsOf(['xx...', 'xx...', '.xx..', '.xx..', '..xx.', '..xx.']) },
+    ]);
+  });
+
+  it('does not flag bands whose steps are offset, short bands, or an outline around a fill', () => {
+    const offset = sprite([
+      'OOO.........',
+      'SSSOOO......',
+      '..SSSSOOO...',
+      '.....SSSSOOO',
+      '........SSSS',
+    ]);
+    const short = sprite(['OOO...', 'SSSOOO', '...SSS']);
+    const filled = sprite(['...OOO...', '.OO.BB.OO', 'O.BBBBBB.', 'OBBBBBBBO', '.OOOOOOO.']);
+    for (const drawing of [offset, short, filled]) {
+      expect(findMistakes(drawing).map((m) => m.kind)).not.toContain('banding');
+    }
+  });
+});
+
+describe('pillow shading', () => {
+  it('flags shading in rings that follow the outline all the way around', () => {
+    const drawing = sprite([
+      '.OOOOOOO.',
+      'OSSSSSSSO',
+      'OSBBBBBSO',
+      'OSBHHHBSO',
+      'OSBHHHBSO',
+      'OSBHHHBSO',
+      'OSBBBBBSO',
+      'OSSSSSSSO',
+      '.OOOOOOO.',
+    ]);
+    expect(findMistakes(drawing)).toEqual([
+      {
+        kind: 'pillow-shading',
+        pixels: pointsOf([
+          '.........',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.xxxxxxx.',
+          '.........',
+        ]),
+      },
+    ]);
+  });
+
+  it('does not flag shading lit from one side, flat colors, a glint or a rim', () => {
+    const litFromTopLeft = sprite([
+      '.OOOOOOO.',
+      'OHHBBBBBO',
+      'OHBBBBBSO',
+      'OBBBBBSSO',
+      'OBBBBBSSO',
+      'OBBBBSSSO',
+      'OBBBSSSSO',
+      'OBSSSSSSO',
+      '.OOOOOOO.',
+    ]);
+    const flat = sprite(['.OOOOO.', 'OBBBBBO', 'OBBBBBO', 'OBBBBBO', '.OOOOO.']);
+    const glint = sprite(['OOOOO', 'OBBBO', 'OBHBO', 'OBBBO', 'OOOOO']);
+    const coin = sprite([
+      'OOOOOOOOO',
+      'OBBBBBBBO',
+      'OBOOOOOBO',
+      'OBOBBBOBO',
+      'OBOBBBOBO',
+      'OBOBBBOBO',
+      'OBOOOOOBO',
+      'OBBBBBBBO',
+      'OOOOOOOOO',
+    ]);
+    for (const drawing of [litFromTopLeft, flat, glint, coin]) {
+      expect(findMistakes(drawing).map((m) => m.kind)).not.toContain('pillow-shading');
+    }
+  });
+});
+
 describe('doubles', () => {
   it('flags the corner pixels that thicken a 1px line into an L', () => {
     const drawing = sprite(['OOO.....', '..OO....', '....OO..', '......OO']);

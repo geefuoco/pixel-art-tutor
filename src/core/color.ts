@@ -23,6 +23,10 @@ function labOf(color: Color): Lab {
   return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
 }
 
+export function lightness(color: Color): number {
+  return labOf(color)[0];
+}
+
 export function deltaE(a: Color, b: Color): number {
   const [l1, a1, b1] = labOf(a);
   const [l2, a2, b2] = labOf(b);
