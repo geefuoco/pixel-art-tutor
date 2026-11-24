@@ -15,6 +15,7 @@ export type LessonPlayState =
   | {
       readonly status: 'ready';
       readonly editor: Editor;
+      readonly hintFlashes: number;
       readonly problem: StorageProblem | null;
       readonly result: AttemptResult | null;
     };
@@ -24,6 +25,7 @@ export interface LessonPlay {
   subscribe(listener: () => void): () => void;
   load(): Promise<void>;
   finish(): Promise<AttemptResult>;
+  flashGuide(): void;
   dismissResult(): void;
   startOver(): Promise<void>;
   flush(): Promise<void>;
@@ -48,8 +50,7 @@ export function createLessonPlay(options: {
   const pending = new Set<Promise<void>>();
 
   function update(next: Partial<Extract<LessonPlayState, { status: 'ready' }>>) {
-    if (state.status !== 'ready') throw new Error('The Lesson has not loaded');
-    state = { ...state, ...next };
+    state = { ...ready(), ...next };
     for (const listener of listeners) listener();
   }
 
@@ -67,19 +68,28 @@ export function createLessonPlay(options: {
     return done;
   }
 
+  function ready() {
+    if (state.status !== 'ready') throw new Error('The Lesson has not loaded');
+    return state;
+  }
+
+  function autosave() {
+    const { editor, hintFlashes } = ready();
+    void track(
+      store.putInProgressAttempt({
+        lessonId: lesson.id,
+        mode,
+        drawing: editor.getState().drawing,
+        hintFlashes,
+        updatedAt: now(),
+      }),
+    );
+  }
+
   function startEditing(drawing = blank()): Editor {
     stopAutosave();
     const editor = createEditor(drawing);
-    stopAutosave = editor.subscribe(() => {
-      void track(
-        store.putInProgressAttempt({
-          lessonId: lesson.id,
-          mode,
-          drawing: editor.getState().drawing,
-          updatedAt: now(),
-        }),
-      );
-    });
+    stopAutosave = editor.subscribe(autosave);
     return editor;
   }
 
@@ -106,14 +116,20 @@ export function createLessonPlay(options: {
         } catch (error) {
           problem = problemOf(error);
         }
-        state = { status: 'ready', editor: startEditing(saved?.drawing), problem, result: null };
+        state = {
+          status: 'ready',
+          editor: startEditing(saved?.drawing),
+          hintFlashes: saved?.hintFlashes ?? 0,
+          problem,
+          result: null,
+        };
         for (const listener of listeners) listener();
       })();
       return loading;
     },
     async finish() {
-      if (state.status !== 'ready') throw new Error('The Lesson has not loaded');
-      const drawing = state.editor.getState().drawing;
+      const { editor, hintFlashes } = ready();
+      const drawing = editor.getState().drawing;
       const score = scoreLessonDrawing(lesson, drawing);
       const result = { score, passed: passesLesson(score) };
       await flush();
@@ -125,6 +141,7 @@ export function createLessonPlay(options: {
             mode,
             drawing,
             score,
+            hintFlashes,
             finishedAt: now(),
           },
           { passed: result.passed },
@@ -134,13 +151,17 @@ export function createLessonPlay(options: {
       update({ result });
       return result;
     },
+    flashGuide() {
+      update({ hintFlashes: ready().hintFlashes + 1 });
+      autosave();
+    },
     dismissResult() {
       update({ result: null });
     },
     async startOver() {
       await flush();
       await track(store.deleteInProgressAttempt(lesson.id, mode));
-      update({ editor: startEditing(), result: null });
+      update({ editor: startEditing(), hintFlashes: 0, result: null });
     },
     flush,
   };

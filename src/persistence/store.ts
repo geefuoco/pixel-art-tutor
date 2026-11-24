@@ -14,6 +14,7 @@ export interface InProgressAttempt {
   readonly lessonId: string;
   readonly mode: Mode;
   readonly drawing: Drawing;
+  readonly hintFlashes: number;
   readonly updatedAt: number;
 }
 
@@ -23,6 +24,7 @@ export interface Attempt {
   readonly mode: Mode;
   readonly drawing: Drawing;
   readonly score: number;
+  readonly hintFlashes: number;
   readonly finishedAt: number;
 }
 
@@ -71,7 +73,7 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
@@ -102,10 +104,21 @@ function addProgressFromSavedAttempts(transaction: IDBTransaction) {
   };
 }
 
+function countNoHintFlashes(transaction: IDBTransaction, name: ObjectStoreName) {
+  const walking = transaction.objectStore(name).openCursor();
+  walking.onsuccess = () => {
+    const cursor = walking.result;
+    if (!cursor) return;
+    const record = cursor.value as { hintFlashes?: number };
+    if (record.hintFlashes === undefined) cursor.update({ ...record, hintFlashes: 0 });
+    cursor.continue();
+  };
+}
+
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       const hadAttempts = db.objectStoreNames.contains(ATTEMPTS);
       const hadProgress = db.objectStoreNames.contains(PROGRESS);
@@ -113,6 +126,10 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
       if (hadAttempts && !hadProgress) addProgressFromSavedAttempts(request.transaction!);
+      if (event.oldVersion < 5) {
+        countNoHintFlashes(request.transaction!, ATTEMPTS);
+        countNoHintFlashes(request.transaction!, IN_PROGRESS_ATTEMPTS);
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

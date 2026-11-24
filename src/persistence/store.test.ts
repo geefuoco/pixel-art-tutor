@@ -108,6 +108,7 @@ describe('store: progress', () => {
     mode,
     drawing,
     score,
+    hintFlashes: 0,
     finishedAt: 1,
   });
 
@@ -148,5 +149,60 @@ describe('store: progress', () => {
     const store = openStore(indexedDB);
     expect(await store.listProgress()).toEqual([{ lessonId: 'pot', passedModes: ['trace'] }]);
     expect(await store.listAttempts()).toHaveLength(3);
+  });
+});
+
+describe('store: Hint flash counts', () => {
+  it('reads Attempts saved before flashes were counted as having none', async () => {
+    const indexedDB = new IDBFactory();
+    const drawing = createDrawing({ width: 1, height: 1, palette: PALETTE });
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 4);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        db.createObjectStore('studio-drawings', { keyPath: 'id' });
+        db.createObjectStore('custom-palettes', { keyPath: 'id' });
+        db.createObjectStore('progress', { keyPath: 'lessonId' });
+        db.createObjectStore('attempts', { keyPath: 'id' }).put({
+          id: '1',
+          lessonId: 'pot',
+          mode: 'trace',
+          drawing,
+          score: 0.5,
+          finishedAt: 1,
+        });
+        db.createObjectStore('in-progress-attempts', { keyPath: ['lessonId', 'mode'] }).put({
+          lessonId: 'pot',
+          mode: 'hint',
+          drawing,
+          updatedAt: 2,
+        });
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const store = openStore(indexedDB);
+    expect(await store.listAttempts()).toEqual([
+      {
+        id: '1',
+        lessonId: 'pot',
+        mode: 'trace',
+        drawing,
+        score: 0.5,
+        hintFlashes: 0,
+        finishedAt: 1,
+      },
+    ]);
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual({
+      lessonId: 'pot',
+      mode: 'hint',
+      drawing,
+      hintFlashes: 0,
+      updatedAt: 2,
+    });
   });
 });

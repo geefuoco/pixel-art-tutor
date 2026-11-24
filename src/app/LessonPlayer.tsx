@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CircleCheck, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleCheck, Eye, Lightbulb } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, type StepCheck } from '../core/evaluate';
@@ -32,6 +32,8 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
     'this Lesson will not be saved because site data is blocked. Try non-private mode, or another browser.',
   full: "browser storage is full, so your latest pixels and Attempts aren't saved.",
 };
+
+const GUIDE_FLASH_MS = 1500;
 
 function percent(score: number) {
   return `${Math.floor(score * 100)}%`;
@@ -76,7 +78,7 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
   if (!entry) return <Problem message={`There is no Lesson called ${lessonId}.`} />;
   const locked = unlockMessage(course.lessons, progress.progress, lessonId, mode);
   if (locked) return <Problem title={`${MODE_NAMES[mode]} is locked`} message={locked} />;
-  if (mode !== 'trace') {
+  if (mode === 'freehand') {
     return (
       <Problem
         title={`${MODE_NAMES[mode]} is unlocked`}
@@ -84,14 +86,22 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
       />
     );
   }
-  return <TraceLesson entry={entry} mode={mode} />;
+  return <PlayedLesson entry={entry} mode={mode} />;
 }
 
-function TraceLesson({ entry, mode }: { entry: CourseLesson; mode: Mode }) {
+type StepMode = Exclude<Mode, 'freehand'>;
+
+function PlayedLesson({ entry, mode }: { entry: CourseLesson; mode: StepMode }) {
   const handle = lessonPlayFor(entry.lesson, mode);
   const state = useLessonPlay(handle);
   if (state.status === 'loading') return <Loading />;
-  return <TraceSession entry={entry} play={handle.play} state={state} />;
+  return <LessonSession entry={entry} mode={mode} play={handle.play} state={state} />;
+}
+
+function flashSummary(hintFlashes: number) {
+  return hintFlashes === 0
+    ? 'You did not use Show me.'
+    : `You used Show me ${plural(hintFlashes, 'time')}.`;
 }
 
 function checkSummary(check: StepCheck, stepName: string) {
@@ -101,20 +111,23 @@ function checkSummary(check: StepCheck, stepName: string) {
   return `${plural(check.missing.length, 'pixel')} missing, ${check.extra.length} extra. Missing pixels are marked with an amber square, extra pixels with a red cross.`;
 }
 
-function TraceSession({
+function LessonSession({
   entry,
+  mode,
   play,
   state,
 }: {
   entry: CourseLesson;
+  mode: StepMode;
   play: LessonPlay;
   state: Extract<LessonPlayState, { status: 'ready' }>;
 }) {
   const { lesson } = entry;
-  const { editor, problem, result } = state;
+  const { editor, hintFlashes, problem, result } = state;
   const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
   const [stepIndex, setStepIndex] = useState(0);
   const [showGuide, setShowGuide] = useState(true);
+  const [flashing, setFlashing] = useState(false);
   const [checked, setChecked] = useState<{
     stepIndex: number;
     drawing: Drawing;
@@ -135,6 +148,13 @@ function TraceSession({
 
   function runCheck() {
     setChecked({ stepIndex, drawing, check: checkStep(lesson, stepIndex, drawing) });
+  }
+
+  function showMe() {
+    if (flashing) return;
+    play.flashGuide();
+    setFlashing(true);
+    window.setTimeout(() => setFlashing(false), GUIDE_FLASH_MS);
   }
 
   async function finish() {
@@ -166,13 +186,21 @@ function TraceSession({
       run: () => goToStep(stepIndex + 1),
       disabled: isLastStep,
     },
-    {
-      label: 'Guide',
-      Icon: Eye,
-      chords: [{ key: 't' }],
-      run: () => setShowGuide((g) => !g),
-      pressed: showGuide,
-    },
+    mode === 'trace'
+      ? {
+          label: 'Guide',
+          Icon: Eye,
+          chords: [{ key: 't' }],
+          run: () => setShowGuide((g) => !g),
+          pressed: showGuide,
+        }
+      : {
+          label: 'Show me',
+          Icon: Lightbulb,
+          chords: [{ key: 'h' }],
+          run: showMe,
+          pressed: flashing,
+        },
     {
       label: 'Check Step',
       Icon: CircleCheck,
@@ -190,7 +218,7 @@ function TraceSession({
           canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels`}
           trailingActions={lessonActions}
           marks={{
-            guide: showGuide ? step.target : null,
+            guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,
             missing: check?.missing ?? [],
             extra: check?.extra ?? [],
           }}
@@ -198,7 +226,7 @@ function TraceSession({
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="lesson-title">
-          <p className="hint">Trace</p>
+          <p className="hint">{MODE_NAMES[mode]}</p>
           <h1 id="lesson-title">{lesson.title}</h1>
           <ol className="step-list" aria-label="Steps">
             {lesson.steps.map((s, i) => (
@@ -220,6 +248,11 @@ function TraceSession({
             </h2>
             <Explanation markdown={step.explanation} resolve={entry.exampleUrl} />
           </section>
+          {mode === 'hint' && (
+            <p className="hint">
+              Show me (H) flashes the Guide for a moment. It does not change your score.
+            </p>
+          )}
           <p className="check-result" role="status">
             {check && checkSummary(check, stepName)}
           </p>
@@ -227,6 +260,11 @@ function TraceSession({
             <button type="button" className="btn" onClick={runCheck}>
               Check Step
             </button>
+            {mode === 'hint' && (
+              <button type="button" className="btn" aria-pressed={flashing} onClick={showMe}>
+                Show me
+              </button>
+            )}
             {isLastStep ? (
               <button
                 type="button"
@@ -250,6 +288,7 @@ function TraceSession({
                 {!result.passed &&
                   ` You need ${percent(LESSON_PASS_SCORE)} to pass. Check each Step to find the pixels to fix.`}
               </p>
+              {mode === 'hint' && <p>{flashSummary(hintFlashes)}</p>}
               <div className="lesson-actions">
                 {!result.passed && (
                   <button type="button" className="btn primary" onClick={play.dismissResult}>

@@ -12,7 +12,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -76,22 +76,42 @@ function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
 
-function readAttempt(value: unknown): Attempt | null {
+function isCount(n: unknown): n is number {
+  return Number.isInteger(n) && (n as number) >= 0;
+}
+
+function readHintFlashes(value: Record<string, unknown>, counted: boolean): number | null {
+  if (!counted) return 0;
+  return isCount(value.hintFlashes) ? value.hintFlashes : null;
+}
+
+function readAttempt(value: unknown, flashesCounted: boolean): Attempt | null {
   if (!isRecord(value)) return null;
   const { id, lessonId, mode, drawing, score, finishedAt } = value as Unchecked<Attempt>;
   const checked = readDrawing(drawing);
+  const hintFlashes = readHintFlashes(value, flashesCounted);
   if (!isText(id) || !isText(lessonId) || !isMode(mode) || !checked) return null;
   if (typeof score !== 'number' || !(score >= 0 && score <= 1)) return null;
-  if (!Number.isFinite(finishedAt)) return null;
-  return { id, lessonId, mode, drawing: checked, score, finishedAt: finishedAt as number };
+  if (!Number.isFinite(finishedAt) || hintFlashes === null) return null;
+  return {
+    id,
+    lessonId,
+    mode,
+    drawing: checked,
+    score,
+    hintFlashes,
+    finishedAt: finishedAt as number,
+  };
 }
 
-function readInProgressAttempt(value: unknown): InProgressAttempt | null {
+function readInProgressAttempt(value: unknown, flashesCounted: boolean): InProgressAttempt | null {
   if (!isRecord(value)) return null;
   const { lessonId, mode, drawing, updatedAt } = value as Unchecked<InProgressAttempt>;
   const checked = readDrawing(drawing);
+  const hintFlashes = readHintFlashes(value, flashesCounted);
   if (!isText(lessonId) || !isMode(mode) || !checked || !Number.isFinite(updatedAt)) return null;
-  return { lessonId, mode, drawing: checked, updatedAt: updatedAt as number };
+  if (hintFlashes === null) return null;
+  return { lessonId, mode, drawing: checked, hintFlashes, updatedAt: updatedAt as number };
 }
 
 function readLessonProgress(value: unknown): LessonProgress | null {
@@ -131,23 +151,26 @@ export function readBackup(text: string): BackupReading {
     };
   }
   const { version } = file;
-  if (version !== 1 && version !== 2 && version !== 3 && version !== BACKUP_VERSION) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) {
     return { ok: false, message: DAMAGED };
   }
   const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);
   const customPalettes =
     version === 1 ? [] : readAllWithUniqueKeys(file.customPalettes, readCustomPalette, byId);
   const hasAttempts = version >= 3;
-  const attempts = hasAttempts ? readAllWithUniqueKeys(file.attempts, readAttempt, byId) : [];
+  const flashesCounted = version >= 5;
+  const attempts = hasAttempts
+    ? readAllWithUniqueKeys(file.attempts, (a) => readAttempt(a, flashesCounted), byId)
+    : [];
   const inProgressAttempts = hasAttempts
     ? readAllWithUniqueKeys(
         file.inProgressAttempts,
-        readInProgressAttempt,
+        (a) => readInProgressAttempt(a, flashesCounted),
         (a) => `${a.lessonId}\n${a.mode}`,
       )
     : [];
   const progress =
-    version === BACKUP_VERSION
+    version >= 4
       ? readAllWithUniqueKeys(file.progress, readLessonProgress, (p) => p.lessonId)
       : attempts && progressFromAttempts(attempts);
   if (!studioDrawings || !customPalettes || !attempts || !inProgressAttempts || !progress) {

@@ -128,3 +128,65 @@ test('Hint and Freehand stay locked until the Mode before them is passed', async
   await expect(page.getByRole('alert')).toHaveText('Pass Red potion in Trace to unlock Hint.');
   await expect(lessonCanvas(page)).toBeHidden();
 });
+
+function guideShownAt(page: Page, x: number, y: number) {
+  return page
+    .locator('.pixel-marks')
+    .evaluate(
+      (c: HTMLCanvasElement, { x, y, size }) =>
+        c
+          .getContext('2d')!
+          .getImageData(((x + 0.5) * c.width) / size, ((y + 0.5) * c.height) / size, 1, 1)
+          .data[3]! > 0,
+      { x, y, size: SIZE },
+    );
+}
+
+async function drawEveryStep(page: Page) {
+  for (const [i, step] of STEPS.entries()) {
+    await page.getByRole('button', { name: `${i + 1}. ${step.name}` }).click();
+    await drawStep(page, step.letters, step.color);
+  }
+}
+
+test('play Hint with no persistent Guide, flashing it with "show me"', async ({ page }) => {
+  await page.goto('#/lessons/red-potion/trace');
+  await drawEveryStep(page);
+  await page.getByRole('button', { name: 'Finish Lesson' }).click();
+  await expect(page.getByRole('region', { name: 'Result' })).toContainText('Lesson passed');
+
+  await page.goto('#/lessons');
+  await page.getByRole('link', { name: 'Hint Red potion' }).click();
+  await expect(page.getByRole('heading', { name: 'Step 1: Silhouette' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Silhouette in one flat color' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Palette' }).getByRole('button')).toHaveCount(7);
+  await expect(page.getByRole('button', { name: 'Guide', exact: true })).toHaveCount(0);
+
+  await expect(lessonCanvas(page)).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await guideShownAt(page, 3, 3)).toBe(false);
+
+  await page.keyboard.press('h');
+  await expect.poll(() => guideShownAt(page, 3, 3)).toBe(true);
+  await expect.poll(() => guideShownAt(page, 3, 3), { timeout: 3000 }).toBe(false);
+
+  await page.getByRole('button', { name: 'Show me' }).first().click();
+  await expect.poll(() => guideShownAt(page, 3, 3)).toBe(true);
+
+  await drawEveryStep(page);
+  await page.getByRole('button', { name: '1. Silhouette' }).click();
+  await page.keyboard.press('c');
+  await expect(page.getByRole('status')).toHaveText('Every silhouette pixel is right.');
+
+  await page.getByRole('button', { name: '5. Highlight' }).click();
+  await page.getByRole('button', { name: 'Finish Lesson' }).click();
+  const result = page.getByRole('region', { name: 'Result' });
+  await expect(result).toContainText('Lesson passed');
+  await expect(result).toContainText('100%');
+  await expect(result).toContainText('You used Show me 2 times.');
+
+  await page.goto('#/lessons');
+  const modes = page.getByRole('list', { name: 'Red potion Modes' });
+  await expect(modes.getByRole('link', { name: 'Hint Red potion, passed' })).toBeVisible();
+  await expect(modes.getByRole('link', { name: 'Freehand Red potion' })).toBeVisible();
+});
