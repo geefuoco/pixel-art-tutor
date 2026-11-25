@@ -19,6 +19,13 @@ _Avoid_: Target image, answer
 One ordered stage of a Lesson (silhouette, outline, base, shadow, highlight), or one Frame in an animation Lesson, each with a short explanation.
 _Avoid_: Stage, phase
 
+**Key pose**:
+A Frame at an extreme of the motion in an animation Lesson, drawn before the in-betweens.
+
+**In-between**:
+A Frame that carries the motion from one key pose to the next, drawn after the key poses.
+_Avoid_: Tween
+
 **Role**:
 The part a palette color plays in a sprite: outline, base, shadow or highlight.
 

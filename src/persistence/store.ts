@@ -15,7 +15,7 @@ export interface SavedDrawing {
 export interface InProgressAttempt {
   readonly lessonId: string;
   readonly mode: Mode;
-  readonly drawing: Drawing;
+  readonly animation: Animation;
   readonly hintFlashes: number;
   readonly updatedAt: number;
 }
@@ -24,7 +24,7 @@ export interface Attempt {
   readonly id: string;
   readonly lessonId: string;
   readonly mode: Mode;
-  readonly drawing: Drawing;
+  readonly animation: Animation;
   readonly score: number;
   readonly subScores?: FreehandSubScores;
   readonly hintFlashes: number;
@@ -89,7 +89,7 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
@@ -122,32 +122,34 @@ function addProgressFromSavedAttempts(transaction: IDBTransaction) {
   };
 }
 
-function fillMissingFields(
+type RecordUpgrade = (record: Record<string, unknown>) => Record<string, unknown>;
+
+function upgradeRecords(
   transaction: IDBTransaction,
   name: ObjectStoreName,
-  defaultsFor: (record: Record<string, unknown>) => Record<string, unknown>,
+  upgrades: readonly RecordUpgrade[],
 ) {
+  if (upgrades.length === 0) return;
   const walking = transaction.objectStore(name).openCursor();
   walking.onsuccess = () => {
     const cursor = walking.result;
     if (!cursor) return;
     const record = cursor.value as Record<string, unknown>;
-    const filled = { ...defaultsFor(record), ...record };
-    if (Object.keys(filled).length !== Object.keys(record).length) cursor.update(filled);
+    cursor.update(upgrades.reduce((upgraded, upgrade) => upgrade(upgraded), record));
     cursor.continue();
   };
 }
 
-function giveStudioDrawingsFrames(transaction: IDBTransaction) {
-  const walking = transaction.objectStore(STUDIO_DRAWINGS).openCursor();
-  walking.onsuccess = () => {
-    const cursor = walking.result;
-    if (!cursor) return;
-    const { drawing, ...rest } = cursor.value as { drawing?: Drawing };
-    if (drawing) cursor.update({ ...rest, animation: stillAnimation(drawing) });
-    cursor.continue();
-  };
+function withMissingFields(
+  defaultsFor: (record: Record<string, unknown>) => Record<string, unknown>,
+): RecordUpgrade {
+  return (record) => ({ ...defaultsFor(record), ...record });
 }
+
+const withFrames: RecordUpgrade = (record) => {
+  const { drawing, ...rest } = record as { drawing?: Drawing };
+  return drawing ? { ...rest, animation: stillAnimation(drawing) } : record;
+};
 
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -160,14 +162,26 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
       if (hadAttempts && !hadProgress) addProgressFromSavedAttempts(request.transaction!);
-      if (event.oldVersion < 6) {
-        fillMissingFields(request.transaction!, ATTEMPTS, (attempt) => ({
-          hintFlashes: 0,
-          inGallery: passesMode(attempt.mode as Mode, attempt.score as number),
-        }));
-        fillMissingFields(request.transaction!, IN_PROGRESS_ATTEMPTS, () => ({ hintFlashes: 0 }));
-      }
-      if (event.oldVersion < 8) giveStudioDrawingsFrames(request.transaction!);
+      const since = (version: number, upgrade: RecordUpgrade) =>
+        event.oldVersion < version ? [upgrade] : [];
+      upgradeRecords(request.transaction!, ATTEMPTS, [
+        ...since(
+          6,
+          withMissingFields((attempt) => ({
+            hintFlashes: 0,
+            inGallery: passesMode(attempt.mode as Mode, attempt.score as number),
+          })),
+        ),
+        ...since(9, withFrames),
+      ]);
+      upgradeRecords(request.transaction!, IN_PROGRESS_ATTEMPTS, [
+        ...since(
+          6,
+          withMissingFields(() => ({ hintFlashes: 0 })),
+        ),
+        ...since(9, withFrames),
+      ]);
+      upgradeRecords(request.transaction!, STUDIO_DRAWINGS, since(8, withFrames));
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

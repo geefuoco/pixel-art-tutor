@@ -1,3 +1,4 @@
+import { frameDrawing, isValidFps, stillAnimation, type Animation } from './animation';
 import { TRANSPARENT, type Color, type Drawing } from './drawing';
 
 export const ROLES = ['outline', 'base', 'shadow', 'highlight'] as const;
@@ -25,8 +26,33 @@ export interface StepTarget {
   readonly target: readonly number[];
 }
 
-export interface LessonStep extends StepTarget {
+export const FRAME_POSES = ['key', 'in-between'] as const;
+export type FramePose = (typeof FRAME_POSES)[number];
+
+export function isFramePose(value: unknown): value is FramePose {
+  return (FRAME_POSES as readonly unknown[]).includes(value);
+}
+
+export interface SpriteStep extends StepTarget {
   readonly explanation: string;
+}
+
+export interface FrameStep {
+  readonly kind: 'frame';
+  readonly frame: number;
+  readonly pose: FramePose;
+  readonly target: readonly number[];
+  readonly explanation: string;
+}
+
+export type LessonStep = SpriteStep | FrameStep;
+
+export function isAnimationLesson(lesson: Lesson): boolean {
+  return lesson.animation.frames.length > 1;
+}
+
+export function frameOfStep(step: LessonStep): number {
+  return step.kind === 'frame' ? step.frame : 0;
 }
 
 export interface Lesson {
@@ -35,6 +61,7 @@ export interface Lesson {
   readonly size: LessonSize;
   readonly palette: readonly Color[];
   readonly reference: Drawing;
+  readonly animation: Animation;
   readonly roles: readonly Role[];
   readonly steps: readonly LessonStep[];
 }
@@ -77,6 +104,21 @@ function isLessonSize(n: number): n is LessonSize {
   return (LESSON_SIZES as readonly number[]).includes(n);
 }
 
+function checkSpriteShape(
+  width: number,
+  height: number,
+  palette: readonly Color[],
+  roles: readonly Role[],
+): LessonSize {
+  if (height !== width || !isLessonSize(width)) {
+    throw new RangeError(`A Lesson is 8x8, 16x16 or 32x32 pixels, not ${width}x${height}`);
+  }
+  if (roles.length !== palette.length) {
+    throw new RangeError('A Lesson needs a Role for every palette color');
+  }
+  return width;
+}
+
 export function createLesson(options: {
   id: string;
   title: string;
@@ -86,15 +128,7 @@ export function createLesson(options: {
   silhouetteColor?: number;
 }): Lesson {
   const { id, title, reference, roles, explanations, silhouetteColor } = options;
-  const size = reference.width;
-  if (reference.height !== size || !isLessonSize(size)) {
-    throw new RangeError(
-      `A Lesson is 8x8, 16x16 or 32x32 pixels, not ${reference.width}x${reference.height}`,
-    );
-  }
-  if (roles.length !== reference.palette.length) {
-    throw new RangeError('A Lesson needs a Role for every palette color');
-  }
+  const size = checkSpriteShape(reference.width, reference.height, reference.palette, roles);
   if (
     silhouetteColor !== undefined &&
     !(
@@ -120,5 +154,74 @@ export function createLesson(options: {
       `The Reference Sprite has no ${unexplained.join(' or ')} Step for an explanation to go with`,
     );
   }
-  return { id, title, size, palette: reference.palette, reference, roles, steps };
+  return {
+    id,
+    title,
+    size,
+    palette: reference.palette,
+    reference,
+    animation: stillAnimation(reference),
+    roles,
+    steps,
+  };
+}
+
+export interface FrameStepContent {
+  readonly frame: number;
+  readonly pose: FramePose;
+  readonly explanation: string;
+}
+
+function checkFrameSteps(frameSteps: readonly FrameStepContent[], frameCount: number) {
+  if (frameCount < 2) throw new RangeError('An animation Lesson needs at least 2 Frames');
+  const seen = new Set<number>();
+  for (const { frame } of frameSteps) {
+    if (!Number.isInteger(frame) || frame < 0 || frame >= frameCount) {
+      throw new RangeError(`The animation has no Frame ${frame + 1}`);
+    }
+    if (seen.has(frame)) throw new RangeError(`Frame ${frame + 1} has more than one Step`);
+    seen.add(frame);
+  }
+  for (let frame = 0; frame < frameCount; frame++) {
+    if (!seen.has(frame)) throw new RangeError(`Frame ${frame + 1} has no Step`);
+  }
+  if (frameSteps[0]?.pose !== 'key') {
+    throw new RangeError('An animation Lesson starts with a key pose');
+  }
+  const firstInBetween = frameSteps.findIndex((s) => s.pose === 'in-between');
+  if (firstInBetween >= 0 && frameSteps.slice(firstInBetween).some((s) => s.pose === 'key')) {
+    throw new RangeError('Key poses come before in-betweens');
+  }
+}
+
+export function createAnimationLesson(options: {
+  id: string;
+  title: string;
+  animation: Animation;
+  roles: readonly Role[];
+  frameSteps: readonly FrameStepContent[];
+}): Lesson {
+  const { id, title, animation, roles, frameSteps } = options;
+  const size = checkSpriteShape(animation.width, animation.height, animation.palette, roles);
+  if (!isValidFps(animation.fps)) {
+    throw new RangeError(`An animation Lesson cannot play at ${animation.fps} FPS`);
+  }
+  checkFrameSteps(frameSteps, animation.frames.length);
+  const steps = frameSteps.map(({ frame, pose, explanation }): FrameStep => ({
+    kind: 'frame',
+    frame,
+    pose,
+    target: animation.frames[frame]!,
+    explanation,
+  }));
+  return {
+    id,
+    title,
+    size,
+    palette: animation.palette,
+    reference: frameDrawing(animation, 0),
+    animation,
+    roles,
+    steps,
+  };
 }

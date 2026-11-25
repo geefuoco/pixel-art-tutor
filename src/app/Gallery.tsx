@@ -114,7 +114,7 @@ function GalleryAttemptCard({ attempt, titleOf }: { attempt: Attempt; titleOf: T
   return (
     <DrawingCard
       label={`${lessonTitle} in ${MODE_NAMES[attempt.mode]}, ${date}`}
-      drawing={attempt.drawing}
+      drawing={frameDrawing(attempt.animation, 0)}
       heading={lessonTitle}
       date={date}
     >
@@ -193,7 +193,7 @@ function NumberedAttemptCard({ attempt, number }: { attempt: Attempt; number: nu
   return (
     <DrawingCard
       label={`Attempt ${number}`}
-      drawing={attempt.drawing}
+      drawing={frameDrawing(attempt.animation, 0)}
       heading={`Attempt ${number}`}
       date={dateTime.format(attempt.finishedAt)}
     >

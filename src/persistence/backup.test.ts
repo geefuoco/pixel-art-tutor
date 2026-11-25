@@ -215,6 +215,31 @@ describe('backup and restore', () => {
       },
     ],
   };
+  const withOneFrame = <
+    T extends { drawing: { width: number; height: number; palette: string[]; pixels: number[] } },
+  >({
+    drawing: { pixels, ...size },
+    ...record
+  }: T) => ({ ...record, animation: { ...size, frames: [pixels], fps: 8 } });
+  const bobbing = {
+    width: 2,
+    height: 1,
+    palette: PALETTE,
+    frames: [
+      [1, _],
+      [_, 1],
+    ],
+    fps: 6,
+  };
+  const version10 = {
+    ...version9,
+    version: 10,
+    attempts: version7.attempts.map((a) => ({ ...withOneFrame(a), animation: bobbing })),
+    inProgressAttempts: version6.inProgressAttempts.map((a) => ({
+      ...withOneFrame(a),
+      animation: bobbing,
+    })),
+  };
   const withAnimation = (changes: object) =>
     JSON.stringify({
       ...version9,
@@ -240,7 +265,7 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 10 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 11 }), /newer version/],
     ['an animation with no Frames', withAnimation({ frames: [] }), /damaged/],
     ['a Frame with too few pixels', withAnimation({ frames: [[1, _], [0]] }), /damaged/],
     [
@@ -416,11 +441,26 @@ describe('backup and restore', () => {
     expect(await again.store.readAll()).toEqual(await store.readAll());
   });
 
+  it('restores animation Attempts and in-progress Attempts with every Frame', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version10))).toMatchObject({ ok: true });
+    expect(await store.listAttempts()).toEqual(expect.arrayContaining(version10.attempts));
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(
+      version10.inProgressAttempts[0],
+    );
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
   it('restores Attempts and in-progress Attempts with their flash counts along with the rest', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     expect(await studio.restore(JSON.stringify(version6))).toMatchObject({ ok: true });
-    expect(await store.listAttempts()).toEqual(version6.attempts);
-    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(version6.inProgressAttempts[0]);
+    expect(await store.listAttempts()).toEqual(version6.attempts.map(withOneFrame));
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual(
+      withOneFrame(version6.inProgressAttempts[0]!),
+    );
 
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
@@ -430,7 +470,9 @@ describe('backup and restore', () => {
   it('restores Freehand Attempts with their sub-scores', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     expect(await studio.restore(JSON.stringify(version7))).toMatchObject({ ok: true });
-    expect(await store.listAttempts()).toEqual(expect.arrayContaining(version7.attempts));
+    expect(await store.listAttempts()).toEqual(
+      expect.arrayContaining(version7.attempts.map(withOneFrame)),
+    );
 
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
@@ -457,7 +499,7 @@ describe('backup and restore', () => {
   it('restores progress along with the rest, replacing the progress there was', async () => {
     const { store, studio } = await openStudio(new IDBFactory());
     await store.saveAttempt(
-      { ...version6.attempts[0]!, mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
+      { ...withOneFrame(version6.attempts[0]!), mode: 'trace', id: 'x', lessonId: 'jar', score: 1 },
       { passed: true },
     );
     expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
@@ -472,10 +514,10 @@ describe('backup and restore', () => {
     const { store, studio } = await openStudio(new IDBFactory());
     expect(await studio.restore(JSON.stringify(version4))).toMatchObject({ ok: true });
     expect(await store.listAttempts()).toEqual([
-      { ...version4.attempts[0], hintFlashes: 0, inGallery: false },
+      { ...withOneFrame(version4.attempts[0]!), hintFlashes: 0, inGallery: false },
     ]);
     expect(await store.getInProgressAttempt('pot', 'trace')).toEqual({
-      ...version4.inProgressAttempts[0],
+      ...withOneFrame(version4.inProgressAttempts[0]!),
       hintFlashes: 0,
     });
   });

@@ -1,5 +1,6 @@
+import type { Animation } from './animation';
 import { TRANSPARENT, type Drawing, type Point } from './drawing';
-import type { Lesson, Mode } from './lesson';
+import type { FrameStep, Lesson, Mode } from './lesson';
 import { FREEHAND_PASS_SCORE, LESSON_PASS_SCORE } from './thresholds';
 
 export interface StepCheck {
@@ -11,15 +12,34 @@ function stepOfPixel(lesson: Lesson, referenceColor: number): number {
   return lesson.steps.findIndex((s) => s.kind === lesson.roles[referenceColor]);
 }
 
+function pointAt(i: number, size: number): Point {
+  return { x: i % size, y: Math.floor(i / size) };
+}
+
+function checkFrameStep(lesson: Lesson, step: FrameStep, drawing: Drawing): StepCheck {
+  const missing: Point[] = [];
+  const extra: Point[] = [];
+  step.target.forEach((expected, i) => {
+    const drawn = drawing.pixels[i]!;
+    if (expected === TRANSPARENT) {
+      if (drawn !== TRANSPARENT) extra.push(pointAt(i, lesson.size));
+    } else if (drawn !== expected) {
+      missing.push(pointAt(i, lesson.size));
+    }
+  });
+  return { missing, extra };
+}
+
 export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): StepCheck {
   const step = lesson.steps[stepIndex];
   if (!step) throw new RangeError(`Lesson ${lesson.id} has no Step ${stepIndex}`);
+  if (step.kind === 'frame') return checkFrameStep(lesson, step, drawing);
   const silhouette = lesson.steps[0]!.target;
   const missing: Point[] = [];
   const extra: Point[] = [];
   lesson.reference.pixels.forEach((referenceColor, i) => {
     const drawn = drawing.pixels[i]!;
-    const at = { x: i % lesson.size, y: Math.floor(i / lesson.size) };
+    const at = pointAt(i, lesson.size);
     if (referenceColor === TRANSPARENT) {
       if (drawn !== TRANSPARENT) extra.push(at);
       return;
@@ -32,14 +52,17 @@ export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): 
   return { missing, extra };
 }
 
-export function scoreLessonDrawing(lesson: Lesson, drawing: Drawing): number {
+export function scoreLessonAttempt(lesson: Lesson, attempt: Animation): number {
   let compared = 0;
   let correct = 0;
-  lesson.reference.pixels.forEach((referenceColor, i) => {
-    const drawn = drawing.pixels[i]!;
-    if (referenceColor === TRANSPARENT && drawn === TRANSPARENT) return;
-    compared++;
-    if (drawn === referenceColor) correct++;
+  lesson.animation.frames.forEach((referenceFrame, frame) => {
+    const drawnFrame = attempt.frames[frame];
+    referenceFrame.forEach((referenceColor, i) => {
+      const drawn = drawnFrame?.[i] ?? TRANSPARENT;
+      if (referenceColor === TRANSPARENT && drawn === TRANSPARENT) return;
+      compared++;
+      if (drawn === referenceColor) correct++;
+    });
   });
   return compared === 0 ? 0 : correct / compared;
 }

@@ -29,6 +29,32 @@
 - Explanations are a Markdown subset: paragraphs, `- ` lists, `**strong**`, `*emphasis*`, `` `code` `` and images. A paragraph of only images shows them side by side, each captioned with its alt text. Images must be files in `examples/`.
 - `overrides` is optional. `silhouetteColor` picks the color the Silhouette Step is blocked in; by default it is the most used base color. While checking the Silhouette Step, a pixel already drawn in its final color also counts as right, so drawing ahead is never marked wrong.
 
+## Animation Lessons
+
+An animation Lesson has one Step per Frame instead of the silhouette-to-highlight Steps. Its `reference.png` is a horizontal strip of square Frames (8x8, 16x16 or 32x32 each), in playback order. Its manifest has `animation` in place of `explanations` and `overrides`:
+
+```json
+{
+  "id": "slime-idle",
+  "title": "Slime idle bob",
+  "roles": { "#3e8948": "base", "...": "..." },
+  "animation": {
+    "fps": 6,
+    "steps": [
+      { "frame": 1, "pose": "key", "explanation": "Markdown." },
+      { "frame": 3, "pose": "key", "explanation": "..." },
+      { "frame": 2, "pose": "in-between", "explanation": "..." },
+      { "frame": 4, "pose": "in-between", "explanation": "..." }
+    ]
+  }
+}
+```
+
+- `fps` is how fast the animation plays, 1 to 30.
+- `steps` lists every Frame exactly once, counted from 1, in the order they are drawn: all key poses first, then the in-betweens.
+- `roles` still gives every color a Role. Freehand uses them to score Palette.
+- Each Frame-Step is checked against its whole Frame in its final colors.
+
 To turn a Personal Lesson into a built-in one, use its **Copy manifest** and **Download reference.png** buttons on the Lessons page, put both in `lessons/<id>/`, add the id to `course.json`, and rewrite the templated explanations.
 
 The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.

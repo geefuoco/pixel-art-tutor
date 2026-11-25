@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { TRANSPARENT as _, type Drawing } from '../core/drawing';
-import { createLesson, type Lesson, type Mode } from '../core/lesson';
+import { createAnimationLesson, createLesson, type Lesson, type Mode } from '../core/lesson';
 import { spriteOf } from '../core/test-grids';
 import { createCourseProgress } from './course-progress';
 import { createLessonPlay, type LessonPlay } from './lesson-play';
@@ -104,11 +104,12 @@ describe('playing a Lesson', () => {
         id: expect.any(String),
         lessonId: 'pot',
         mode: 'trace',
-        drawing: {
+        animation: {
           width: 8,
           height: 8,
           palette: PALETTE,
-          pixels: [0, 1, 1, 0, ...new Array<number>(60).fill(_)],
+          frames: [[0, 1, 1, 0, ...new Array<number>(60).fill(_)]],
+          fps: 8,
         },
         score: 1,
         hintFlashes: 0,
@@ -226,7 +227,7 @@ describe('playing a Lesson in Freehand', () => {
       hintFlashes: 0,
       inGallery: true,
       subScores: { shape: 1, palette: 1, lineQuality: 1 },
-      mistakes: [],
+      mistakes: [[]],
     };
     expect(await pot.finish()).toEqual(expected);
     expect(ready(pot).result).toEqual(expected);
@@ -252,7 +253,7 @@ describe('playing a Lesson in Freehand', () => {
 
     const result = await pot.finish();
     expect(result).toMatchObject({ passed: false, inGallery: true });
-    expect(result.mistakes).toEqual([{ kind: 'orphan-pixel', pixels: [{ x: 2, y: 5 }] }]);
+    expect(result.mistakes).toEqual([[{ kind: 'orphan-pixel', pixels: [{ x: 2, y: 5 }] }]]);
     expect(await openStore(indexedDB).listAttempts()).toMatchObject([
       { mode: 'freehand', inGallery: true },
     ]);
@@ -274,5 +275,81 @@ describe('playing a Lesson in Freehand', () => {
 
     await pot.startOver();
     expect([drawingOf(pot).width, drawingOf(pot).height]).toEqual([8, 8]);
+  });
+});
+
+describe('playing an animation Lesson', () => {
+  const rowOf = (row: string) => [
+    ...spriteOf([row], 'OB', PALETTE).pixels,
+    ...new Array<number>(56).fill(_),
+  ];
+  const BOB = createAnimationLesson({
+    id: 'bob',
+    title: 'Bob',
+    roles: ['outline', 'base'],
+    animation: {
+      width: 8,
+      height: 8,
+      palette: PALETTE,
+      fps: 5,
+      frames: [rowOf('OBBO....'), rowOf('.OBBO...'), rowOf('..OBBO..')],
+    },
+    frameSteps: [
+      { frame: 0, pose: 'key', explanation: '' },
+      { frame: 2, pose: 'key', explanation: '' },
+      { frame: 1, pose: 'in-between', explanation: '' },
+    ],
+  });
+  const animationOf = (p: LessonPlay) => ready(p).editor.getState().animation;
+  const drawFrame = (p: LessonPlay, frame: number, row: string) => {
+    ready(p).editor.selectFrame(frame);
+    [...row].forEach((c, x) => c !== '.' && draw(p, 'OB'.indexOf(c), x));
+  };
+
+  it('starts with one blank Frame for each Reference Frame, at the Lesson FPS', async () => {
+    const animation = animationOf(await play(new IDBFactory(), BOB));
+    expect(animation.fps).toBe(5);
+    expect(animation.frames).toHaveLength(3);
+    expect(animation.frames.every((f) => f.every((p) => p === _))).toBe(true);
+  });
+
+  it('autosaves every Frame and resumes them after a reload', async () => {
+    const indexedDB = new IDBFactory();
+    const bob = await play(indexedDB, BOB);
+    drawFrame(bob, 0, 'OBBO....');
+    drawFrame(bob, 2, '..OBBO..');
+    await bob.flush();
+
+    const frames = animationOf(await play(indexedDB, BOB)).frames;
+    expect(frames.map((f) => f.slice(0, 8))).toEqual([
+      [0, 1, 1, 0, _, _, _, _],
+      [_, _, _, _, _, _, _, _],
+      [_, _, 0, 1, 1, 0, _, _],
+    ]);
+  });
+
+  it('scores the Attempt over every Frame and saves the whole animation', async () => {
+    const indexedDB = new IDBFactory();
+    const bob = await play(indexedDB, BOB);
+    drawFrame(bob, 0, 'OBBO....');
+    drawFrame(bob, 2, '..OBBO..');
+    expect(await bob.finish()).toMatchObject({ score: 8 / 12, passed: false });
+
+    drawFrame(bob, 1, '.OBBO...');
+    expect(await bob.finish()).toMatchObject({ score: 1, passed: true });
+    const passed = (await openStore(indexedDB).listAttempts()).find((a) => a.score === 1);
+    expect(passed!.animation).toEqual(BOB.animation);
+  });
+
+  it('enlarges every Frame in Freehand, keeping each Frame where it was drawn', async () => {
+    const indexedDB = new IDBFactory();
+    const bob = await play(indexedDB, BOB, () => 1000, 'freehand');
+    drawFrame(bob, 1, '.O......');
+    bob.enlargeCanvas(16);
+    await bob.flush();
+
+    const resumed = animationOf(await play(indexedDB, BOB, () => 1000, 'freehand'));
+    expect([resumed.width, resumed.frames.length]).toEqual([16, 3]);
+    expect(resumed.frames[1]![4 * 16 + 5]).toBe(0);
   });
 });
