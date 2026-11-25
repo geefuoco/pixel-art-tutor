@@ -7,6 +7,7 @@ import { dateTime } from './date-time';
 import { gallery, useGallery } from './gallery-store';
 import { useCourse } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
+import { usePersonalLessons } from './personal-lessons-store';
 import { Nav } from './Nav';
 import { percent } from './percent';
 import { plural } from './plural';
@@ -25,10 +26,15 @@ type TitleOf = (lessonId: string) => string;
 
 function useLessonTitles(): TitleOf {
   const course = useCourse();
+  const personal = usePersonalLessons();
   return (lessonId) =>
     (course.status === 'ready'
       ? course.lessons.find((l) => l.lesson.id === lessonId)?.lesson.title
-      : undefined) ?? lessonId;
+      : undefined) ??
+    (personal.status === 'ready'
+      ? personal.lessons.find((l) => l.id === lessonId)?.title
+      : undefined) ??
+    lessonId;
 }
 
 async function openInStudio(id: string) {

@@ -820,3 +820,137 @@ a {
   background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 8px 8px;
   border-radius: 8px;
 }
+
+.lesson-list h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.personal-lessons {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.section-heading .btn,
+.personal-lesson-actions .btn,
+.upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.personal-lesson-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.new-personal-lesson {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.new-personal-lesson h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.new-personal-lesson p {
+  margin: 0;
+}
+
+.upload-button {
+  cursor: pointer;
+}
+
+.upload-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.role-review {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.role-review h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.role-review-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.upload-preview {
+  width: 192px;
+  height: 192px;
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 16px 16px;
+  border-radius: 8px;
+}
+
+.role-table {
+  border-collapse: collapse;
+}
+
+.role-table th,
+.role-table td {
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.role-table td:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgb(0 0 0 / 0.2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.field input {
+  font: inherit;
+  font-weight: 400;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  min-width: 260px;
+}

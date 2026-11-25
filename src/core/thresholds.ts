@@ -15,3 +15,7 @@ export const PILLOW_RING_SHARE = 0.8;
 export const PILLOW_MIN_LAYERS = 3;
 
 export const PILLOW_MIN_LAYER_PIXELS = 4;
+
+export const ROLE_HUE_GROUP_DEGREES = 30;
+
+export const ROLE_GREY_MAX_CHROMA = 10;

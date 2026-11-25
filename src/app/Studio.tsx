@@ -21,7 +21,7 @@ import { Nav } from './Nav';
 import { WarningBanner } from './WarningBanner';
 import { BUNDLED_CHOICES, choiceMatching, customChoices, STARTER_CHOICE } from './palette-choices';
 import { PaletteSwatches } from './PaletteSwatches';
-import { decodePng } from './png-image';
+import { decodePngFile } from './png-image';
 import { dateTime } from './date-time';
 import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
@@ -35,8 +35,6 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
   full: "browser storage is full, so your latest changes aren't saved. Export a PNG to keep a copy, or free up space and keep drawing.",
 };
 
-const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
-
 const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
 function downloadPng(drawing: Drawing, scale: number) {
@@ -48,17 +46,7 @@ function downloadPng(drawing: Drawing, scale: number) {
 }
 
 async function readPng(file: File): Promise<Drawing> {
-  const signature = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-  if (!PNG_SIGNATURE.every((b, i) => signature[i] === b)) {
-    throw new Error(`${file.name} is not a PNG file.`);
-  }
-  let image: ImageData;
-  try {
-    image = await decodePng(file);
-  } catch {
-    throw new Error(`${file.name} could not be read as a PNG image.`);
-  }
-  return drawingFromImage(image);
+  return drawingFromImage(await decodePngFile(file));
 }
 
 export function Studio() {

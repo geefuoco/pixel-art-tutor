@@ -1,6 +1,6 @@
 import type { Drawing } from '../core/drawing';
 import type { FreehandSubScores } from '../core/freehand';
-import type { Mode } from '../core/lesson';
+import type { Mode, Role } from '../core/lesson';
 import { passesMode } from '../core/evaluate';
 import type { CustomPalette } from '../core/palettes';
 import { recordPass, type LessonProgress, type Progress } from '../core/progress';
@@ -31,12 +31,21 @@ export interface Attempt {
   readonly finishedAt: number;
 }
 
+export interface PersonalLessonRecord {
+  readonly id: string;
+  readonly title: string;
+  readonly reference: Drawing;
+  readonly roles: readonly Role[];
+  readonly createdAt: number;
+}
+
 export interface StoreContents {
   readonly studioDrawings: readonly SavedDrawing[];
   readonly customPalettes: readonly CustomPalette[];
   readonly attempts: readonly Attempt[];
   readonly inProgressAttempts: readonly InProgressAttempt[];
   readonly progress: Progress;
+  readonly personalLessons: readonly PersonalLessonRecord[];
 }
 
 export interface Store {
@@ -52,6 +61,8 @@ export interface Store {
   saveAttemptToGallery(attemptId: string): Promise<void>;
   listAttempts(): Promise<Attempt[]>;
   listProgress(): Promise<LessonProgress[]>;
+  listPersonalLessons(): Promise<PersonalLessonRecord[]>;
+  putPersonalLesson(record: PersonalLessonRecord): Promise<void>;
   readAll(): Promise<StoreContents>;
   replaceAll(contents: StoreContents): Promise<void>;
 }
@@ -77,18 +88,20 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
 const IN_PROGRESS_ATTEMPTS = 'in-progress-attempts';
 const PROGRESS = 'progress';
+const PERSONAL_LESSONS = 'personal-lessons';
 const KEY_PATHS: Record<string, string | string[]> = {
   [STUDIO_DRAWINGS]: 'id',
   [CUSTOM_PALETTES]: 'id',
   [ATTEMPTS]: 'id',
   [IN_PROGRESS_ATTEMPTS]: ['lessonId', 'mode'],
   [PROGRESS]: 'lessonId',
+  [PERSONAL_LESSONS]: 'id',
 };
 const OBJECT_STORES = Object.keys(KEY_PATHS);
 
@@ -255,18 +268,41 @@ export function openStore(factory: IDBFactory | undefined): Store {
         objectStore(PROGRESS).getAll(),
       );
     },
+    async listPersonalLessons() {
+      const all = await transact<PersonalLessonRecord[]>('readonly', (objectStore) =>
+        objectStore(PERSONAL_LESSONS).getAll(),
+      );
+      return all.sort((a, b) => a.createdAt - b.createdAt);
+    },
+    async putPersonalLesson(record) {
+      await transact('readwrite', (objectStore) => objectStore(PERSONAL_LESSONS).put(record));
+    },
     async readAll() {
-      const [studioDrawings, customPalettes, attempts, inProgressAttempts, progress] =
-        await Promise.all([
-          this.listStudioDrawings(),
-          this.listCustomPalettes(),
-          this.listAttempts(),
-          transact<InProgressAttempt[]>('readonly', (objectStore) =>
-            objectStore(IN_PROGRESS_ATTEMPTS).getAll(),
-          ),
-          this.listProgress(),
-        ]);
-      return { studioDrawings, customPalettes, attempts, inProgressAttempts, progress };
+      const [
+        studioDrawings,
+        customPalettes,
+        attempts,
+        inProgressAttempts,
+        progress,
+        personalLessons,
+      ] = await Promise.all([
+        this.listStudioDrawings(),
+        this.listCustomPalettes(),
+        this.listAttempts(),
+        transact<InProgressAttempt[]>('readonly', (objectStore) =>
+          objectStore(IN_PROGRESS_ATTEMPTS).getAll(),
+        ),
+        this.listProgress(),
+        this.listPersonalLessons(),
+      ]);
+      return {
+        studioDrawings,
+        customPalettes,
+        attempts,
+        inProgressAttempts,
+        progress,
+        personalLessons,
+      };
     },
     async replaceAll(contents) {
       await transact('readwrite', (objectStore) => {
@@ -280,6 +316,8 @@ export function openStore(factory: IDBFactory | undefined): Store {
         }
         objectStore(PROGRESS).clear();
         for (const entry of contents.progress) objectStore(PROGRESS).put(entry);
+        objectStore(PERSONAL_LESSONS).clear();
+        for (const record of contents.personalLessons) objectStore(PERSONAL_LESSONS).put(record);
         const cleared = objectStore(STUDIO_DRAWINGS).clear();
         for (const entry of contents.studioDrawings) objectStore(STUDIO_DRAWINGS).put(entry);
         return cleared;

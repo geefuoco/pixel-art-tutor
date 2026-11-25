@@ -7,6 +7,7 @@ import { plural } from './plural';
 import { Palettes } from './Palettes';
 import { routeHref } from './router';
 import { forgetLessonPlays } from './lesson-plays';
+import { personalLessons } from './personal-lessons-store';
 import { courseProgress } from './progress-store';
 import { studio } from './studio-store';
 
@@ -82,7 +83,7 @@ export function Settings() {
     const result = await studio.restore(backup.text);
     if (result.ok) {
       forgetLessonPlays();
-      await courseProgress.reload();
+      await Promise.all([courseProgress.reload(), personalLessons.reload()]);
     }
     setBusy(false);
     setChosen(null);
@@ -104,9 +105,9 @@ export function Settings() {
         <section aria-labelledby="backup-heading" className="settings-section">
           <h2 id="backup-heading">Backup</h2>
           <p className="hint">
-            Your drawings, palettes and Lesson Attempts are kept only in this browser. Download a
-            backup file to keep them safe if site data is cleared, or to move them to another
-            browser.
+            Your drawings, palettes, Personal Lessons and Lesson Attempts are kept only in this
+            browser. Download a backup file to keep them safe if site data is cleared, or to move
+            them to another browser.
           </p>
           <div className="settings-actions">
             <button type="button" className="btn primary" onClick={downloadBackup}>
@@ -134,8 +135,8 @@ export function Settings() {
               }}
             >
               <p>
-                Restoring replaces all your current drawings, palettes and Lesson Attempts with the{' '}
-                {contentsOf(chosen)} in {chosen.name}.
+                Restoring replaces all your current drawings, palettes, Personal Lessons and Lesson
+                Attempts with the {contentsOf(chosen)} in {chosen.name}.
               </p>
               <button type="submit" className="btn primary" disabled={busy}>
                 Replace my drawings

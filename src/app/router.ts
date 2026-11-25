@@ -7,6 +7,7 @@ export type Route =
   | { readonly page: Page }
   | { readonly page: 'lesson'; readonly lessonId: string; readonly mode: Mode }
   | { readonly page: 'lesson-attempts'; readonly lessonId: string }
+  | { readonly page: 'new-personal-lesson' }
   | { readonly page: 'not-found' };
 
 export const routeHref: Record<Page, string> = {
@@ -16,6 +17,8 @@ export const routeHref: Record<Page, string> = {
   gallery: '#/gallery',
   settings: '#/settings',
 };
+
+export const newPersonalLessonHref = '#/lessons/new';
 
 export function lessonHref(lessonId: string, mode: Mode): string {
   return `#/lessons/${encodeURIComponent(lessonId)}/${mode}`;
@@ -37,6 +40,7 @@ function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '') || '/';
   const page = PAGES[path];
   if (page) return { page };
+  if (path === '/lessons/new') return { page: 'new-personal-lesson' };
   const lesson = /^\/lessons\/([^/]+)\/([^/]+)$/.exec(path);
   if (lesson && isMode(lesson[2]!)) {
     return { page: 'lesson', lessonId: decodeURIComponent(lesson[1]!), mode: lesson[2] };
