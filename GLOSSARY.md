@@ -93,6 +93,10 @@ One image in an animation.
 **Animation**:
 The ordered Frames of a Studio drawing, played in a loop at one FPS for the whole animation (no per-Frame durations). A still drawing is an Animation of one Frame.
 
+**Sprite Sheet**:
+One PNG holding every Frame of an Animation, side by side in a strip or in a grid, exported with an Aseprite-style JSON frame map that gives where each Frame is and how long it shows.
+_Avoid_: Atlas, tilesheet
+
 **Onion Skin**:
 A faint view of the previous and next Frames behind the current one, at an adjustable opacity, for lining up motion between Frames.
 _Avoid_: Ghost

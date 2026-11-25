@@ -46,6 +46,13 @@ export interface AsepriteFrame {
   readonly duration: number;
 }
 
+export interface AsepriteFrameTag {
+  readonly name: string;
+  readonly from: number;
+  readonly to: number;
+  readonly direction: 'forward';
+}
+
 export interface AsepriteFrameMap {
   readonly frames: readonly AsepriteFrame[];
   readonly meta: {
@@ -55,30 +62,35 @@ export interface AsepriteFrameMap {
     readonly format: 'RGBA8888';
     readonly size: Size;
     readonly scale: string;
-    readonly frameTags: readonly never[];
+    readonly frameTags: readonly AsepriteFrameTag[];
   };
 }
 
 export function asepriteFrameMap(
-  animation: Animation,
-  options: { layout: SheetLayout; scale: number; image: string },
+  sheet: SpriteSheet,
+  options: { fps: number; scale: number; image: string },
 ): AsepriteFrameMap {
-  const { layout, scale, image } = options;
-  const sheet = spriteSheet(animation, layout);
-  const name = image.replace(/\.png$/, '');
-  const w = animation.width * scale;
-  const h = animation.height * scale;
-  const duration = Math.round(1000 / animation.fps);
+  const { fps, scale, image } = options;
+  const scaled = (rect: Rect): Box => ({
+    x: rect.x * scale,
+    y: rect.y * scale,
+    w: rect.width * scale,
+    h: rect.height * scale,
+  });
+  const duration = Math.round(1000 / fps);
   return {
-    frames: sheet.frames.map((rect, i) => ({
-      filename: `${name} ${i}`,
-      frame: { x: rect.x * scale, y: rect.y * scale, w, h },
-      rotated: false,
-      trimmed: false,
-      spriteSourceSize: { x: 0, y: 0, w, h },
-      sourceSize: { w, h },
-      duration,
-    })),
+    frames: sheet.frames.map((rect, i) => {
+      const frame = scaled(rect);
+      return {
+        filename: `frame ${i}`,
+        frame,
+        rotated: false,
+        trimmed: false,
+        spriteSourceSize: { x: 0, y: 0, w: frame.w, h: frame.h },
+        sourceSize: { w: frame.w, h: frame.h },
+        duration,
+      };
+    }),
     meta: {
       app: 'Pixel Art Tutor',
       version: '1.0',
@@ -86,7 +98,9 @@ export function asepriteFrameMap(
       format: 'RGBA8888',
       size: { w: sheet.image.width * scale, h: sheet.image.height * scale },
       scale: String(scale),
-      frameTags: [],
+      frameTags: [
+        { name: 'animation', from: 0, to: sheet.frames.length - 1, direction: 'forward' },
+      ],
     },
   };
 }

@@ -79,11 +79,13 @@ describe('sprite sheet layout', () => {
 });
 
 describe('Aseprite frame map', () => {
-  it('lists each Frame in order with its place in the scaled sheet and how long it shows', () => {
-    expect(asepriteFrameMap(threeFrames, { layout: 'grid', scale: 2, image: 'walk.png' })).toEqual({
+  it('lists each Frame in order with its place in the scaled sheet, how long it shows, and one looping tag', () => {
+    expect(
+      asepriteFrameMap(spriteSheet(threeFrames, 'grid'), { fps: 8, scale: 2, image: 'walk.png' }),
+    ).toEqual({
       frames: [
         {
-          filename: 'walk 0',
+          filename: 'frame 0',
           frame: { x: 0, y: 0, w: 4, h: 4 },
           rotated: false,
           trimmed: false,
@@ -92,7 +94,7 @@ describe('Aseprite frame map', () => {
           duration: 125,
         },
         {
-          filename: 'walk 1',
+          filename: 'frame 1',
           frame: { x: 4, y: 0, w: 4, h: 4 },
           rotated: false,
           trimmed: false,
@@ -101,7 +103,7 @@ describe('Aseprite frame map', () => {
           duration: 125,
         },
         {
-          filename: 'walk 2',
+          filename: 'frame 2',
           frame: { x: 0, y: 4, w: 4, h: 4 },
           rotated: false,
           trimmed: false,
@@ -117,16 +119,17 @@ describe('Aseprite frame map', () => {
         format: 'RGBA8888',
         size: { w: 8, h: 8 },
         scale: '2',
-        frameTags: [],
+        frameTags: [{ name: 'animation', from: 0, to: 2, direction: 'forward' }],
       },
     });
   });
 
   it('gives the duration in whole milliseconds and a strip the size of every Frame in a row', () => {
-    const map = asepriteFrameMap(
-      { ...threeFrames, fps: 12 },
-      { layout: 'strip', scale: 1, image: 'sheet.png' },
-    );
+    const map = asepriteFrameMap(spriteSheet(threeFrames, 'strip'), {
+      fps: 12,
+      scale: 1,
+      image: 'sheet.png',
+    });
     expect(map.frames.map((f) => [f.frame.x, f.duration])).toEqual([
       [0, 83],
       [2, 83],

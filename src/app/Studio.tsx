@@ -16,12 +16,17 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
-import { frameDrawing, onionSkins, type Animation } from '../core/animation';
+import { frameDrawing, onionSkins } from '../core/animation';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
 import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
-import { asepriteFrameMap, spriteSheet, type SheetLayout } from '../core/sprite-sheet';
+import {
+  asepriteFrameMap,
+  spriteSheet,
+  type SheetLayout,
+  type SpriteSheet,
+} from '../core/sprite-sheet';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
 import type { CurrentDrawing } from '../persistence/studio';
 import type { Control } from './controls';
@@ -62,21 +67,26 @@ function downloadPng(drawing: Drawing, scale: number, filename: string) {
   downloadFile(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }), filename);
 }
 
-function sizedName(prefix: string, drawing: Drawing, scale: number) {
+function scaledFilenameStem(prefix: string, drawing: Drawing, scale: number) {
   return `${prefix}-${drawing.width * scale}x${drawing.height * scale}`;
 }
 
-function sheetPngName(sheet: Drawing, scale: number) {
-  return `${sizedName('sprite-sheet', sheet, scale)}.png`;
+function downloadSheetPng(sheet: SpriteSheet, scale: number) {
+  downloadPng(sheet.image, scale, `${scaledFilenameStem('sprite-sheet', sheet.image, scale)}.png`);
 }
 
-function downloadFrameMap(animation: Animation, layout: SheetLayout, scale: number) {
-  const image = sheetPngName(spriteSheet(animation, layout).image, scale);
-  const map = asepriteFrameMap(animation, { layout, scale, image });
+function downloadFrameMap(sheet: SpriteSheet, fps: number, scale: number) {
+  const stem = scaledFilenameStem('sprite-sheet', sheet.image, scale);
+  const map = asepriteFrameMap(sheet, { fps, scale, image: `${stem}.png` });
   downloadFile(
     new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' }),
-    image.replace(/\.png$/, '.json'),
+    `${stem}.json`,
   );
+}
+
+function exportedFramesLabel(choice: ExportChoice, frame: number, frameCount: number) {
+  if (choice !== 'frame') return `all ${frameCount} Frames as `;
+  return frameCount > 1 ? `Frame ${frame + 1} as ` : '';
 }
 
 async function readPng(file: File): Promise<Drawing> {
@@ -124,7 +134,9 @@ function StudioEditor({
   const [exportScale, setExportScale] = useState(1);
   const [chosenExport, setChosenExport] = useState<ExportChoice>('frame');
   const exportChoice = lastFrame > 0 ? chosenExport : 'frame';
-  const exported = exportChoice === 'frame' ? drawing : spriteSheet(animation, exportChoice).image;
+  const sheet =
+    panel === 'export' && exportChoice !== 'frame' ? spriteSheet(animation, exportChoice) : null;
+  const imageToExport = sheet?.image ?? drawing;
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
@@ -270,14 +282,12 @@ function StudioEditor({
 
   function exportDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    downloadPng(
-      exported,
-      exportScale,
-      exportChoice === 'frame'
-        ? `${sizedName('drawing', drawing, exportScale)}.png`
-        : sheetPngName(exported, exportScale),
-    );
-    if (exportChoice === 'frame') setPanel(null);
+    if (sheet) {
+      downloadSheetPng(sheet, exportScale);
+      return;
+    }
+    downloadPng(drawing, exportScale, `${scaledFilenameStem('drawing', drawing, exportScale)}.png`);
+    setPanel(null);
   }
 
   return (
@@ -429,30 +439,25 @@ function StudioEditor({
               </select>
             </label>
             <button type="submit" className="btn primary">
-              {exportChoice === 'frame' ? 'Export' : 'Export PNG'}
+              {sheet ? 'Export PNG' : 'Export'}
             </button>
-            {exportChoice !== 'frame' && (
+            {sheet && (
               <button
                 type="button"
                 className="btn primary"
-                onClick={() => downloadFrameMap(animation, exportChoice, exportScale)}
+                onClick={() => downloadFrameMap(sheet, animation.fps, exportScale)}
               >
                 Export JSON
               </button>
             )}
             <button type="button" className="btn" onClick={() => setPanel(null)}>
-              {exportChoice === 'frame' ? 'Cancel' : 'Done'}
+              {sheet ? 'Done' : 'Cancel'}
             </button>
             <p className="hint">
-              Saves{' '}
-              {exportChoice === 'frame'
-                ? lastFrame > 0
-                  ? `Frame ${frame + 1} as `
-                  : ''
-                : `all ${lastFrame + 1} Frames as `}
-              a {exported.width * exportScale}x{exported.height * exportScale} PNG. Each pixel
-              becomes a sharp {exportScale}x{exportScale} block.
-              {exportChoice !== 'frame' &&
+              Saves {exportedFramesLabel(exportChoice, frame, lastFrame + 1)}a{' '}
+              {imageToExport.width * exportScale}x{imageToExport.height * exportScale} PNG. Each
+              pixel becomes a sharp {exportScale}x{exportScale} block.
+              {sheet &&
                 ' The JSON is an Aseprite-style frame map giving where each Frame is and how long it shows.'}
             </p>
           </form>
