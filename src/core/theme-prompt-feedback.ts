@@ -15,7 +15,7 @@ export interface PromptCheck {
   readonly outcome: CheckOutcome;
 }
 
-export interface ThemePromptFeedback {
+export interface PromptFeedback {
   readonly mistakes: readonly Mistake[];
   readonly checks: readonly PromptCheck[];
 }
@@ -65,11 +65,11 @@ const CHECKS: Record<ConstraintCheck, (drawing: Drawing) => boolean> = {
   dithering: hasDithering,
 };
 
-function outcome(met: boolean): CheckOutcome {
+export function outcome(met: boolean): CheckOutcome {
   return met ? 'met' : 'unmet';
 }
 
-export function themePromptFeedback(prompt: ThemePrompt, drawing: Drawing): ThemePromptFeedback {
+export function themePromptFeedback(prompt: ThemePrompt, drawing: Drawing): PromptFeedback {
   const fitsSize = drawing.width === prompt.size && drawing.height === prompt.size;
   return {
     mistakes: findMistakes(drawing, { colorBudget: prompt.palette.colors }),

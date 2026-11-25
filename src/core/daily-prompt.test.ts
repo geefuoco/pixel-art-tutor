@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from './calendar-date';
-import { dailyPrompt, type PractisedAttempt, type Practice } from './daily-prompt';
+import {
+  dailyPrompt,
+  type DailyPromptKind,
+  type PractisedAttempt,
+  type Practice,
+} from './daily-prompt';
+import { createDrawing } from './drawing';
 import type { Mode } from './lesson';
+import type { TechniqueDrill } from './technique-drill';
 import { themePrompt } from './theme-prompt';
 
 const NO_PRACTICE: Practice = { course: [], attempts: [] };
@@ -10,7 +17,7 @@ function dates(from: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addDays(from, i));
 }
 
-function firstDrawOf(kind: string, from = '2026-11-25') {
+function firstDrawOf(kind: DailyPromptKind, from = '2026-11-25') {
   for (const date of dates(from, 365)) {
     for (const draw of [0, 1, 2, 3, 4, 5]) {
       if (dailyPrompt(date, draw, NO_PRACTICE).drawn === kind) return { date, draw };
@@ -110,18 +117,8 @@ describe('Review Drills', () => {
   });
 });
 
-function twoReviewDraws() {
-  for (const date of dates('2026-11-25', 365)) {
-    const draws = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
-      (draw) => dailyPrompt(date, draw, NO_PRACTICE).drawn === 'review',
-    );
-    if (draws.length >= 2) return { date, first: draws[0]!, second: draws[1]! };
-  }
-  throw new Error('No date with two Review draws in a year');
-}
-
 describe('further Review Drills on the same day', () => {
-  const { date, first, second } = twoReviewDraws();
+  const { date, first, second } = twoDrawsOf('review');
 
   it('replay the next passed Lesson practised least recently', () => {
     const practice = {
@@ -143,13 +140,125 @@ describe('further Review Drills on the same day', () => {
   });
 });
 
+function drillFor(id: string, lessonId: string): TechniqueDrill {
+  return {
+    id,
+    title: id,
+    technique: 'shading',
+    lessonId,
+    instruction: 'Shade it.',
+    start: createDrawing({ width: 8, height: 8, palette: ['#000000'] }),
+    roles: ['base'],
+    checks: ['shadow-away-from-light'],
+    light: 'top-left',
+    seamless: [],
+  };
+}
+
+const DRILLS = [drillFor('shade-dot', 'dot'), drillFor('shade-sword', 'sword')];
+
+function twoDrawsOf(kind: DailyPromptKind) {
+  for (const date of dates('2026-11-25', 365)) {
+    const draws = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
+      (draw) => dailyPrompt(date, draw, NO_PRACTICE).drawn === kind,
+    );
+    if (draws.length >= 2) return { date, first: draws[0]!, second: draws[1]! };
+  }
+  throw new Error(`No date with two ${kind} draws in a year`);
+}
+
 describe('Technique Drills', () => {
-  it('fall back to the Theme Prompt for the draw until there are drills to give', () => {
-    const { date, draw } = firstDrawOf('technique');
-    expect(dailyPrompt(date, draw, NO_PRACTICE)).toEqual({
+  const { date, draw } = firstDrawOf('technique');
+
+  it('fall back to the Theme Prompt for the draw when no drill has its Lesson passed', () => {
+    const practice = { course: COURSE, attempts: [failed('dot', 'trace', 1)] };
+    expect(dailyPrompt(date, draw, practice, DRILLS)).toEqual({
       kind: 'theme',
       drawn: 'technique',
       prompt: themePrompt(date, draw),
+    });
+  });
+
+  it('give a drill whose technique was taught by a Lesson passed before that date', () => {
+    const practice = { course: COURSE, attempts: [passed('sword', 'trace', 3)] };
+    expect(dailyPrompt(date, draw, practice, DRILLS)).toEqual({
+      kind: 'technique',
+      drawn: 'technique',
+      date,
+      draw,
+      drill: DRILLS[1],
+    });
+  });
+
+  it('count a pass in any Mode, but only for Lessons in the Course', () => {
+    const drills = [drillFor('shade-dot', 'dot'), drillFor('shade-retired', 'retired')];
+    const practice = {
+      course: COURSE,
+      attempts: [
+        passed('retired', 'trace', 1),
+        failed('dot', 'trace', 1),
+        passed('dot', 'hint', 2),
+      ],
+    };
+    expect(dailyPrompt(date, draw, practice, drills)).toMatchObject({
+      kind: 'technique',
+      drill: { id: 'shade-dot' },
+    });
+  });
+
+  it('keep the same drill all day, whatever is passed on that day', () => {
+    const [year, month, day] = date.split('-').map(Number);
+    const thatDay = new Date(year!, month! - 1, day!, 9).getTime();
+    const practice = {
+      course: COURSE,
+      attempts: [{ lessonId: 'dot', mode: 'trace' as const, score: 1, finishedAt: thatDay }],
+    };
+    expect(dailyPrompt(date, draw, practice, DRILLS)).toMatchObject({ kind: 'theme' });
+  });
+
+  it('give every drill whose Lesson was passed on some day', () => {
+    const practice = {
+      course: COURSE,
+      attempts: [passed('dot', 'trace', 1), passed('sword', 'trace', 1)],
+    };
+    const given = new Set(
+      dates('2026-11-25', 120).flatMap((day) =>
+        [0, 1, 2].flatMap((n) => {
+          const prompt = dailyPrompt(day, n, practice, DRILLS);
+          return prompt.kind === 'technique' ? [prompt.drill.id] : [];
+        }),
+      ),
+    );
+    expect(given).toEqual(new Set(['shade-dot', 'shade-sword']));
+  });
+});
+
+describe('further Technique Drills on the same day', () => {
+  const { date, first, second } = twoDrawsOf('technique');
+  const both = {
+    course: COURSE,
+    attempts: [passed('dot', 'trace', 1), passed('sword', 'trace', 1)],
+  };
+
+  it('give a drill not already given that day', () => {
+    const one = dailyPrompt(date, first, both, DRILLS);
+    const other = dailyPrompt(date, second, both, DRILLS);
+    expect(one.kind === 'technique' && other.kind === 'technique').toBe(true);
+    expect(new Set([one, other].map((p) => p.kind === 'technique' && p.drill.id))).toEqual(
+      new Set(['shade-dot', 'shade-sword']),
+    );
+  });
+
+  it('fall back to a Theme Prompt once every drill has been given', () => {
+    const practice = { course: COURSE, attempts: [passed('dot', 'trace', 1)] };
+    expect(dailyPrompt(date, first, practice, DRILLS)).toMatchObject({
+      kind: 'technique',
+      drill: { id: 'shade-dot' },
+    });
+    expect(dailyPrompt(date, second, practice, DRILLS)).toEqual({
+      kind: 'theme',
+      drawn: 'technique',
+      prompt: themePrompt(date, second),
     });
   });
 });

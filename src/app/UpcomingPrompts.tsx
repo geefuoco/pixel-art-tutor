@@ -6,6 +6,7 @@ import { useGallery } from './gallery-store';
 import { courseLessonIds, useCourse } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
+import { useTechniqueDrills } from './technique-drills';
 
 const DAYS = 365;
 
@@ -19,6 +20,7 @@ function exercise(prompt: DailyPrompt, lessonTitle: (id: string) => string): str
   if (prompt.kind === 'review') {
     return `Replay ${lessonTitle(prompt.lessonId)} in ${MODE_NAMES[prompt.mode]}`;
   }
+  if (prompt.kind === 'technique') return prompt.drill.title;
   const text = themePromptText(prompt.prompt);
   return prompt.drawn === 'theme' ? text : `Theme Prompt instead: ${text}`;
 }
@@ -26,6 +28,7 @@ function exercise(prompt: DailyPrompt, lessonTitle: (id: string) => string): str
 export function UpcomingPrompts() {
   const gallery = useGallery();
   const course = useCourse();
+  const drills = useTechniqueDrills();
   const lessonTitle = (id: string) =>
     (course.status === 'ready' &&
       course.lessons.find((entry) => entry.lesson.id === id)?.lesson.title) ||
@@ -40,8 +43,8 @@ export function UpcomingPrompts() {
       <main className="card upcoming-prompts">
         <h1>Upcoming Daily Prompts</h1>
         <p className="hint">
-          Development only. The first prompt for each of the next {DAYS} days. Review Drills are
-          picked from your Attempts so far.
+          Development only. The first prompt for each of the next {DAYS} days. Review and Technique
+          Drills are picked from your Attempts so far.
         </p>
         <table>
           <thead>
@@ -53,7 +56,7 @@ export function UpcomingPrompts() {
           </thead>
           <tbody>
             {dates.map((date) => {
-              const prompt = dailyPrompt(date, 0, practice);
+              const prompt = dailyPrompt(date, 0, practice, drills);
               return (
                 <tr key={date}>
                   <td>{formatCalendarDate(date)}</td>

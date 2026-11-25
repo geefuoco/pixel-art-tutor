@@ -1,0 +1,18 @@
+{
+  "id": "shade-red-slime",
+  "title": "Shade a red slime",
+  "technique": "shading",
+  "instruction": "This slime is one flat red. Light comes from the top left: put shadow on the sides facing away from it, the bottom and the right, and a few highlight pixels on the upper left where the light hits hardest.",
+  "roles": {
+    "#e43b44": "base",
+    "#c0cbdc": "base",
+    "#262b44": "outline",
+    "#181425": "outline",
+    "#f6757a": "highlight",
+    "#ffffff": "highlight",
+    "#9e2835": "shadow",
+    "#3f2832": "shadow"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-left"
+}

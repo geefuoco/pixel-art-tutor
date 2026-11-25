@@ -140,3 +140,42 @@ test('replay a passed Lesson one Mode harder as a Review Drill, then get a Theme
   await expect(page.getByText(/, prompt 2$/)).toBeVisible();
   await expect(promptCanvas(page)).toBeVisible();
 });
+
+test('draw a Technique Drill once its Lesson is passed, check it and keep it in the Gallery', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2026-11-28T10:00:00'));
+  await page.goto('#/settings');
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(backupWithPassedTrace('red-potion', '2026-10-01T12:00:00')),
+  });
+  await page
+    .getByRole('form', { name: 'Restore backup' })
+    .getByRole('button', { name: 'Replace my drawings' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('Restored');
+
+  await page.getByRole('link', { name: 'Daily Prompt', exact: true }).click();
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a blue slime');
+  const canvas = promptCanvas(page);
+  await expect(canvas).toHaveAccessibleName(/16 by 16 pixels/);
+  const slime = await pixelAt(canvas, 16, 6, 8);
+  expect(slime[3]).toBe(255);
+
+  await page.getByRole('button', { name: 'Check drawing' }).click();
+  const checks = page.getByRole('region', { name: 'The drill' });
+  await expect(
+    checks.getByRole('listitem').filter({ hasText: 'The outline goes all the way round' }),
+  ).toHaveText(/^Not met/);
+
+  await page.reload();
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a blue slime');
+  await page.getByRole('button', { name: 'Save to Gallery' }).click();
+  await expect(page.getByRole('button', { name: 'Saved to the Gallery' })).toBeDisabled();
+  await page.getByRole('link', { name: 'Gallery', exact: true }).first().click();
+  await expect(
+    page.getByRole('article', { name: /Daily Prompt, November 28, 2026/ }),
+  ).toContainText('Technique Drill: Outline a blue slime');
+});

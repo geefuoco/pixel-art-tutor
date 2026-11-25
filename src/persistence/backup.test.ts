@@ -254,6 +254,22 @@ describe('backup and restore', () => {
       },
     ],
   };
+  const version12 = {
+    ...version11,
+    version: 12,
+    promptDrawings: [
+      ...version11.promptDrawings,
+      {
+        date: '2026-11-26',
+        draw: 0,
+        text: 'Technique Drill: Shade a blue potion',
+        drillId: 'shade-blue-potion',
+        animation: bobbing,
+        inGallery: false,
+        updatedAt: 13,
+      },
+    ],
+  };
   const withPromptDrawing = (changes: object) =>
     JSON.stringify({
       ...version11,
@@ -284,7 +300,7 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 12 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 13 }), /newer version/],
     [
       'a prompt drawing on a date not on the calendar',
       withPromptDrawing({ date: '2026-02-30' }),
@@ -292,6 +308,11 @@ describe('backup and restore', () => {
     ],
     ['a prompt drawing with a draw below 0', withPromptDrawing({ draw: -1 }), /damaged/],
     ['a prompt drawing without its prompt', withPromptDrawing({ text: '' }), /damaged/],
+    [
+      'a prompt drawing with a drill id that is not text',
+      withPromptDrawing({ drillId: 7 }),
+      /damaged/,
+    ],
     [
       'a prompt drawing not saying whether it is in the Gallery',
       withPromptDrawing({ inGallery: undefined }),
@@ -536,6 +557,18 @@ describe('backup and restore', () => {
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
     expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores Technique Drill drawings with the drill they belong to', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version12))).toMatchObject({ ok: true });
+    expect(await store.listPromptDrawings()).toEqual(
+      expect.arrayContaining(version12.promptDrawings),
+    );
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.listPromptDrawings()).toEqual(await store.listPromptDrawings());
   });
 
   it('restores a version 10 backup, made before Daily Prompts, as having no prompt drawings', async () => {

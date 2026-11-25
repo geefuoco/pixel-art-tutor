@@ -2,9 +2,10 @@ import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { stillAnimation } from '../core/animation';
 import { addDays } from '../core/calendar-date';
-import { dailyPrompt as promptFor } from '../core/daily-prompt';
+import { dailyPrompt as promptFor, type DailyPromptKind } from '../core/daily-prompt';
 import { createDrawing, TRANSPARENT as _ } from '../core/drawing';
 import type { Mode } from '../core/lesson';
+import type { TechniqueDrill } from '../core/technique-drill';
 import { themePrompt, themePromptText } from '../core/theme-prompt';
 import { createDailyPrompt, type DailyPrompt } from './daily-prompt';
 import { createGallery } from './gallery';
@@ -12,11 +13,34 @@ import { openStore } from './store';
 
 const COURSE = ['dot', 'apple'];
 
-async function openDailyPrompt(indexedDB: IDBFactory | undefined, today = '2026-11-25') {
+const DRILL: TechniqueDrill = {
+  id: 'shade-apple',
+  title: 'Shade an apple',
+  technique: 'shading',
+  lessonId: 'apple',
+  instruction: 'Shade this apple lit from the top left.',
+  start: {
+    width: 8,
+    height: 8,
+    palette: ['#cc2222', '#771111'],
+    pixels: [0, 0, ...Array.from({ length: 62 }, () => _)],
+  },
+  roles: ['base', 'shadow'],
+  checks: ['shadow-away-from-light'],
+  light: 'top-left',
+  seamless: [],
+};
+
+async function openDailyPrompt(
+  indexedDB: IDBFactory | undefined,
+  today = '2026-11-25',
+  drills: readonly TechniqueDrill[] = [DRILL],
+) {
   const dailyPrompt = createDailyPrompt({
     store: openStore(indexedDB),
     today: () => today,
     course: COURSE,
+    loadDrills: () => Promise.resolve(drills),
   });
   await dailyPrompt.load();
   return dailyPrompt;
@@ -50,18 +74,23 @@ async function passTrace(indexedDB: IDBFactory, lessonId: string, finishedAt: nu
   );
 }
 
-function reviewDay(): string {
+function dayStartingOn(kind: DailyPromptKind): string {
   const none = { course: [], attempts: [] };
   for (let i = 0; i < 365; i++) {
     const date = addDays('2026-11-25', i);
-    if (
-      promptFor(date, 0, none).drawn === 'review' &&
-      promptFor(date, 1, none).drawn !== 'review'
-    ) {
+    if (promptFor(date, 0, none).drawn === kind && promptFor(date, 1, none).drawn !== kind) {
       return date;
     }
   }
-  throw new Error('No day starting on a Review draw in a year');
+  throw new Error(`No day starting on a ${kind} draw in a year`);
+}
+
+const reviewDay = () => dayStartingOn('review');
+
+function techniqueState(dailyPrompt: DailyPrompt) {
+  const state = loaded(dailyPrompt);
+  if (state.kind !== 'technique') throw new Error('The Daily Prompt is not a Technique Drill');
+  return state;
 }
 
 const LAST_MONTH = new Date(2026, 9, 1, 12).getTime();
@@ -221,5 +250,109 @@ describe('the Daily Prompt', () => {
     const reloaded = await openDailyPrompt(indexedDB, date);
     expect(ready(reloaded).prompt).toEqual(themePrompt(date, 0));
     expect(drawn(reloaded).pixels[0]).toBe(1);
+  });
+
+  it('opens a Technique Drill on its starting sprite once its Lesson is passed', async () => {
+    const indexedDB = new IDBFactory();
+    await passTrace(indexedDB, 'apple', LAST_MONTH);
+    const date = dayStartingOn('technique');
+    const dailyPrompt = await openDailyPrompt(indexedDB, date);
+    const state = techniqueState(dailyPrompt);
+    expect(state.prompt).toEqual({
+      kind: 'technique',
+      drawn: 'technique',
+      date,
+      draw: 0,
+      drill: DRILL,
+    });
+    expect(state.editor.getState().drawing).toEqual(DRILL.start);
+    expect(state.inGallery).toBe(false);
+  });
+
+  it('gives the Theme Prompt on a Technique day before any drill Lesson is passed', async () => {
+    const date = dayStartingOn('technique');
+    const dailyPrompt = await openDailyPrompt(new IDBFactory(), date);
+    expect(ready(dailyPrompt).prompt).toEqual(themePrompt(date, 0));
+  });
+
+  it('keeps the drill drawing through a reload and saves it to the Gallery under the drill', async () => {
+    const indexedDB = new IDBFactory();
+    await passTrace(indexedDB, 'apple', LAST_MONTH);
+    const date = dayStartingOn('technique');
+    const dailyPrompt = await openDailyPrompt(indexedDB, date);
+    techniqueState(dailyPrompt).editor.apply({
+      type: 'pencil',
+      color: 1,
+      points: [{ x: 2, y: 0 }],
+    });
+    await dailyPrompt.flush();
+
+    const reloaded = await openDailyPrompt(indexedDB, date);
+    expect(techniqueState(reloaded).prompt.drill.id).toBe('shade-apple');
+    expect(techniqueState(reloaded).editor.getState().drawing.pixels.slice(0, 4)).toEqual([
+      0,
+      0,
+      1,
+      _,
+    ]);
+
+    await reloaded.saveToGallery();
+    expect(techniqueState(reloaded).inGallery).toBe(true);
+    const gallery = createGallery({ store: openStore(indexedDB) });
+    await gallery.refresh();
+    const state = gallery.getState();
+    expect(
+      state.status === 'ready' && state.entries.filter((entry) => entry.kind === 'prompt'),
+    ).toMatchObject([
+      {
+        kind: 'prompt',
+        promptDrawing: {
+          date,
+          draw: 0,
+          text: 'Technique Drill: Shade an apple',
+          drillId: 'shade-apple',
+          inGallery: true,
+        },
+      },
+    ]);
+  });
+
+  it('keeps a drill drawing on its Theme Prompt if the drill is no longer shipped', async () => {
+    const indexedDB = new IDBFactory();
+    await passTrace(indexedDB, 'apple', LAST_MONTH);
+    const date = dayStartingOn('technique');
+    const dailyPrompt = await openDailyPrompt(indexedDB, date);
+    techniqueState(dailyPrompt).editor.apply({
+      type: 'pencil',
+      color: 1,
+      points: [{ x: 2, y: 0 }],
+    });
+    await dailyPrompt.flush();
+
+    const reloaded = await openDailyPrompt(indexedDB, date, []);
+    expect(ready(reloaded).prompt).toEqual(themePrompt(date, 0));
+    expect(drawn(reloaded).pixels.slice(0, 3)).toEqual([0, 0, 1]);
+    dot(reloaded, 3, 0);
+    await reloaded.flush();
+    const [kept] = await openStore(indexedDB).listPromptDrawings();
+    expect(kept).toMatchObject({ text: 'Technique Drill: Shade an apple', drillId: 'shade-apple' });
+  });
+
+  it('tries loading the drills again on reload after they failed to load', async () => {
+    const indexedDB = new IDBFactory();
+    await passTrace(indexedDB, 'apple', LAST_MONTH);
+    const date = dayStartingOn('technique');
+    let loads = 0;
+    const dailyPrompt = createDailyPrompt({
+      store: openStore(indexedDB),
+      today: () => date,
+      course: COURSE,
+      loadDrills: () =>
+        ++loads === 1 ? Promise.reject(new Error('offline')) : Promise.resolve([DRILL]),
+    });
+    await dailyPrompt.load();
+    expect(loaded(dailyPrompt).kind).toBe('theme');
+    await dailyPrompt.reload();
+    expect(techniqueState(dailyPrompt).prompt.drill.id).toBe('shade-apple');
   });
 });

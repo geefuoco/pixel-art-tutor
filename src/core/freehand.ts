@@ -1,6 +1,6 @@
 import { frameDrawing, type Animation } from './animation';
 import { TRANSPARENT, type Drawing, type Point, type Rect } from './drawing';
-import { seamlessEdgesOfFrame, type Lesson, type Role } from './lesson';
+import { roleOfColor, seamlessEdgesOfFrame, type Lesson } from './lesson';
 import { findMistakes, type Mistake } from './mistakes';
 import { inReadingOrder } from './pixel-grid';
 import { FREEHAND_SCALE_TOLERANCE } from './thresholds';
@@ -139,16 +139,8 @@ function bestAlignment(reference: Drawing, drawing: Drawing): Alignment | null {
   return best;
 }
 
-function lessonRoleOf(lesson: Lesson, drawing: Drawing): (color: number) => Role | undefined {
-  const lessonColors = lesson.palette.map((c) => c.toLowerCase());
-  return (color) => {
-    const index = lessonColors.indexOf(drawing.palette[color]!.toLowerCase());
-    return index < 0 ? undefined : lesson.roles[index];
-  };
-}
-
 function paletteScore(lesson: Lesson, drawing: Drawing, alignment: Alignment): number {
-  const roleOf = lessonRoleOf(lesson, drawing);
+  const roleOf = roleOfColor(lesson.palette, lesson.roles, drawing);
   const drawn = opaquePoints(drawing);
   let onPalette = 0;
   let overlapping = 0;

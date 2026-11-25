@@ -19,7 +19,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 11;
+export const BACKUP_VERSION = 12;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -229,11 +229,20 @@ function isCalendarDate(value: unknown): value is string {
 
 function readPromptDrawing(value: unknown): PromptDrawing | null {
   if (!isRecord(value)) return null;
-  const { date, draw, text, inGallery, updatedAt } = value as Unchecked<PromptDrawing>;
+  const { date, draw, text, drillId, inGallery, updatedAt } = value as Unchecked<PromptDrawing>;
   const animation = readAnimation(value.animation);
   if (!isCalendarDate(date) || !isCount(draw) || !isText(text) || !animation) return null;
   if (typeof inGallery !== 'boolean' || !Number.isFinite(updatedAt)) return null;
-  return { date, draw, text, animation, inGallery, updatedAt: updatedAt as number };
+  if (drillId !== undefined && !isText(drillId)) return null;
+  return {
+    date,
+    draw,
+    text,
+    ...(drillId === undefined ? {} : { drillId }),
+    animation,
+    inGallery,
+    updatedAt: updatedAt as number,
+  };
 }
 
 function readAllWithUniqueKeys<T>(
