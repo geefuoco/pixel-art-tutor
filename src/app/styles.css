@@ -699,13 +699,17 @@ a {
   width: min(100%, 560px);
 }
 
-.mistakes-panel input {
+.mistakes-panel input,
+.mistakes-panel select {
   font: inherit;
-  width: 5em;
   margin-left: 8px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+
+.mistakes-panel input {
+  width: 5em;
 }
 
 .reference {
