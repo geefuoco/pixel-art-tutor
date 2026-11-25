@@ -25,6 +25,11 @@ const exampleUrls = import.meta.glob<string>('/content/lessons/*/examples/*.png'
   import: 'default',
 });
 
+const courseIds: readonly string[] | null =
+  Array.isArray(course) && course.every((id) => typeof id === 'string') ? course : null;
+
+export const courseLessonIds: readonly string[] = courseIds ?? [];
+
 export interface LessonEntry {
   readonly lesson: Lesson;
   readonly referenceUrl: string;
@@ -74,10 +79,8 @@ const courseListeners = new Set<() => void>();
 function loadCourse() {
   loadingCourse ??= (async () => {
     try {
-      if (!Array.isArray(course) || !course.every((id) => typeof id === 'string')) {
-        throw new Error('content/course.json is not a list of Lesson ids');
-      }
-      courseState = { status: 'ready', lessons: await Promise.all(course.map(loadLesson)) };
+      if (!courseIds) throw new Error('content/course.json is not a list of Lesson ids');
+      courseState = { status: 'ready', lessons: await Promise.all(courseIds.map(loadLesson)) };
     } catch (error) {
       courseState = {
         status: 'failed',

@@ -80,3 +80,63 @@ test("draw today's Theme Prompt, check it, keep it through a reload, save it and
   await expect(page.getByText(/, prompt 2$/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save to Gallery' })).toBeEnabled();
 });
+
+function backupWithPassedTrace(lessonId: string, finishedAt: string) {
+  return JSON.stringify({
+    format: 'pixel-art-tutor-backup',
+    version: 11,
+    studioDrawings: [],
+    customPalettes: [],
+    attempts: [
+      {
+        id: 'passed-trace',
+        lessonId,
+        mode: 'trace',
+        animation: {
+          width: 8,
+          height: 8,
+          palette: ['#000000'],
+          frames: [Array.from({ length: 64 }, () => -1)],
+          fps: 8,
+        },
+        score: 1,
+        hintFlashes: 0,
+        inGallery: true,
+        finishedAt: new Date(finishedAt).getTime(),
+      },
+    ],
+    inProgressAttempts: [],
+    progress: [{ lessonId, passedModes: ['trace'] }],
+    personalLessons: [],
+    promptDrawings: [],
+  });
+}
+
+test('replay a passed Lesson one Mode harder as a Review Drill, then get a Theme Prompt', async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date('2026-11-29T10:00:00'));
+  await page.goto('#/settings');
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(backupWithPassedTrace('red-potion', '2026-10-01T12:00:00')),
+  });
+  await page
+    .getByRole('form', { name: 'Restore backup' })
+    .getByRole('button', { name: 'Replace my drawings' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('Restored');
+
+  await page.getByRole('link', { name: 'Daily Prompt', exact: true }).click();
+  await expect(page.getByText(/Daily Prompt for November 29, 2026/)).toBeVisible();
+  await expect(promptHeading(page)).toHaveText('Review Drill: Red potion in Hint');
+  await page.getByRole('link', { name: 'Start the Review Drill' }).click();
+  await expect(page).toHaveURL(/#\/lessons\/red-potion\/hint$/);
+  await expect(page.getByRole('img', { name: /lesson canvas/i })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Daily Prompt', exact: true }).click();
+  await page.getByRole('button', { name: 'Give me another' }).click();
+  await expect(page.getByText(/, prompt 2$/)).toBeVisible();
+  await expect(promptCanvas(page)).toBeVisible();
+});

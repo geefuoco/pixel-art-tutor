@@ -1,25 +1,36 @@
 import { stillAnimation, type Animation } from '../core/animation';
 import type { CalendarDate } from '../core/calendar-date';
-import { createEditor, type Editor } from '../core/editor';
 import {
-  blankThemePromptDrawing,
-  themePrompt,
-  themePromptText,
-  type ThemePrompt,
-} from '../core/theme-prompt';
+  dailyPrompt,
+  type DailyPromptKind,
+  type Practice,
+  type PractisedAttempt,
+  type ReviewDrill,
+} from '../core/daily-prompt';
+import { createEditor, type Editor } from '../core/editor';
+import { blankThemePromptDrawing, themePromptText, type ThemePrompt } from '../core/theme-prompt';
 import { StorageError, type PromptDrawing, type Store, type StorageProblem } from './store';
 
 export type DailyPromptState =
   | { readonly status: 'loading' }
   | {
       readonly status: 'ready';
+      readonly kind: 'theme';
+      readonly drawn: DailyPromptKind;
       readonly prompt: ThemePrompt;
       readonly editor: Editor;
       readonly inGallery: boolean;
       readonly problem: StorageProblem | null;
+    }
+  | {
+      readonly status: 'ready';
+      readonly kind: 'review';
+      readonly drill: ReviewDrill;
+      readonly problem: StorageProblem | null;
     };
 
 type Ready = Extract<DailyPromptState, { status: 'ready' }>;
+type ThemeReady = Extract<Ready, { kind: 'theme' }>;
 
 export interface DailyPrompt {
   getState(): DailyPromptState;
@@ -45,13 +56,15 @@ function latestDraw(saved: readonly PromptDrawing[]): PromptDrawing | undefined 
 export function createDailyPrompt(options: {
   store: Store;
   today: () => CalendarDate;
+  course: readonly string[];
 }): DailyPrompt {
-  const { store, today } = options;
+  const { store, today, course } = options;
   let state: DailyPromptState = { status: 'loading' };
   let loadedFor: CalendarDate | undefined;
   let loading: Promise<void> | undefined;
   let stopAutosave = () => {};
   let lastStamp = -Infinity;
+  let practice: Practice = { course, attempts: [] };
   const listeners = new Set<() => void>();
   const pending = new Set<Promise<void>>();
 
@@ -64,13 +77,19 @@ export function createDailyPrompt(options: {
     return state;
   }
 
-  function update(next: Partial<Ready>) {
-    state = { ...ready(), ...next };
+  function readyTheme(): ThemeReady {
+    const current = ready();
+    if (current.kind !== 'theme') throw new Error('The Daily Prompt is not a Theme Prompt');
+    return current;
+  }
+
+  function show(next: DailyPromptState) {
+    state = next;
     publish();
   }
 
   function setProblem(problem: StorageProblem | null) {
-    if (state.status === 'ready' && state.problem !== problem) update({ problem });
+    if (state.status === 'ready' && state.problem !== problem) show({ ...state, problem });
   }
 
   function write(prompt: ThemePrompt, animation: Animation, inGallery: boolean) {
@@ -100,13 +119,36 @@ export function createDailyPrompt(options: {
       const edited = editor.getState().animation;
       if (edited === kept) return;
       kept = edited;
-      write(prompt, edited, ready().inGallery);
+      write(prompt, edited, readyTheme().inGallery);
     });
     return editor;
   }
 
   function blank(prompt: ThemePrompt): Animation {
     return stillAnimation(blankThemePromptDrawing(prompt));
+  }
+
+  function showDraw(
+    date: CalendarDate,
+    draw: number,
+    saved: { animation: Animation; inGallery: boolean } | undefined,
+    problem: StorageProblem | null,
+  ) {
+    const next = dailyPrompt(date, draw, practice);
+    if (next.kind === 'review') {
+      stopAutosave();
+      show({ status: 'ready', kind: 'review', drill: next, problem });
+      return;
+    }
+    const { prompt, drawn } = next;
+    const animation = saved?.animation ?? blank(prompt);
+    const editor = startEditing(prompt, animation);
+    const inGallery = saved?.inGallery ?? false;
+    show({ status: 'ready', kind: 'theme', drawn, prompt, editor, inGallery, problem });
+  }
+
+  function shownDraw(current: Ready): { date: CalendarDate; draw: number } {
+    return current.kind === 'theme' ? current.prompt : current.drill;
   }
 
   async function flush() {
@@ -119,17 +161,16 @@ export function createDailyPrompt(options: {
     loadedFor = date;
     loading = (async () => {
       let saved: PromptDrawing[] = [];
+      let attempts: PractisedAttempt[] = [];
       let problem: StorageProblem | null = null;
       try {
-        saved = (await store.listPromptDrawings()).filter((entry) => entry.date === date);
+        [saved, attempts] = await Promise.all([store.listPromptDrawings(), store.listAttempts()]);
       } catch (error) {
         problem = problemOf(error);
       }
-      const resumed = latestDraw(saved);
-      const prompt = themePrompt(date, resumed?.draw ?? 0);
-      const editor = startEditing(prompt, resumed?.animation ?? blank(prompt));
-      state = { status: 'ready', prompt, editor, inGallery: resumed?.inGallery ?? false, problem };
-      publish();
+      practice = { course, attempts };
+      const resumed = latestDraw(saved.filter((entry) => entry.date === date));
+      showDraw(date, resumed?.draw ?? 0, resumed, problem);
     })();
     return loading;
   }
@@ -147,16 +188,16 @@ export function createDailyPrompt(options: {
       await load();
     },
     another() {
-      const { prompt } = ready();
-      const next = themePrompt(prompt.date, prompt.draw + 1);
-      const animation = blank(next);
-      update({ prompt: next, editor: startEditing(next, animation), inGallery: false });
-      write(next, animation, false);
+      const current = ready();
+      const { date, draw } = shownDraw(current);
+      showDraw(date, draw + 1, undefined, current.problem);
+      const next = ready();
+      if (next.kind === 'theme') write(next.prompt, next.editor.getState().animation, false);
     },
     async saveToGallery() {
-      const { prompt, editor } = ready();
-      update({ inGallery: true });
-      write(prompt, editor.getState().animation, true);
+      const current = readyTheme();
+      show({ ...current, inGallery: true });
+      write(current.prompt, current.editor.getState().animation, true);
       await flush();
     },
     flush,

@@ -2,10 +2,12 @@ import { useSyncExternalStore } from 'react';
 import { localCalendarDate } from '../core/calendar-date';
 import { createDailyPrompt, type DailyPromptState } from '../persistence/daily-prompt';
 import { browserStore } from './browser-store';
+import { courseLessonIds } from './lessons-store';
 
 export const dailyPrompt = createDailyPrompt({
   store: browserStore,
   today: () => localCalendarDate(new Date()),
+  course: courseLessonIds,
 });
 
 function subscribe(listener: () => void) {
