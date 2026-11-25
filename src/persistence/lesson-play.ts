@@ -1,7 +1,9 @@
-import { createDrawing } from '../core/drawing';
+import { createDrawing, enlargeCanvas, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
-import { passesLesson, scoreLessonDrawing } from '../core/evaluate';
+import { passesMode, scoreLessonDrawing } from '../core/evaluate';
+import { scoreFreehand, type FreehandSubScores } from '../core/freehand';
 import type { Lesson, Mode } from '../core/lesson';
+import type { Mistake } from '../core/mistakes';
 import type { CourseProgress } from './course-progress';
 import { StorageError, type Store, type StorageProblem } from './store';
 
@@ -10,6 +12,8 @@ export interface AttemptResult {
   readonly passed: boolean;
   readonly hintFlashes: number;
   readonly inGallery: boolean;
+  readonly subScores?: FreehandSubScores;
+  readonly mistakes?: readonly Mistake[];
 }
 
 export type LessonPlayState =
@@ -28,10 +32,17 @@ export interface LessonPlay {
   load(): Promise<void>;
   finish(): Promise<AttemptResult>;
   flashGuide(): void;
+  enlargeCanvas(size: number): void;
   saveToGallery(): Promise<void>;
   dismissResult(): void;
   startOver(): Promise<void>;
   flush(): Promise<void>;
+}
+
+function scored(lesson: Lesson, mode: Mode, drawing: Drawing) {
+  if (mode !== 'freehand') return { score: scoreLessonDrawing(lesson, drawing) };
+  const { overall, mistakes, ...subScores } = scoreFreehand(lesson, drawing);
+  return { score: overall, subScores, mistakes };
 }
 
 function problemOf(error: unknown): StorageProblem {
@@ -136,8 +147,9 @@ export function createLessonPlay(options: {
     async finish() {
       const { editor, hintFlashes } = ready();
       const drawing = editor.getState().drawing;
-      const score = scoreLessonDrawing(lesson, drawing);
-      const passed = passesLesson(score);
+      const { score, subScores, mistakes } = scored(lesson, mode, drawing);
+      const passed = passesMode(mode, score);
+      const inGallery = passed || mode === 'freehand';
       const id = crypto.randomUUID();
       await flush();
       const saved = await track(
@@ -148,21 +160,33 @@ export function createLessonPlay(options: {
             mode,
             drawing,
             score,
+            ...(subScores && { subScores }),
             hintFlashes,
-            inGallery: passed,
+            inGallery,
             finishedAt: now(),
           },
           { passed },
         ),
       );
       finishedAttemptId = saved ? id : undefined;
-      const result = { score, passed, hintFlashes, inGallery: saved && passed };
+      const result: AttemptResult = {
+        score,
+        passed,
+        hintFlashes,
+        inGallery: saved && inGallery,
+        ...(subScores && { subScores, mistakes }),
+      };
       if (result.passed) progress.notePass(lesson.id, mode);
       update({ result });
       return result;
     },
     flashGuide() {
       update({ hintFlashes: ready().hintFlashes + 1 });
+      autosave();
+    },
+    enlargeCanvas(size) {
+      const editor = startEditing(enlargeCanvas(ready().editor.getState().drawing, size));
+      update({ editor, result: null });
       autosave();
     },
     async saveToGallery() {

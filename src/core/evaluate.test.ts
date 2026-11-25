@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkStep, passesLesson, scoreLessonDrawing } from './evaluate';
+import { checkStep, passesMode, scoreLessonDrawing } from './evaluate';
 import { createLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
@@ -133,9 +133,9 @@ describe('scoring a Lesson', () => {
 
   it('passes at exactly 95% of the 20 sprite pixels right, and fails one pixel below', () => {
     expect(scoreLessonDrawing(LESSON, withMistakes(1))).toBe(0.95);
-    expect(passesLesson(scoreLessonDrawing(LESSON, withMistakes(1)))).toBe(true);
+    expect(passesMode('trace', scoreLessonDrawing(LESSON, withMistakes(1)))).toBe(true);
     expect(scoreLessonDrawing(LESSON, withMistakes(2))).toBe(0.9);
-    expect(passesLesson(scoreLessonDrawing(LESSON, withMistakes(2)))).toBe(false);
+    expect(passesMode('trace', scoreLessonDrawing(LESSON, withMistakes(2)))).toBe(false);
   });
 
   it('counts pixels drawn outside the sprite against the score', () => {

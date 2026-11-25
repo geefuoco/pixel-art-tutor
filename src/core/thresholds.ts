@@ -1,5 +1,9 @@
 export const LESSON_PASS_SCORE = 0.95;
 
+export const FREEHAND_PASS_SCORE = 0.9;
+
+export const FREEHAND_SCALE_TOLERANCE = 2;
+
 export const LOW_CONTRAST_DELTA_E = 10;
 
 export const JAGGIES_MIN_LINE_RUNS = 4;

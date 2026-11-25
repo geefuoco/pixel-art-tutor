@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Drawing } from '../core/drawing';
-import { passesLesson } from '../core/evaluate';
+import { passesMode } from '../core/evaluate';
 import type { GalleryEntry, GalleryState } from '../persistence/gallery';
 import type { Attempt, SavedDrawing, StorageProblem } from '../persistence/store';
 import { dateTime } from './date-time';
@@ -12,6 +12,7 @@ import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
 import { studio } from './studio-store';
+import { SUB_SCORE_KEYS, SUB_SCORE_NAMES } from './sub-score-names';
 import { thumbnail } from './thumbnail';
 import { WarningBanner } from './WarningBanner';
 
@@ -51,8 +52,11 @@ function attemptOutcome(attempt: Attempt, { showPass }: { showPass: boolean }) {
   return [
     MODE_NAMES[attempt.mode],
     percent(attempt.score),
-    ...(showPass ? [passesLesson(attempt.score) ? 'passed' : 'not passed'] : []),
+    ...(showPass ? [passesMode(attempt.mode, attempt.score) ? 'passed' : 'not passed'] : []),
     ...(attempt.mode === 'hint' ? [`Show me used ${plural(attempt.hintFlashes, 'time')}`] : []),
+    ...SUB_SCORE_KEYS.flatMap((key) =>
+      attempt.subScores ? [`${SUB_SCORE_NAMES[key]} ${percent(attempt.subScores[key])}`] : [],
+    ),
   ].join(', ');
 }
 

@@ -60,6 +60,9 @@ Which Modes the learner has passed in each Lesson. A Lesson stays unlocked once 
 One play of a Lesson in a Mode, with its drawing, score, Hint flash count and date.
 _Avoid_: Try, run, submission
 
+**Sub-score**:
+One of the three parts of a Freehand score: Shape (how well the silhouette matches, wherever it is drawn and give or take 2px in size), Palette (whether each Role's colors are in the right places) and Line quality (how few pixels have a Mistake). The overall score is their average.
+
 **Mistake**:
 A specific, detectable pixel art error in a drawing (such as an orphan pixel, jaggies, doubles, banding, pillow shading, too many colors, low contrast or a seam), linked to the explanation that covers it.
 _Avoid_: Error, issue
@@ -108,5 +111,5 @@ A Studio-only toggle that repeats each pencil, eraser or fill flipped left to ri
 A live 3x3 repetition of the canvas that shows how a tile looks when repeated.
 
 **Gallery**:
-The learner's saved record of drawings and Attempts over time. It holds every Studio drawing, every passed Attempt, and any other Attempt the learner saves to it.
+The learner's saved record of drawings and Attempts over time. It holds every Studio drawing, every passed Attempt, every finished Freehand Attempt, and any other Attempt the learner saves to it.
 _Avoid_: Portfolio, history
