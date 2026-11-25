@@ -83,17 +83,21 @@ describe('Theme Prompt feedback', () => {
     });
   });
 
-  it('finds dithering as a run of two colors that alternate, across or down', () => {
-    const across = sweetie(['dddddddd', 'dedededd', 'eeeeeeee']);
-    const down = sweetie(['de.', 'ee.', 'de.', 'ee.']);
+  it('finds dithering as a checkerboard of two colors, at least 4 pixels long and 2 deep', () => {
+    const across = sweetie(['dddddddd', 'dededddd', 'ededeeee', 'eeeeeeee']);
+    const down = sweetie(['de.', 'ed.', 'de.', 'ed.']);
     const flat = sweetie(['dddddddd', 'dddddddd', 'eeeeeeee']);
-    const tooShort = sweetie(['ddddddd', 'ddeddee', 'eeeeeee']);
+    const oneRow = sweetie(['dddddddd', 'dedededd', 'eeeeeeee']);
+    const stripes = sweetie(['dededede', 'dededede', 'dededede']);
+    const tooShort = sweetie(['ddddddd', 'ddedddd', 'dedeeee', 'eeeeeee']);
     const dithered = (drawing: typeof across) =>
       themePromptFeedback(prompt({ size: 16, colors: 4, constraints: ['dithering'] }), drawing)
         .checks[2];
     expect(dithered(across)).toEqual({ label: 'include dithering', outcome: 'met' });
     expect(dithered(down)!.outcome).toBe('met');
     expect(dithered(flat)!.outcome).toBe('unmet');
+    expect(dithered(oneRow)!.outcome).toBe('unmet');
+    expect(dithered(stripes)!.outcome).toBe('unmet');
     expect(dithered(tooShort)!.outcome).toBe('unmet');
   });
 

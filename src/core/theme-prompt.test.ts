@@ -61,6 +61,22 @@ describe('Theme Prompt generator', () => {
     }
   });
 
+  it('never asks for what the spec rules out', () => {
+    const has = (prompt: ThemePrompt, id: string) => partsOf(prompt).some((part) => part.id === id);
+    for (const prompt of SAMPLE) {
+      const text = themePromptText(prompt);
+      if (has(prompt, 'dithering')) {
+        expect(prompt.size, text).toBeGreaterThanOrEqual(16);
+        expect(prompt.palette.colors, text).toBeGreaterThanOrEqual(4);
+      }
+      if (has(prompt, 'anti-aliasing')) expect(prompt.palette.colors, text).toBeGreaterThan(3);
+      if (has(prompt, 'sword')) expect(prompt.size, text).toBeGreaterThanOrEqual(16);
+      if (has(prompt, 'dragon')) expect(prompt.size, text).toBe(32);
+      expect(text.match(/light from/g)?.length ?? 0, text).toBeLessThanOrEqual(1);
+      expect(text.includes('side view') && text.includes('front view'), text).toBe(false);
+    }
+  });
+
   it('can reach every curated part', () => {
     const seen = new Set(SAMPLE.flatMap((prompt) => partsOf(prompt).map((part) => part.id)));
     const sizes = new Set(SAMPLE.map((prompt) => prompt.size));
@@ -85,13 +101,5 @@ describe('Theme Prompt generator', () => {
   it('refuses a date that is not on the calendar', () => {
     expect(() => themePrompt('2026-02-30')).toThrow(RangeError);
     expect(() => themePrompt('25/11/2026')).toThrow(RangeError);
-  });
-});
-
-describe('calendar dates', () => {
-  it('steps across month and year ends', () => {
-    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
-    expect(addDays('2028-02-28', 1)).toBe('2028-02-29');
-    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
   });
 });

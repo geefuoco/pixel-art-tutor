@@ -45,9 +45,8 @@ function latestDraw(saved: readonly PromptDrawing[]): PromptDrawing | undefined 
 export function createDailyPrompt(options: {
   store: Store;
   today: () => CalendarDate;
-  now?: () => number;
 }): DailyPrompt {
-  const { store, today, now = Date.now } = options;
+  const { store, today } = options;
   let state: DailyPromptState = { status: 'loading' };
   let loadedFor: CalendarDate | undefined;
   let loading: Promise<void> | undefined;
@@ -75,7 +74,7 @@ export function createDailyPrompt(options: {
   }
 
   function write(prompt: ThemePrompt, animation: Animation, inGallery: boolean) {
-    lastStamp = Math.max(now(), lastStamp + 1);
+    lastStamp = Math.max(Date.now(), lastStamp + 1);
     const done = store
       .putPromptDrawing({
         date: prompt.date,

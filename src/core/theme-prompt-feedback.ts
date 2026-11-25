@@ -20,7 +20,8 @@ export interface ThemePromptFeedback {
   readonly checks: readonly PromptCheck[];
 }
 
-const DITHER_RUN = 4;
+const DITHER_LENGTH = 4;
+const DITHER_DEPTH = 2;
 
 function usedColors(drawing: Drawing): Set<number> {
   return new Set(drawing.pixels.filter((p) => p !== TRANSPARENT));
@@ -35,20 +36,26 @@ function keepsToPalette(prompt: ThemePrompt, drawing: Drawing): boolean {
   );
 }
 
-function alternatesFrom(drawing: Drawing, x: number, y: number, dx: number, dy: number) {
-  const at = (step: number) => colorAt(drawing, x + dx * step, y + dy * step);
-  const [first, second] = [at(0), at(1)];
+function checkerboardFrom(drawing: Drawing, x: number, y: number, transposed: boolean) {
+  const at = (along: number, across: number) =>
+    transposed ? colorAt(drawing, x + across, y + along) : colorAt(drawing, x + along, y + across);
+  const [first, second] = [at(0, 0), at(1, 0)];
   if (first === undefined || second === undefined) return false;
   if (first === TRANSPARENT || second === TRANSPARENT || first === second) return false;
-  return Array.from({ length: DITHER_RUN }, (_, step) => at(step)).every(
-    (color, step) => color === (step % 2 === 0 ? first : second),
-  );
+  for (let along = 0; along < DITHER_LENGTH; along++) {
+    for (let across = 0; across < DITHER_DEPTH; across++) {
+      if (at(along, across) !== ((along + across) % 2 === 0 ? first : second)) return false;
+    }
+  }
+  return true;
 }
 
 function hasDithering(drawing: Drawing): boolean {
   for (let y = 0; y < drawing.height; y++) {
     for (let x = 0; x < drawing.width; x++) {
-      if (alternatesFrom(drawing, x, y, 1, 0) || alternatesFrom(drawing, x, y, 0, 1)) return true;
+      if (checkerboardFrom(drawing, x, y, false) || checkerboardFrom(drawing, x, y, true)) {
+        return true;
+      }
     }
   }
   return false;
