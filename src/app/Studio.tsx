@@ -21,6 +21,12 @@ import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
 import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
+import {
+  asepriteFrameMap,
+  spriteSheet,
+  type SheetLayout,
+  type SpriteSheet,
+} from '../core/sprite-sheet';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
 import type { CurrentDrawing } from '../persistence/studio';
 import type { Control } from './controls';
@@ -38,6 +44,14 @@ import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
+type ExportChoice = 'frame' | SheetLayout;
+
+const EXPORT_CHOICES: Record<ExportChoice, string> = {
+  frame: 'This Frame',
+  strip: 'Sprite sheet, strip',
+  grid: 'Sprite sheet, grid',
+};
+
 type Panel = 'new-drawing' | 'export' | 'drawings' | 'mistakes' | null;
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
@@ -48,12 +62,31 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
 
 const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
-function downloadPng(drawing: Drawing, scale: number) {
+function downloadPng(drawing: Drawing, scale: number, filename: string) {
   const bytes = exportPng(drawing, scale);
+  downloadFile(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }), filename);
+}
+
+function scaledFilenameStem(prefix: string, drawing: Drawing, scale: number) {
+  return `${prefix}-${drawing.width * scale}x${drawing.height * scale}`;
+}
+
+function downloadSheetPng(sheet: SpriteSheet, scale: number) {
+  downloadPng(sheet.image, scale, `${scaledFilenameStem('sprite-sheet', sheet.image, scale)}.png`);
+}
+
+function downloadFrameMap(sheet: SpriteSheet, fps: number, scale: number) {
+  const stem = scaledFilenameStem('sprite-sheet', sheet.image, scale);
+  const map = asepriteFrameMap(sheet, { fps, scale, image: `${stem}.png` });
   downloadFile(
-    new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
-    `drawing-${drawing.width * scale}x${drawing.height * scale}.png`,
+    new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' }),
+    `${stem}.json`,
   );
+}
+
+function exportedFramesLabel(choice: ExportChoice, frame: number, frameCount: number) {
+  if (choice !== 'frame') return `all ${frameCount} Frames as `;
+  return frameCount > 1 ? `Frame ${frame + 1} as ` : '';
 }
 
 async function readPng(file: File): Promise<Drawing> {
@@ -99,6 +132,11 @@ function StudioEditor({
   const [previewShown, setPreviewShown] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [exportScale, setExportScale] = useState(1);
+  const [chosenExport, setChosenExport] = useState<ExportChoice>('frame');
+  const exportChoice = lastFrame > 0 ? chosenExport : 'frame';
+  const sheet =
+    panel === 'export' && exportChoice !== 'frame' ? spriteSheet(animation, exportChoice) : null;
+  const imageToExport = sheet?.image ?? drawing;
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
@@ -244,7 +282,11 @@ function StudioEditor({
 
   function exportDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    downloadPng(drawing, exportScale);
+    if (sheet) {
+      downloadSheetPng(sheet, exportScale);
+      return;
+    }
+    downloadPng(drawing, exportScale, `${scaledFilenameStem('drawing', drawing, exportScale)}.png`);
     setPanel(null);
   }
 
@@ -366,12 +408,28 @@ function StudioEditor({
             onSubmit={exportDrawing}
             onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
           >
+            {lastFrame > 0 && (
+              <label>
+                Frames
+                <select
+                  value={exportChoice}
+                  onChange={(e) => setChosenExport(e.currentTarget.value as ExportChoice)}
+                  autoFocus
+                >
+                  {Object.entries(EXPORT_CHOICES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Scale
               <select
                 value={exportScale}
                 onChange={(e) => setExportScale(Number(e.currentTarget.value))}
-                autoFocus
+                autoFocus={lastFrame === 0}
               >
                 {EXPORT_SCALES.map((s) => (
                   <option key={s} value={s}>
@@ -381,15 +439,26 @@ function StudioEditor({
               </select>
             </label>
             <button type="submit" className="btn primary">
-              Export
+              {sheet ? 'Export PNG' : 'Export'}
             </button>
+            {sheet && (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => downloadFrameMap(sheet, animation.fps, exportScale)}
+              >
+                Export JSON
+              </button>
+            )}
             <button type="button" className="btn" onClick={() => setPanel(null)}>
-              Cancel
+              {sheet ? 'Done' : 'Cancel'}
             </button>
             <p className="hint">
-              Saves {lastFrame > 0 ? `Frame ${frame + 1} as ` : ''}a {drawing.width * exportScale}x
-              {drawing.height * exportScale} PNG. Each pixel becomes a sharp {exportScale}x
-              {exportScale} block.
+              Saves {exportedFramesLabel(exportChoice, frame, lastFrame + 1)}a{' '}
+              {imageToExport.width * exportScale}x{imageToExport.height * exportScale} PNG. Each
+              pixel becomes a sharp {exportScale}x{exportScale} block.
+              {sheet &&
+                ' The JSON is an Aseprite-style frame map giving where each Frame is and how long it shows.'}
             </p>
           </form>
         )}
