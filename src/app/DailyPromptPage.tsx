@@ -1,4 +1,5 @@
 import { useState, useSyncExternalStore } from 'react';
+import type { ReviewDrill } from '../core/daily-prompt';
 import type { Editor } from '../core/editor';
 import { themePromptText, type ThemePrompt } from '../core/theme-prompt';
 import { themePromptFeedback, type CheckOutcome } from '../core/theme-prompt-feedback';
@@ -6,9 +7,11 @@ import type { StorageProblem } from '../persistence/store';
 import { formatCalendarDate } from './calendar-date-format';
 import { dailyPrompt, useDailyPrompt } from './daily-prompt-store';
 import { DrawingEditor } from './DrawingEditor';
+import { useCourse } from './lessons-store';
 import { MistakeList } from './MistakeList';
+import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
-import { routeHref } from './router';
+import { lessonHref, routeHref } from './router';
 import { WarningBanner } from './WarningBanner';
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
@@ -32,6 +35,9 @@ export function DailyPromptPage() {
       </div>
     );
   }
+  if (state.kind === 'review') {
+    return <ReviewDrillCard drill={state.drill} problem={state.problem} />;
+  }
   return (
     <ThemePromptSession
       prompt={state.prompt}
@@ -39,6 +45,51 @@ export function DailyPromptPage() {
       inGallery={state.inGallery}
       problem={state.problem}
     />
+  );
+}
+
+function promptLabel({ date, draw }: { date: string; draw: number }): string {
+  return `Daily Prompt for ${formatCalendarDate(date)}${draw > 0 ? `, prompt ${draw + 1}` : ''}`;
+}
+
+function ReviewDrillCard({
+  drill,
+  problem,
+}: {
+  drill: ReviewDrill;
+  problem: StorageProblem | null;
+}) {
+  const course = useCourse();
+  const lesson =
+    course.status === 'ready'
+      ? course.lessons.find((entry) => entry.lesson.id === drill.lessonId)
+      : undefined;
+  const title = lesson?.lesson.title ?? 'a Lesson you passed';
+  const mode = MODE_NAMES[drill.mode];
+  return (
+    <div className="page">
+      <Nav current="daily" />
+      <main className="card message-card" aria-labelledby="prompt-title">
+        {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
+        <p className="hint">{promptLabel(drill)}</p>
+        <h1 id="prompt-title">
+          Review Drill: {title} in {mode}
+        </h1>
+        {lesson && <img className="reference-sprite" src={lesson.referenceUrl} alt="" />}
+        <p>
+          Of the Lessons you have passed, this is the one you practised least recently. Play it
+          again in {mode}.
+        </p>
+        <div className="message-actions">
+          <a className="btn primary" href={lessonHref(drill.lessonId, drill.mode)}>
+            Start the Review Drill
+          </a>
+          <button type="button" className="btn" onClick={dailyPrompt.another}>
+            Give me another
+          </button>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -88,10 +139,7 @@ function ThemePromptSession({
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="prompt-title">
-          <p className="hint">
-            Daily Prompt for {formatCalendarDate(prompt.date)}
-            {prompt.draw > 0 && `, prompt ${prompt.draw + 1}`}
-          </p>
+          <p className="hint">{promptLabel(prompt)}</p>
           <h1 id="prompt-title">{themePromptText(prompt)}</h1>
           <p className="hint">
             A Theme Prompt is not scored. Check your drawing to see its Mistakes and which parts of
