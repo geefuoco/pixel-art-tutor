@@ -78,8 +78,7 @@ function ReviewDrillCard({
         {lesson && <img className="reference-sprite" src={lesson.referenceUrl} alt="" />}
         <p>
           Of the Lessons you have passed, this is the one you practised least recently. Play it
-          again in {mode}, one Mode harder than you have passed it, or in Freehand once you have
-          passed that.
+          again in {mode}.
         </p>
         <div className="message-actions">
           <a className="btn primary" href={lessonHref(drill.lessonId, drill.mode)}>
