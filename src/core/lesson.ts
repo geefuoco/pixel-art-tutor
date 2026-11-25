@@ -63,6 +63,10 @@ export function isAnimationLesson(lesson: Lesson): boolean {
   return lesson.steps.some((s) => s.kind === 'frame');
 }
 
+export function hasSeveralFrames(lesson: Lesson): boolean {
+  return lesson.animation.frames.length > 1;
+}
+
 export function isTilesetLesson(lesson: Lesson): boolean {
   return lesson.steps.some((s) => s.kind === 'tile');
 }

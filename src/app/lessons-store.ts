@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Lesson } from '../core/lesson';
+import { hasSeveralFrames, type Lesson } from '../core/lesson';
 import { readLesson } from '../core/lesson-content';
 import { decodePng } from './png-image';
 import { thumbnail } from './thumbnail';
@@ -62,7 +62,7 @@ async function loadLesson(id: string): Promise<LessonEntry> {
   const { lesson } = reading;
   return {
     lesson,
-    referenceUrl: lesson.animation.frames.length > 1 ? thumbnail(lesson.reference) : referenceUrl,
+    referenceUrl: hasSeveralFrames(lesson) ? thumbnail(lesson.reference) : referenceUrl,
     exampleUrl: (src) => examples.get(src),
   };
 }

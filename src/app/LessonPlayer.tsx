@@ -5,6 +5,7 @@ import type { Drawing } from '../core/drawing';
 import { checkStep, passScore, type StepCheck } from '../core/evaluate';
 import {
   frameOfStep,
+  hasSeveralFrames,
   isAnimationLesson,
   isTilesetLesson,
   seamlessEdgesOfFrame,
@@ -126,9 +127,11 @@ function LessonSession({
   const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
   const animated = isAnimationLesson(lesson);
   const tileset = isTilesetLesson(lesson);
-  const framed = animation.frames.length > 1;
+  const severalFrames = hasSeveralFrames(lesson);
   const [chosenStep, setChosenStep] = useState(0);
-  const stepIndex = framed ? lesson.steps.findIndex((s) => frameOfStep(s) === frame) : chosenStep;
+  const stepIndex = severalFrames
+    ? lesson.steps.findIndex((s) => frameOfStep(s) === frame)
+    : chosenStep;
   const [onionShown, setOnionShown] = useState(false);
   const [onionOpacity, setOnionOpacity] = useState(DEFAULT_ONION_OPACITY);
   const [previewShown, setPreviewShown] = useState(false);
@@ -150,7 +153,7 @@ function LessonSession({
 
   function goToStep(index: number) {
     const next = Math.min(lesson.steps.length - 1, Math.max(0, index));
-    if (framed) editor.selectFrame(frameOfStep(lesson.steps[next]!));
+    if (severalFrames) editor.selectFrame(frameOfStep(lesson.steps[next]!));
     else setChosenStep(next);
   }
 
@@ -254,7 +257,7 @@ function LessonSession({
           }
           below={
             <>
-              {framed && (
+              {severalFrames && (
                 <FrameStrip
                   editor={editor}
                   animation={animation}

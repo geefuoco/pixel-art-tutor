@@ -4,7 +4,12 @@ import { useState, useSyncExternalStore } from 'react';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { passScore } from '../core/evaluate';
 import type { FreehandSubScores } from '../core/freehand';
-import { isAnimationLesson, isTilesetLesson, seamlessEdgesOfFrame } from '../core/lesson';
+import {
+  hasSeveralFrames,
+  isAnimationLesson,
+  isTilesetLesson,
+  seamlessEdgesOfFrame,
+} from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
@@ -57,7 +62,7 @@ export function FreehandSession({
   const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
   const animated = isAnimationLesson(lesson);
   const tileset = isTilesetLesson(lesson);
-  const framed = animation.frames.length > 1;
+  const severalFrames = hasSeveralFrames(lesson);
   const [onionShown, setOnionShown] = useState(false);
   const [onionOpacity, setOnionOpacity] = useState(DEFAULT_ONION_OPACITY);
   const [previewShown, setPreviewShown] = useState(false);
@@ -126,7 +131,7 @@ export function FreehandSession({
           }
           below={
             <>
-              {framed && (
+              {severalFrames && (
                 <FrameStrip
                   editor={editor}
                   animation={animation}
@@ -181,7 +186,7 @@ export function FreehandSession({
                 <>
                   Draw this tile from scratch. It fills the whole canvas and has to repeat without
                   seams, so the canvas stays {lesson.size}x{lesson.size}.
-                  {framed && ' Pick a tile below to draw the next one.'}
+                  {severalFrames && ' Pick a tile below to draw the next one.'}
                 </>
               ) : (
                 <>
@@ -239,7 +244,9 @@ export function FreehandSession({
               {resultMistakes && (
                 <>
                   {animated && <p>Mistakes in Frame {frame + 1}:</p>}
-                  {tileset && framed && <p>Mistakes in the {tileName(lesson, frame)} tile:</p>}
+                  {tileset && severalFrames && (
+                    <p>Mistakes in the {tileName(lesson, frame)} tile:</p>
+                  )}
                   <MistakeList mistakes={resultMistakes} />
                 </>
               )}

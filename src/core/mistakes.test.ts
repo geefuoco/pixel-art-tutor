@@ -356,7 +356,7 @@ describe('seams', () => {
     expect(findMistakes(drawing, { seamless: ['left-right', 'top-bottom'] })).toEqual([]);
   });
 
-  it('finds no Mistakes in the shipped Grass path tiles, seams included', () => {
+  it("finds no Mistakes in Kenney's grass and path edge tiles, copied from the Grass path Lesson", () => {
     const pathTile = (rows: string[]) =>
       spriteOf(rows, 'gkyowdsh', [
         '#84c669',

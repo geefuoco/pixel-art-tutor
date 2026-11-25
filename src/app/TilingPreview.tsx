@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 import type { Drawing } from '../core/drawing';
 import { tilingPreview, TILING_PREVIEW_REPEATS } from '../core/tiling';
-import { paintFrame } from './FrameStrip';
+import { paintDrawing } from './paint-drawing';
 
 export function TilingPreview({ drawing }: { drawing: Drawing }) {
   const paint = useCallback(
     (canvas: HTMLCanvasElement | null) => {
-      if (canvas) paintFrame(canvas, tilingPreview(drawing));
+      if (canvas) paintDrawing(canvas, tilingPreview(drawing));
     },
     [drawing],
   );

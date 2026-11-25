@@ -1,24 +1,13 @@
 import { useCallback } from 'react';
 import { frameDrawing, MAX_FPS, MIN_FPS, previewFrame, type Animation } from '../core/animation';
-import { TRANSPARENT, type Drawing } from '../core/drawing';
 import type { Editor } from '../core/editor';
 import { ControlButton, type Control } from './controls';
+import { paintDrawing } from './paint-drawing';
 import { thumbnail } from './thumbnail';
 
 const FPS_CHOICES = Array.from({ length: MAX_FPS - MIN_FPS + 1 }, (_, i) => MIN_FPS + i);
 
 const ONION_OPACITIES = { min: 0.1, max: 0.9, step: 0.1 } as const;
-
-export function paintFrame(canvas: HTMLCanvasElement, drawing: Drawing) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawing.pixels.forEach((p, i) => {
-    if (p === TRANSPARENT) return;
-    ctx.fillStyle = drawing.palette[p]!;
-    ctx.fillRect(i % drawing.width, Math.floor(i / drawing.width), 1, 1);
-  });
-}
 
 export function AnimationPreview({
   animation,
@@ -39,7 +28,7 @@ export function AnimationPreview({
         const frame = previewFrame(now, { fps: animation.fps, frameCount });
         if (frame !== shown) {
           shown = frame;
-          paintFrame(canvas, frameDrawing(animation, frame));
+          paintDrawing(canvas, frameDrawing(animation, frame));
         }
         request = requestAnimationFrame(tick);
       };
