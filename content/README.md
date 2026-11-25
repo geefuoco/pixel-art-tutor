@@ -77,6 +77,10 @@ A tileset Lesson teaches a small set of 16x16 tiles, such as a ground tile and i
 - `seamless` lists the edges that repeat: `left-right`, `top-bottom`, both or neither. Check marks a seam where those edges do not continue each other.
 - Each tile Step is checked against its whole tile in its final colors, and the Lesson shows a live Tiling Preview.
 
+To turn a Personal Lesson into a built-in one, use its **Copy manifest** and **Download reference.png** buttons on the Lessons page, put both in `lessons/<id>/`, add the id to `course.json`, and rewrite the templated explanations.
+
+The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.
+
 ## Technique Drills
 
 A Technique Drill gives a starting sprite and asks for one technique a Course Lesson has taught. `drills/techniques.json` names the Lesson that teaches each technique, and the Daily Prompt only gives a drill once that Lesson has been passed:
@@ -112,7 +116,3 @@ Each drill lives in `drills/<id>/`:
   - `seamless`: no seam on the edges listed in `seamless` (`left-right`, `top-bottom`). The drill shows a Tiling Preview.
 
 The app reads drills with `readTechniqueDrills` in `src/core/technique-drill.ts`, which rejects content that breaks these rules.
-
-To turn a Personal Lesson into a built-in one, use its **Copy manifest** and **Download reference.png** buttons on the Lessons page, put both in `lessons/<id>/`, add the id to `course.json`, and rewrite the templated explanations.
-
-The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.

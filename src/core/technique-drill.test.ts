@@ -40,9 +40,10 @@ const SHADE_BALL = {
 };
 
 const TECHNIQUES = { shading: 'ball-lesson', outline: 'ball-lesson', tiling: 'tile-lesson' };
+const COURSE = ['ball-lesson', 'tile-lesson'];
 
 const read = (manifest: unknown, start = BALL, techniques: unknown = TECHNIQUES) =>
-  readTechniqueDrills({ techniques, drills: [{ manifest, start }] });
+  readTechniqueDrills({ techniques, course: COURSE, drills: [{ manifest, start }] });
 
 describe('reading Technique Drills from repo content', () => {
   it('builds the drill from its starting sprite, manifest and the Lesson that teaches it', () => {
@@ -115,6 +116,19 @@ describe('reading Technique Drills from repo content', () => {
     expect(read(SHADE_BALL, faded)).toMatchObject({ ok: false, problem: /partly transparent/ });
   });
 
+  it('rejects a technique taught by a Lesson that is not in the Course', () => {
+    expect(
+      readTechniqueDrills({
+        techniques: TECHNIQUES,
+        course: ['tile-lesson'],
+        drills: [{ manifest: SHADE_BALL, start: BALL }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      problem: /ball-lesson, which teaches \w+, is not in the Course/,
+    });
+  });
+
   it('rejects a technique no Lesson teaches, or two drills with one id', () => {
     expect(read(SHADE_BALL, BALL, { outline: 'ball-lesson' })).toMatchObject({
       ok: false,
@@ -123,6 +137,7 @@ describe('reading Technique Drills from repo content', () => {
     expect(
       readTechniqueDrills({
         techniques: TECHNIQUES,
+        course: COURSE,
         drills: [
           { manifest: SHADE_BALL, start: BALL },
           { manifest: SHADE_BALL, start: BALL },

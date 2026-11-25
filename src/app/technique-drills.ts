@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { readTechniqueDrills, type TechniqueDrill } from '../core/technique-drill';
+import { courseLessonIds } from './lessons-store';
 import { decodePng } from './png-image';
 
 const DRILLS_DIR = '/content/drills/';
@@ -33,7 +34,7 @@ async function readShippedDrills(): Promise<readonly TechniqueDrill[]> {
       return { dir, manifest, start: await decodeStart(dir) };
     }),
   );
-  const reading = readTechniqueDrills({ techniques, drills });
+  const reading = readTechniqueDrills({ techniques, course: courseLessonIds, drills });
   if (!reading.ok) throw new Error(`The Technique Drills are broken: ${reading.problem}`);
   drills.forEach(({ dir }, i) => {
     const id = reading.drills[i]!.id;

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from './calendar-date';
-import { dailyPrompt, type PractisedAttempt, type Practice } from './daily-prompt';
+import {
+  dailyPrompt,
+  type DailyPromptKind,
+  type PractisedAttempt,
+  type Practice,
+} from './daily-prompt';
 import { createDrawing } from './drawing';
 import type { Mode } from './lesson';
 import type { TechniqueDrill } from './technique-drill';
@@ -12,7 +17,7 @@ function dates(from: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addDays(from, i));
 }
 
-function firstDrawOf(kind: string, from = '2026-11-25') {
+function firstDrawOf(kind: DailyPromptKind, from = '2026-11-25') {
   for (const date of dates(from, 365)) {
     for (const draw of [0, 1, 2, 3, 4, 5]) {
       if (dailyPrompt(date, draw, NO_PRACTICE).drawn === kind) return { date, draw };
@@ -152,7 +157,7 @@ function drillFor(id: string, lessonId: string): TechniqueDrill {
 
 const DRILLS = [drillFor('shade-dot', 'dot'), drillFor('shade-sword', 'sword')];
 
-function twoDrawsOf(kind: string) {
+function twoDrawsOf(kind: DailyPromptKind) {
   for (const date of dates('2026-11-25', 365)) {
     const draws = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(
       (draw) => dailyPrompt(date, draw, NO_PRACTICE).drawn === kind,

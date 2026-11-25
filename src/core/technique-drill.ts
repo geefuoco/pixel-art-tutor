@@ -1,5 +1,5 @@
 import type { Color, Drawing } from './drawing';
-import { isRole, LESSON_SIZES, type Role } from './lesson';
+import { isLessonSize, isRole, type Role } from './lesson';
 import { drawingFromImage, hasPartlyTransparentPixel, type RgbaImage } from './png';
 import { isEdgePair, type EdgePair } from './tiling';
 
@@ -60,7 +60,10 @@ function requireText(manifest: Record<string, unknown>, key: string, drill: stri
   return value;
 }
 
-function readTechniqueLessons(value: unknown): ReadonlyMap<Technique, string> {
+function readTechniqueLessons(
+  value: unknown,
+  course: readonly string[],
+): ReadonlyMap<Technique, string> {
   if (!isRecord(value)) {
     throw new DrillProblem('techniques.json maps each technique to the Lesson that teaches it');
   }
@@ -69,6 +72,9 @@ function readTechniqueLessons(value: unknown): ReadonlyMap<Technique, string> {
     if (!isOneOf(TECHNIQUES, technique)) throw new DrillProblem(`${technique} is not a technique`);
     if (typeof lessonId !== 'string' || lessonId.trim() === '') {
       throw new DrillProblem(`The ${technique} technique needs a Lesson id`);
+    }
+    if (!course.includes(lessonId)) {
+      throw new DrillProblem(`${lessonId}, which teaches ${technique}, is not in the Course`);
     }
     lessons.set(technique, lessonId);
   }
@@ -134,8 +140,7 @@ function readStart(image: RgbaImage, drill: string): Drawing {
   if (hasPartlyTransparentPixel(image)) {
     throw new DrillProblem(`The starting sprite of ${drill} has partly transparent pixels`);
   }
-  const sizes: readonly number[] = LESSON_SIZES;
-  if (image.width !== image.height || !sizes.includes(image.width)) {
+  if (image.width !== image.height || !isLessonSize(image.width)) {
     throw new DrillProblem(
       `The starting sprite of ${drill} is 8x8, 16x16 or 32x32, not ${image.width}x${image.height}`,
     );
@@ -175,10 +180,11 @@ function readDrill(
 
 export function readTechniqueDrills(content: {
   techniques: unknown;
+  course: readonly string[];
   drills: readonly DrillContent[];
 }): TechniqueDrillsReading {
   try {
-    const lessons = readTechniqueLessons(content.techniques);
+    const lessons = readTechniqueLessons(content.techniques, content.course);
     const drills = content.drills.map((drill) => readDrill(drill, lessons));
     const ids = drills.map((drill) => drill.id);
     const repeated = ids.find((id, i) => ids.indexOf(id) !== i);
@@ -188,4 +194,8 @@ export function readTechniqueDrills(content: {
     if (error instanceof DrillProblem) return { ok: false, problem: error.message };
     throw error;
   }
+}
+
+export function techniqueDrillText(drill: TechniqueDrill): string {
+  return `Technique Drill: ${drill.title}`;
 }

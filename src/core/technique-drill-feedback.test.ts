@@ -21,6 +21,7 @@ function drill(manifest: Record<string, unknown>): TechniqueDrill {
   const start = sprite(['O.......', ...Array.from({ length: 7 }, () => '........')]);
   const reading = readTechniqueDrills({
     techniques: { shading: 'l', outline: 'l', tiling: 'l' },
+    course: ['l'],
     drills: [
       {
         manifest: {

@@ -139,7 +139,7 @@ export function deriveSteps(
   return [silhouette, ...roleSteps];
 }
 
-function isLessonSize(n: number): n is LessonSize {
+export function isLessonSize(n: number): n is LessonSize {
   return (LESSON_SIZES as readonly number[]).includes(n);
 }
 

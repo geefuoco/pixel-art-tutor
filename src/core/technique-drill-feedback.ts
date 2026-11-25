@@ -3,14 +3,9 @@ import { roleOfColor, type Role } from './lesson';
 import { findMistakes, type Mistake } from './mistakes';
 import { isOpaque, SIDES } from './pixel-grid';
 import type { DrillCheck, LightDirection, TechniqueDrill } from './technique-drill';
-import type { CheckOutcome, PromptCheck } from './theme-prompt-feedback';
+import { outcome, type PromptCheck, type PromptFeedback } from './theme-prompt-feedback';
 import { LIGHT_SIDE_MIN_OFFSET } from './thresholds';
 import type { EdgePair } from './tiling';
-
-export interface TechniqueDrillFeedback {
-  readonly mistakes: readonly Mistake[];
-  readonly checks: readonly PromptCheck[];
-}
 
 interface RolePixel extends Point {
   readonly role: Role | undefined;
@@ -93,10 +88,6 @@ function hasCleanOutline(
   );
 }
 
-function outcome(met: boolean): CheckOutcome {
-  return met ? 'met' : 'unmet';
-}
-
 function lightLabel(drill: TechniqueDrill): string {
   return `(from ${LIGHT_NAMES[drill.light!]})`;
 }
@@ -137,10 +128,7 @@ function check(
   }
 }
 
-export function techniqueDrillFeedback(
-  drill: TechniqueDrill,
-  drawing: Drawing,
-): TechniqueDrillFeedback {
+export function techniqueDrillFeedback(drill: TechniqueDrill, drawing: Drawing): PromptFeedback {
   const mistakes = findMistakes(drawing, {
     colorBudget: drill.start.palette.length,
     seamless: drill.seamless,

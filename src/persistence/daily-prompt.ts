@@ -9,7 +9,7 @@ import {
   type TechniqueDrillPrompt,
 } from '../core/daily-prompt';
 import { createEditor, type Editor } from '../core/editor';
-import type { TechniqueDrill } from '../core/technique-drill';
+import { techniqueDrillText, type TechniqueDrill } from '../core/technique-drill';
 import {
   blankThemePromptDrawing,
   themePrompt,
@@ -31,7 +31,7 @@ export type DailyPromptState =
   | {
       readonly status: 'ready';
       readonly kind: 'technique';
-      readonly drill: TechniqueDrillPrompt;
+      readonly prompt: TechniqueDrillPrompt;
       readonly editor: Editor;
       readonly inGallery: boolean;
       readonly problem: StorageProblem | null;
@@ -69,17 +69,12 @@ function latestDraw(saved: readonly PromptDrawing[]): PromptDrawing | undefined 
   );
 }
 
-export function techniqueDrillText(drill: TechniqueDrill): string {
-  return `Technique Drill: ${drill.title}`;
-}
-
-function recordOf(current: DrawingReady): PromptRecord {
-  if (current.kind === 'theme') {
-    const { date, draw } = current.prompt;
-    return { date, draw, text: themePromptText(current.prompt) };
+function recordOf(prompt: ThemePrompt | TechniqueDrillPrompt): PromptRecord {
+  if ('drill' in prompt) {
+    const { date, draw, drill } = prompt;
+    return { date, draw, text: techniqueDrillText(drill), drillId: drill.id };
   }
-  const { date, draw, drill } = current.drill;
-  return { date, draw, text: techniqueDrillText(drill), drillId: drill.id };
+  return { date: prompt.date, draw: prompt.draw, text: themePromptText(prompt) };
 }
 
 export function createDailyPrompt(options: {
@@ -97,6 +92,7 @@ export function createDailyPrompt(options: {
   let practice: Practice = { course, attempts: [] };
   let drills: readonly TechniqueDrill[] = [];
   let loadingDrills: Promise<readonly TechniqueDrill[]> | undefined;
+  let currentRecord: PromptRecord | undefined;
   const listeners = new Set<() => void>();
   const pending = new Set<Promise<void>>();
 
@@ -137,7 +133,8 @@ export function createDailyPrompt(options: {
     void done.finally(() => pending.delete(done));
   }
 
-  function startEditing(animation: Animation): Editor {
+  function startEditing(animation: Animation, record: PromptRecord): Editor {
+    currentRecord = record;
     stopAutosave();
     const editor = createEditor(animation);
     let kept = animation;
@@ -145,8 +142,7 @@ export function createDailyPrompt(options: {
       const edited = editor.getState().animation;
       if (edited === kept) return;
       kept = edited;
-      const current = readyDrawing();
-      write(recordOf(current), edited, current.inGallery);
+      write(record, edited, readyDrawing().inGallery);
     });
     return editor;
   }
@@ -171,21 +167,30 @@ export function createDailyPrompt(options: {
       ? resumedPrompt(date, draw, saved)
       : dailyPrompt(date, draw, practice, drills);
     const inGallery = saved?.inGallery ?? false;
+    const kept = saved && {
+      date,
+      draw,
+      text: saved.text,
+      ...(saved.drillId === undefined ? {} : { drillId: saved.drillId }),
+    };
     if (next.kind === 'review') {
       stopAutosave();
       return { status: 'ready', kind: 'review', drill: next, problem };
     }
     if (next.kind === 'technique') {
-      const editor = startEditing(saved?.animation ?? stillAnimation(next.drill.start));
-      return { status: 'ready', kind: 'technique', drill: next, editor, inGallery, problem };
+      const editor = startEditing(
+        saved?.animation ?? stillAnimation(next.drill.start),
+        kept ?? recordOf(next),
+      );
+      return { status: 'ready', kind: 'technique', prompt: next, editor, inGallery, problem };
     }
     const { prompt } = next;
-    const editor = startEditing(saved?.animation ?? blank(prompt));
+    const editor = startEditing(saved?.animation ?? blank(prompt), kept ?? recordOf(prompt));
     return { status: 'ready', kind: 'theme', prompt, editor, inGallery, problem };
   }
 
   function currentDraw(current: Ready): { date: CalendarDate; draw: number } {
-    return current.kind === 'theme' ? current.prompt : current.drill;
+    return current.kind === 'review' ? current.drill : current.prompt;
   }
 
   async function flush() {
@@ -205,7 +210,10 @@ export function createDailyPrompt(options: {
       } catch (error) {
         problem = problemOf(error);
       }
-      loadingDrills ??= loadDrills().catch(() => []);
+      loadingDrills ??= loadDrills().catch(() => {
+        loadingDrills = undefined;
+        return [];
+      });
       drills = await loadingDrills;
       practice = { course, attempts };
       const resumed = latestDraw(saved.filter((entry) => entry.date === date));
@@ -230,12 +238,12 @@ export function createDailyPrompt(options: {
       const current = ready();
       const { date, draw } = currentDraw(current);
       const next = setState(drawState(date, draw + 1, undefined, current.problem));
-      if (next.kind !== 'review') write(recordOf(next), next.editor.getState().animation, false);
+      if (next.kind !== 'review') write(currentRecord!, next.editor.getState().animation, false);
     },
     async saveToGallery() {
       const current = readyDrawing();
       setState({ ...current, inGallery: true });
-      write(recordOf(current), current.editor.getState().animation, true);
+      write(currentRecord!, current.editor.getState().animation, true);
       await flush();
     },
     flush,

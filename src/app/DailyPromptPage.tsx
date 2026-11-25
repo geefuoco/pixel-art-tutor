@@ -2,15 +2,14 @@ import { useState, useSyncExternalStore } from 'react';
 import type { ReviewDrill, TechniqueDrillPrompt } from '../core/daily-prompt';
 import type { Drawing } from '../core/drawing';
 import type { Editor } from '../core/editor';
-import type { Mistake } from '../core/mistakes';
+import { techniqueDrillText } from '../core/technique-drill';
 import { techniqueDrillFeedback } from '../core/technique-drill-feedback';
 import { themePromptText, type ThemePrompt } from '../core/theme-prompt';
 import {
   themePromptFeedback,
   type CheckOutcome,
-  type PromptCheck,
+  type PromptFeedback,
 } from '../core/theme-prompt-feedback';
-import { techniqueDrillText } from '../persistence/daily-prompt';
 import type { StorageProblem } from '../persistence/store';
 import { formatCalendarDate } from './calendar-date-format';
 import { dailyPrompt, useDailyPrompt } from './daily-prompt-store';
@@ -50,7 +49,7 @@ export function DailyPromptPage() {
   if (state.kind === 'technique') {
     return (
       <TechniqueDrillSession
-        drill={state.drill}
+        prompt={state.prompt}
         editor={state.editor}
         inGallery={state.inGallery}
         problem={state.problem}
@@ -139,24 +138,25 @@ function ThemePromptSession({
 }
 
 function TechniqueDrillSession({
-  drill,
+  prompt,
   editor,
   inGallery,
   problem,
 }: {
-  drill: TechniqueDrillPrompt;
+  prompt: TechniqueDrillPrompt;
   editor: Editor;
   inGallery: boolean;
   problem: StorageProblem | null;
 }) {
+  const { drill } = prompt;
   return (
     <PromptDrawingSession
-      label={promptLabel(drill)}
-      title={techniqueDrillText(drill.drill)}
-      intro={drill.drill.instruction}
+      label={promptLabel(prompt)}
+      title={techniqueDrillText(drill)}
+      intro={drill.instruction}
       checksTitle="The drill"
-      feedbackFor={(drawing) => techniqueDrillFeedback(drill.drill, drawing)}
-      tiling={drill.drill.seamless.length > 0}
+      feedbackFor={(drawing) => techniqueDrillFeedback(drill, drawing)}
+      tiling={drill.seamless.length > 0}
       editor={editor}
       inGallery={inGallery}
       problem={problem}
@@ -179,10 +179,7 @@ function PromptDrawingSession({
   title: string;
   intro: string;
   checksTitle: string;
-  feedbackFor: (drawing: Drawing) => {
-    checks: readonly PromptCheck[];
-    mistakes: readonly Mistake[];
-  };
+  feedbackFor: (drawing: Drawing) => PromptFeedback;
   tiling: boolean;
   editor: Editor;
   inGallery: boolean;
