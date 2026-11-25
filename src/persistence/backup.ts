@@ -17,7 +17,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 9;
+export const BACKUP_VERSION = 10;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -138,13 +138,25 @@ function readSubScores(value: unknown): FreehandSubScores | null {
   return { shape, palette, lineQuality };
 }
 
+type AnimationReader = (record: Record<string, unknown>) => Animation | null;
+
+function animationReader(hasFrames: boolean): AnimationReader {
+  return hasFrames
+    ? (record) => readAnimation(record.animation)
+    : (record) => readStillAsAnimation(record.drawing);
+}
+
 function readAttempt(
   value: unknown,
-  { flashesCounted, inGalleryRecorded }: { flashesCounted: boolean; inGalleryRecorded: boolean },
+  {
+    flashesCounted,
+    inGalleryRecorded,
+    readAttemptAnimation,
+  }: { flashesCounted: boolean; inGalleryRecorded: boolean; readAttemptAnimation: AnimationReader },
 ): Attempt | null {
   if (!isRecord(value)) return null;
-  const { id, lessonId, mode, drawing, score, finishedAt } = value as Unchecked<Attempt>;
-  const checked = readDrawing(drawing);
+  const { id, lessonId, mode, score, finishedAt } = value as Unchecked<Attempt>;
+  const checked = readAttemptAnimation(value);
   const hintFlashes = readHintFlashes(value, flashesCounted);
   if (!isText(id) || !isText(lessonId) || !isMode(mode) || !checked) return null;
   if (!isShare(score)) return null;
@@ -157,7 +169,7 @@ function readAttempt(
     id,
     lessonId,
     mode,
-    drawing: checked,
+    animation: checked,
     score,
     ...(subScores && { subScores }),
     hintFlashes,
@@ -166,14 +178,18 @@ function readAttempt(
   };
 }
 
-function readInProgressAttempt(value: unknown, flashesCounted: boolean): InProgressAttempt | null {
+function readInProgressAttempt(
+  value: unknown,
+  flashesCounted: boolean,
+  readAttemptAnimation: AnimationReader,
+): InProgressAttempt | null {
   if (!isRecord(value)) return null;
-  const { lessonId, mode, drawing, updatedAt } = value as Unchecked<InProgressAttempt>;
-  const checked = readDrawing(drawing);
+  const { lessonId, mode, updatedAt } = value as Unchecked<InProgressAttempt>;
+  const checked = readAttemptAnimation(value);
   const hintFlashes = readHintFlashes(value, flashesCounted);
   if (!isText(lessonId) || !isMode(mode) || !checked || !Number.isFinite(updatedAt)) return null;
   if (hintFlashes === null) return null;
-  return { lessonId, mode, drawing: checked, hintFlashes, updatedAt: updatedAt as number };
+  return { lessonId, mode, animation: checked, hintFlashes, updatedAt: updatedAt as number };
 }
 
 function readLessonProgress(value: unknown): LessonProgress | null {
@@ -231,10 +247,8 @@ export function readBackup(text: string): BackupReading {
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return { ok: false, message: DAMAGED };
   }
-  const readStudioAnimation =
-    version >= 9
-      ? (record: Record<string, unknown>) => readAnimation(record.animation)
-      : (record: Record<string, unknown>) => readStillAsAnimation(record.drawing);
+  const readStudioAnimation = animationReader(version >= 9);
+  const readAttemptAnimation = animationReader(version >= 10);
   const studioDrawings = readAllWithUniqueKeys(
     file.studioDrawings,
     (d) => readSavedDrawing(d, readStudioAnimation),
@@ -248,14 +262,14 @@ export function readBackup(text: string): BackupReading {
   const attempts = hasAttempts
     ? readAllWithUniqueKeys(
         file.attempts,
-        (a) => readAttempt(a, { flashesCounted, inGalleryRecorded }),
+        (a) => readAttempt(a, { flashesCounted, inGalleryRecorded, readAttemptAnimation }),
         byId,
       )
     : [];
   const inProgressAttempts = hasAttempts
     ? readAllWithUniqueKeys(
         file.inProgressAttempts,
-        (a) => readInProgressAttempt(a, flashesCounted),
+        (a) => readInProgressAttempt(a, flashesCounted, readAttemptAnimation),
         (a) => `${a.lessonId}\n${a.mode}`,
       )
     : [];

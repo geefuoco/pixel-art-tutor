@@ -1,4 +1,16 @@
-import { createLesson, isRole, STEP_KINDS, type Lesson, type Role, type StepKind } from './lesson';
+import type { Animation } from './animation';
+import { TRANSPARENT, type Color, type Drawing } from './drawing';
+import {
+  createAnimationLesson,
+  createLesson,
+  isFramePose,
+  isRole,
+  STEP_KINDS,
+  type FrameStepContent,
+  type Lesson,
+  type Role,
+  type StepKind,
+} from './lesson';
 import { imagesIn, parseMarkdown } from './markdown';
 import { drawingFromImage, hasPartlyTransparentPixel, type RgbaImage } from './png';
 
@@ -41,6 +53,14 @@ function readRoles(value: unknown, palette: readonly string[]): Role[] {
   });
 }
 
+function checkExampleSprites(kind: string, text: string, exampleSprites: readonly string[]) {
+  for (const { src } of imagesIn(parseMarkdown(text))) {
+    if (!exampleSprites.includes(src)) {
+      throw new ManifestProblem(`The ${kind} explanation shows ${src}, which is not shipped`);
+    }
+  }
+}
+
 function readExplanations(
   value: unknown,
   exampleSprites: readonly string[],
@@ -51,11 +71,7 @@ function readExplanations(
     if (text === undefined) continue;
     if (!isStepKind(kind)) throw new ManifestProblem(`${kind} is not a Step`);
     if (typeof text !== 'string') throw new ManifestProblem(`The ${kind} explanation is not text`);
-    for (const { src } of imagesIn(parseMarkdown(text))) {
-      if (!exampleSprites.includes(src)) {
-        throw new ManifestProblem(`The ${kind} explanation shows ${src}, which is not shipped`);
-      }
-    }
+    checkExampleSprites(kind, text, exampleSprites);
     explanations[kind] = text;
   }
   return explanations;
@@ -78,6 +94,80 @@ function readSilhouetteColor(value: unknown, palette: readonly string[]): number
   return index;
 }
 
+function frameImage(strip: RgbaImage, frame: number): RgbaImage {
+  const size = strip.height;
+  const data: number[] = [];
+  for (let y = 0; y < size; y++) {
+    const start = (y * strip.width + frame * size) * 4;
+    for (let i = start; i < start + size * 4; i++) data.push(strip.data[i]!);
+  }
+  return { width: size, height: size, data };
+}
+
+function animationFromStrip(strip: RgbaImage, fps: number): Animation {
+  const size = strip.height;
+  if (size === 0 || strip.width % size !== 0) {
+    throw new ManifestProblem(
+      `An animation Reference Sprite is a strip of square Frames, not ${strip.width}x${strip.height}`,
+    );
+  }
+  const drawings: Drawing[] = Array.from({ length: strip.width / size }, (_, frame) =>
+    drawingFromImage(frameImage(strip, frame)),
+  );
+  const palette: Color[] = [];
+  const frames = drawings.map(({ palette: own, pixels }) =>
+    pixels.map((p) => {
+      if (p === TRANSPARENT) return p;
+      const color = own[p]!;
+      const index = palette.indexOf(color);
+      return index >= 0 ? index : palette.push(color) - 1;
+    }),
+  );
+  return { width: size, height: size, palette, frames, fps };
+}
+
+function readFrameSteps(value: unknown, exampleSprites: readonly string[]): FrameStepContent[] {
+  if (!Array.isArray(value)) throw new ManifestProblem('The animation needs a list of Steps');
+  return value.map((step: unknown, i) => {
+    if (!isRecord(step)) throw new ManifestProblem(`Animation Step ${i + 1} is not an object`);
+    const { frame, pose, explanation } = step;
+    if (!Number.isInteger(frame)) {
+      throw new ManifestProblem(`Animation Step ${i + 1} needs a Frame number`);
+    }
+    if (!isFramePose(pose)) {
+      throw new ManifestProblem(`${String(pose)} is not a pose: use key or in-between`);
+    }
+    if (typeof explanation !== 'string') {
+      throw new ManifestProblem(`Animation Step ${i + 1} needs an explanation`);
+    }
+    checkExampleSprites(`Frame ${String(frame)}`, explanation, exampleSprites);
+    return { frame: (frame as number) - 1, pose, explanation };
+  });
+}
+
+function readAnimationLesson(
+  manifest: Record<string, unknown>,
+  image: RgbaImage,
+  exampleSprites: readonly string[],
+): Lesson {
+  if (manifest.explanations !== undefined || manifest.overrides !== undefined) {
+    throw new ManifestProblem(
+      'A manifest has either explanations or an animation, and overrides only go with explanations',
+    );
+  }
+  const { animation } = manifest;
+  if (!isRecord(animation)) throw new ManifestProblem('The manifest animation is not an object');
+  const fps = typeof animation.fps === 'number' ? animation.fps : NaN;
+  const reference = animationFromStrip(image, fps);
+  return createAnimationLesson({
+    id: requireText(manifest, 'id'),
+    title: requireText(manifest, 'title'),
+    animation: reference,
+    roles: readRoles(manifest.roles, reference.palette),
+    frameSteps: readFrameSteps(animation.steps, exampleSprites),
+  });
+}
+
 export function readLesson(content: {
   manifest: unknown;
   reference: RgbaImage;
@@ -88,6 +178,9 @@ export function readLesson(content: {
     if (!isRecord(manifest)) throw new ManifestProblem('This is not a Lesson manifest');
     if (hasPartlyTransparentPixel(image)) {
       throw new ManifestProblem('The Reference Sprite has partly transparent pixels');
+    }
+    if (manifest.animation !== undefined) {
+      return { ok: true, lesson: readAnimationLesson(manifest, image, exampleSprites) };
     }
     const reference = drawingFromImage(image);
     const lesson = createLesson({

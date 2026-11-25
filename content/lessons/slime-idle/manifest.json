@@ -1,0 +1,39 @@
+{
+  "id": "slime-idle",
+  "title": "Slime idle bob",
+  "roles": {
+    "#63c74d": "highlight",
+    "#ffffff": "highlight",
+    "#c0cbdc": "highlight",
+    "#3e8948": "base",
+    "#265c42": "shadow",
+    "#193c3e": "shadow",
+    "#262b44": "outline",
+    "#181425": "outline"
+  },
+  "animation": {
+    "fps": 6,
+    "steps": [
+      {
+        "frame": 1,
+        "pose": "key",
+        "explanation": "An animation is planned from its **key poses**: the extremes of the motion. Everything else is filled in between them later.\n\nThis slime breathes by squashing and stretching. Start with the squash: wide and low, its body spread out over the ground.\n\n![Frame 1: squash](examples/frame-1.png) ![Frame 3: stretch](examples/frame-3.png)\n\nKeep the bottom row on the same ground line in every Frame, so the slime stays put while it moves."
+      },
+      {
+        "frame": 3,
+        "pose": "key",
+        "explanation": "The second key pose is the stretch: narrower and taller than the squash. A slime is soft, so it keeps roughly the same amount of body. What it loses in width it gains in height.\n\nTurn on **Onion skin** (O) to see the Frames on either side faintly behind this one, and check that the bottom lines up with the squash.\n\n![Frame 1: squash](examples/frame-1.png) ![Frame 3: stretch](examples/frame-3.png)"
+      },
+      {
+        "frame": 2,
+        "pose": "in-between",
+        "explanation": "In-betweens carry the motion from one key pose to the next. This one sits halfway: a little narrower than the squash, a little taller, rising one row at the top.\n\nWith Onion skin on, you can see both key poses at once. Aim between them.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 4,
+        "pose": "in-between",
+        "explanation": "The last in-between takes the slime from the stretch back down to the squash, so the loop runs smoothly from Frame 4 into Frame 1.\n\nIt matches Frame 2 in shape, but the slime blinks here. A small change between in-betweens like this keeps an idle loop from feeling mechanical.\n\nPress **Play preview** (P) to watch the whole loop.\n\n![Frame 2](examples/frame-2.png) ![Frame 4](examples/frame-4.png)"
+      }
+    ]
+  }
+}

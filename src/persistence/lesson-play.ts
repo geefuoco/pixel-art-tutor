@@ -1,7 +1,7 @@
-import { stillAnimation } from '../core/animation';
-import { createDrawing, enlargeCanvas, type Drawing } from '../core/drawing';
+import { frameDrawing, type Animation } from '../core/animation';
+import { enlargeCanvas, TRANSPARENT } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
-import { passesMode, scoreLessonDrawing } from '../core/evaluate';
+import { passesMode, scoreLessonAttempt } from '../core/evaluate';
 import { scoreFreehand, type FreehandSubScores } from '../core/freehand';
 import type { Lesson, Mode } from '../core/lesson';
 import type { Mistake } from '../core/mistakes';
@@ -14,7 +14,7 @@ export interface AttemptResult {
   readonly hintFlashes: number;
   readonly inGallery: boolean;
   readonly subScores?: FreehandSubScores;
-  readonly mistakes?: readonly Mistake[];
+  readonly mistakes?: readonly (readonly Mistake[])[];
 }
 
 export type LessonPlayState =
@@ -40,9 +40,9 @@ export interface LessonPlay {
   flush(): Promise<void>;
 }
 
-function scored(lesson: Lesson, mode: Mode, drawing: Drawing) {
-  if (mode !== 'freehand') return { score: scoreLessonDrawing(lesson, drawing) };
-  const { overall, mistakes, ...subScores } = scoreFreehand(lesson, drawing);
+function scored(lesson: Lesson, mode: Mode, attempt: Animation) {
+  if (mode !== 'freehand') return { score: scoreLessonAttempt(lesson, attempt) };
+  const { overall, mistakes, ...subScores } = scoreFreehand(lesson, attempt);
   return { score: overall, subScores, mistakes };
 }
 
@@ -97,22 +97,23 @@ export function createLessonPlay(options: {
       store.putInProgressAttempt({
         lessonId: lesson.id,
         mode,
-        drawing: editor.getState().drawing,
+        animation: editor.getState().animation,
         hintFlashes,
         updatedAt: now(),
       }),
     );
   }
 
-  function startEditing(drawing = blank()): Editor {
+  function startEditing(animation = blank()): Editor {
     stopAutosave();
-    const editor = createEditor(stillAnimation(drawing));
+    const editor = createEditor(animation);
     stopAutosave = editor.subscribe(autosave);
     return editor;
   }
 
-  function blank() {
-    return createDrawing({ width: lesson.size, height: lesson.size, palette: lesson.palette });
+  function blank(): Animation {
+    const { frames } = lesson.animation;
+    return { ...lesson.animation, frames: frames.map((f) => f.map(() => TRANSPARENT)) };
   }
 
   async function flush() {
@@ -136,7 +137,7 @@ export function createLessonPlay(options: {
         }
         state = {
           status: 'ready',
-          editor: startEditing(saved?.drawing),
+          editor: startEditing(saved?.animation),
           hintFlashes: saved?.hintFlashes ?? 0,
           problem,
           result: null,
@@ -147,8 +148,8 @@ export function createLessonPlay(options: {
     },
     async finish() {
       const { editor, hintFlashes } = ready();
-      const drawing = editor.getState().drawing;
-      const { score, subScores, mistakes } = scored(lesson, mode, drawing);
+      const { animation } = editor.getState();
+      const { score, subScores, mistakes } = scored(lesson, mode, animation);
       const passed = passesMode(mode, score);
       const inGallery = passed || mode === 'freehand';
       const id = crypto.randomUUID();
@@ -159,7 +160,7 @@ export function createLessonPlay(options: {
             id,
             lessonId: lesson.id,
             mode,
-            drawing,
+            animation,
             score,
             ...(subScores && { subScores }),
             hintFlashes,
@@ -186,7 +187,11 @@ export function createLessonPlay(options: {
       autosave();
     },
     enlargeCanvas(size) {
-      const editor = startEditing(enlargeCanvas(ready().editor.getState().drawing, size));
+      const { animation } = ready().editor.getState();
+      const frames = animation.frames.map(
+        (_, frame) => enlargeCanvas(frameDrawing(animation, frame), size).pixels,
+      );
+      const editor = startEditing({ ...animation, width: size, height: size, frames });
       update({ editor, result: null });
       autosave();
     },

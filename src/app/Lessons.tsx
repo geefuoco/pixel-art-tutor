@@ -1,7 +1,7 @@
 import { Check, ClipboardCopy, Download, Lock, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { Lesson } from '../core/lesson';
-import { MODES, type Mode } from '../core/lesson';
+import { isAnimationLesson, MODES, type Mode } from '../core/lesson';
 import { personalLessonManifest } from '../core/personal-lesson';
 import { exportPng } from '../core/png';
 import type { StorageProblem } from '../persistence/store';
@@ -116,7 +116,10 @@ function CourseList({
 }
 
 function lessonSummary(lesson: Lesson) {
-  return `${lesson.size}x${lesson.size}, ${lesson.palette.length} colors, ${lesson.steps.length} Steps`;
+  const parts = isAnimationLesson(lesson)
+    ? `${lesson.animation.frames.length} Frames`
+    : `${lesson.steps.length} Steps`;
+  return `${lesson.size}x${lesson.size}, ${lesson.palette.length} colors, ${parts}`;
 }
 
 function downloadReference(lesson: Lesson) {

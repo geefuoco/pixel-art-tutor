@@ -112,6 +112,60 @@ describe('store: Frames', () => {
   });
 });
 
+describe('store: animation Attempts', () => {
+  it('reads Attempts and in-progress Attempts saved before animation Lessons as one Frame', async () => {
+    const indexedDB = new IDBFactory();
+    const drawing = {
+      ...createDrawing({ width: 2, height: 1, palette: PALETTE }),
+      pixels: [1, TRANSPARENT],
+    };
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 8);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        for (const name of ['custom-palettes', 'personal-lessons', 'studio-drawings']) {
+          db.createObjectStore(name, { keyPath: 'id' });
+        }
+        db.createObjectStore('progress', { keyPath: 'lessonId' });
+        db.createObjectStore('attempts', { keyPath: 'id' }).put({
+          id: '1',
+          lessonId: 'pot',
+          mode: 'trace',
+          drawing,
+          score: 0.5,
+          hintFlashes: 0,
+          inGallery: false,
+          finishedAt: 1,
+        });
+        db.createObjectStore('in-progress-attempts', { keyPath: ['lessonId', 'mode'] }).put({
+          lessonId: 'pot',
+          mode: 'hint',
+          drawing,
+          hintFlashes: 1,
+          updatedAt: 2,
+        });
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    const store = openStore(indexedDB);
+    const oneFrame = { width: 2, height: 1, palette: PALETTE, frames: [[1, TRANSPARENT]], fps: 8 };
+    expect(await store.listAttempts()).toMatchObject([{ id: '1', animation: oneFrame }]);
+    expect(await store.listAttempts()).not.toMatchObject([{ drawing }]);
+    expect(await store.getInProgressAttempt('pot', 'hint')).toEqual({
+      lessonId: 'pot',
+      mode: 'hint',
+      animation: oneFrame,
+      hintFlashes: 1,
+      updatedAt: 2,
+    });
+  });
+});
+
 describe('store: custom palettes', () => {
   it('round-trips custom palettes in name order, and deletes one', async () => {
     const indexedDB = new IDBFactory();
@@ -165,7 +219,7 @@ describe('store: progress', () => {
     id,
     lessonId,
     mode,
-    drawing,
+    animation: stillAnimation(drawing),
     score,
     hintFlashes: 0,
     inGallery: false,
@@ -251,7 +305,7 @@ describe('store: Hint flash counts', () => {
         id: '1',
         lessonId: 'pot',
         mode: 'trace',
-        drawing,
+        animation: stillAnimation(drawing),
         score: 0.5,
         hintFlashes: 0,
         inGallery: false,
@@ -261,7 +315,7 @@ describe('store: Hint flash counts', () => {
     expect(await store.getInProgressAttempt('pot', 'hint')).toEqual({
       lessonId: 'pot',
       mode: 'hint',
-      drawing,
+      animation: stillAnimation(drawing),
       hintFlashes: 0,
       updatedAt: 2,
     });
@@ -274,7 +328,7 @@ describe('store: Gallery', () => {
     id,
     lessonId: 'pot',
     mode: 'trace' as const,
-    drawing,
+    animation: stillAnimation(drawing),
     score,
     hintFlashes: 0,
     inGallery,

@@ -1,3 +1,4 @@
+import { frameDrawing, type Animation } from './animation';
 import { TRANSPARENT, type Drawing, type Point, type Rect } from './drawing';
 import type { Lesson, Role } from './lesson';
 import { findMistakes, type Mistake } from './mistakes';
@@ -11,6 +12,11 @@ export interface FreehandSubScores {
 }
 
 export interface FreehandScore extends FreehandSubScores {
+  readonly overall: number;
+  readonly mistakes: readonly (readonly Mistake[])[];
+}
+
+interface FrameScore extends FreehandSubScores {
   readonly overall: number;
   readonly mistakes: readonly Mistake[];
 }
@@ -168,8 +174,8 @@ function lineQualityScore(drawing: Drawing, mistakes: readonly Mistake[]): numbe
   return 1 - flagged / drawnCount;
 }
 
-export function scoreFreehand(lesson: Lesson, drawing: Drawing): FreehandScore {
-  const alignment = bestAlignment(lesson.reference, drawing);
+function scoreFrame(lesson: Lesson, reference: Drawing, drawing: Drawing): FrameScore {
+  const alignment = bestAlignment(reference, drawing);
   if (!alignment) return { shape: 0, palette: 0, lineQuality: 0, overall: 0, mistakes: [] };
   const mistakes = findMistakes(drawing, { colorBudget: lesson.palette.length });
   const subScores = {
@@ -179,4 +185,25 @@ export function scoreFreehand(lesson: Lesson, drawing: Drawing): FreehandScore {
   };
   const overall = (subScores.shape + subScores.palette + subScores.lineQuality) / 3;
   return { ...subScores, overall, mistakes };
+}
+
+const mean = (values: readonly number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+
+export function scoreFreehand(lesson: Lesson, attempt: Animation): FreehandScore {
+  const frames = lesson.animation.frames.map((_, frame) =>
+    scoreFrame(
+      lesson,
+      frameDrawing(lesson.animation, frame),
+      attempt.frames[frame]
+        ? frameDrawing(attempt, frame)
+        : { ...frameDrawing(attempt, 0), pixels: attempt.frames[0]!.map(() => TRANSPARENT) },
+    ),
+  );
+  return {
+    shape: mean(frames.map((f) => f.shape)),
+    palette: mean(frames.map((f) => f.palette)),
+    lineQuality: mean(frames.map((f) => f.lineQuality)),
+    overall: mean(frames.map((f) => f.overall)),
+    mistakes: frames.map((f) => f.mistakes),
+  };
 }

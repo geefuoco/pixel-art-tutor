@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { stillAnimation, type Animation } from './animation';
 import { TRANSPARENT, type Drawing } from './drawing';
 import { passesMode } from './evaluate';
 import { scoreFreehand } from './freehand';
-import { createLesson, type Role } from './lesson';
+import { createAnimationLesson, createLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
 const PALETTE = ['#111111', '#cc3333', '#881111', '#ff9999'];
@@ -60,7 +61,7 @@ const pot = (rows: string[], palette = POT_PALETTE) => spriteOf(rows, 'OBSHbX', 
 
 describe('the Shape sub-score', () => {
   it('scores the Reference Sprite itself 100%', () => {
-    expect(scoreFreehand(SQUARE, SQUARE.reference).shape).toBe(1);
+    expect(scoreFreehand(SQUARE, stillAnimation(SQUARE.reference)).shape).toBe(1);
   });
 
   it('is not lowered by drawing the shape somewhere else on the canvas', () => {
@@ -74,22 +75,22 @@ describe('the Shape sub-score', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(SQUARE, shifted).shape).toBe(1);
+    expect(scoreFreehand(SQUARE, stillAnimation(shifted)).shape).toBe(1);
   });
 
   it('accepts the shape drawn up to 2px larger or smaller, on a canvas bigger than the Lesson', () => {
-    expect(scoreFreehand(SQUARE, rectangleOn(16, 6, 6)).shape).toBe(1);
-    expect(scoreFreehand(SQUARE, rectangleOn(16, 2, 2)).shape).toBe(1);
-    expect(scoreFreehand(SQUARE, rectangleOn(16, 5, 3)).shape).toBe(1);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(16, 6, 6))).shape).toBe(1);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(16, 2, 2))).shape).toBe(1);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(16, 5, 3))).shape).toBe(1);
   });
 
   it('stops forgiving the size beyond 2px, comparing with the closest allowed size', () => {
-    expect(scoreFreehand(SQUARE, rectangleOn(16, 7, 7)).shape).toBe(36 / 49);
-    expect(scoreFreehand(SQUARE, rectangleOn(16, 1, 1)).shape).toBe(1 / 4);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(16, 7, 7))).shape).toBe(36 / 49);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(16, 1, 1))).shape).toBe(1 / 4);
   });
 
   it('scores 0 for a blank canvas', () => {
-    expect(scoreFreehand(SQUARE, rectangleOn(8, 0, 0)).shape).toBe(0);
+    expect(scoreFreehand(SQUARE, stillAnimation(rectangleOn(8, 0, 0))).shape).toBe(0);
   });
 });
 
@@ -105,8 +106,8 @@ describe('the Palette sub-score', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(POT, POT.reference).palette).toBe(1);
-    expect(scoreFreehand(POT, otherBase).palette).toBe(1);
+    expect(scoreFreehand(POT, stillAnimation(POT.reference)).palette).toBe(1);
+    expect(scoreFreehand(POT, stillAnimation(otherBase)).palette).toBe(1);
   });
 
   it('marks down shading on the wrong side: 4 of 20 pixels have the wrong Role', () => {
@@ -120,7 +121,7 @@ describe('the Palette sub-score', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(POT, lightFromTheRight).palette).toBe(0.8);
+    expect(scoreFreehand(POT, stillAnimation(lightFromTheRight)).palette).toBe(0.8);
   });
 
   it('marks down a silhouette filled in the base color, where only 4 of 20 pixels are base', () => {
@@ -134,7 +135,7 @@ describe('the Palette sub-score', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(POT, flat).palette).toBe(0.2);
+    expect(scoreFreehand(POT, stillAnimation(flat)).palette).toBe(0.2);
   });
 
   it('marks down colors that are not in the Lesson palette', () => {
@@ -151,36 +152,38 @@ describe('the Palette sub-score', () => {
       ],
       [...POT_PALETTE, '#00ff00'],
     );
-    expect(scoreFreehand(POT, offPalette).palette).toBe(19 / 20);
+    expect(scoreFreehand(POT, stillAnimation(offPalette)).palette).toBe(19 / 20);
   });
 });
 
 describe('Line quality and the overall score', () => {
   it('scores a faithful copy 100% on every count, with no Mistakes', () => {
-    expect(scoreFreehand(POT, POT.reference)).toEqual({
+    expect(scoreFreehand(POT, stillAnimation(POT.reference))).toEqual({
       shape: 1,
       palette: 1,
       lineQuality: 1,
       overall: 1,
-      mistakes: [],
+      mistakes: [[]],
     });
   });
 
   it('marks Line quality down by the share of pixels with a Mistake, and averages the three', () => {
     const score = scoreFreehand(
       POT,
-      pot([
-        '........',
-        '..OOOO..',
-        '.OHBBSO.',
-        '.OBBSSO.',
-        '..OOOO..',
-        '........',
-        '......O.',
-        '........',
-      ]),
+      stillAnimation(
+        pot([
+          '........',
+          '..OOOO..',
+          '.OHBBSO.',
+          '.OBBSSO.',
+          '..OOOO..',
+          '........',
+          '......O.',
+          '........',
+        ]),
+      ),
     );
-    expect(score.mistakes).toEqual([{ kind: 'orphan-pixel', pixels: [{ x: 6, y: 6 }] }]);
+    expect(score.mistakes).toEqual([[{ kind: 'orphan-pixel', pixels: [{ x: 6, y: 6 }] }]]);
     expect(score.lineQuality).toBe(20 / 21);
     expect(score.shape).toBe(20 / 21);
     expect(score.palette).toBe(1);
@@ -188,12 +191,14 @@ describe('Line quality and the overall score', () => {
   });
 
   it('scores a blank canvas 0', () => {
-    expect(scoreFreehand(POT, pot(Array.from({ length: 8 }, () => '........')))).toEqual({
+    expect(
+      scoreFreehand(POT, stillAnimation(pot(Array.from({ length: 8 }, () => '........')))),
+    ).toEqual({
       shape: 0,
       palette: 0,
       lineQuality: 0,
       overall: 0,
-      mistakes: [],
+      mistakes: [[]],
     });
   });
 });
@@ -227,11 +232,18 @@ describe('passing Freehand', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(POT, sixWrongRoles)).toMatchObject({ shape: 1, lineQuality: 1 });
-    expect(scoreFreehand(POT, sixWrongRoles).palette).toBeCloseTo(0.7, 12);
-    expect(passesMode('freehand', scoreFreehand(POT, sixWrongRoles).overall)).toBe(true);
-    expect(scoreFreehand(POT, sevenWrongRoles).overall).toBeCloseTo(2.65 / 3, 12);
-    expect(passesMode('freehand', scoreFreehand(POT, sevenWrongRoles).overall)).toBe(false);
+    expect(scoreFreehand(POT, stillAnimation(sixWrongRoles))).toMatchObject({
+      shape: 1,
+      lineQuality: 1,
+    });
+    expect(scoreFreehand(POT, stillAnimation(sixWrongRoles)).palette).toBeCloseTo(0.7, 12);
+    expect(passesMode('freehand', scoreFreehand(POT, stillAnimation(sixWrongRoles)).overall)).toBe(
+      true,
+    );
+    expect(scoreFreehand(POT, stillAnimation(sevenWrongRoles)).overall).toBeCloseTo(2.65 / 3, 12);
+    expect(
+      passesMode('freehand', scoreFreehand(POT, stillAnimation(sevenWrongRoles)).overall),
+    ).toBe(false);
   });
 
   it('passes a shifted drawing shaded from the wrong side, but not a flat silhouette', () => {
@@ -255,8 +267,66 @@ describe('passing Freehand', () => {
       '........',
       '........',
     ]);
-    expect(scoreFreehand(POT, lightFromTheRight).overall).toBeCloseTo(2.8 / 3, 12);
-    expect(passesMode('freehand', scoreFreehand(POT, lightFromTheRight).overall)).toBe(true);
-    expect(passesMode('freehand', scoreFreehand(POT, flat).overall)).toBe(false);
+    expect(scoreFreehand(POT, stillAnimation(lightFromTheRight)).overall).toBeCloseTo(2.8 / 3, 12);
+    expect(
+      passesMode('freehand', scoreFreehand(POT, stillAnimation(lightFromTheRight)).overall),
+    ).toBe(true);
+    expect(passesMode('freehand', scoreFreehand(POT, stillAnimation(flat)).overall)).toBe(false);
+  });
+});
+
+describe('Freehand in an animation Lesson', () => {
+  const HIGH = [
+    '........',
+    '..OOOO..',
+    '.OBBBBO.',
+    '.OBBBBO.',
+    '..OOOO..',
+    '........',
+    '........',
+    '........',
+  ];
+  const LOW = [
+    '........',
+    '........',
+    '..OOOO..',
+    '.OBBBBO.',
+    '.OBBBBO.',
+    '..OOOO..',
+    '........',
+    '........',
+  ];
+  const frames = (...rows: string[][]) => rows.map((r) => sprite(r).pixels);
+  const BOB = createAnimationLesson({
+    id: 'bob',
+    title: 'Bob',
+    roles: ROLES,
+    animation: { width: 8, height: 8, palette: PALETTE, fps: 4, frames: frames(HIGH, LOW) },
+    frameSteps: [
+      { frame: 0, pose: 'key', explanation: '' },
+      { frame: 1, pose: 'in-between', explanation: '' },
+    ],
+  });
+  const attempt = (...rows: string[][]): Animation => ({
+    width: 8,
+    height: 8,
+    palette: PALETTE,
+    fps: 4,
+    frames: frames(...rows),
+  });
+  const BLANK = Array.from({ length: 8 }, () => '........');
+
+  it('scores each Frame against its own Reference Frame, wherever it is drawn', () => {
+    expect(scoreFreehand(BOB, attempt(LOW, HIGH)).overall).toBe(1);
+  });
+
+  it('averages the Frames, so a Frame left blank halves the score', () => {
+    expect(scoreFreehand(BOB, attempt(HIGH, BLANK))).toEqual({
+      shape: 0.5,
+      palette: 0.5,
+      lineQuality: 0.5,
+      overall: 0.5,
+      mistakes: [[], []],
+    });
   });
 });

@@ -20,7 +20,15 @@ function paintFrame(canvas: HTMLCanvasElement, drawing: Drawing) {
   });
 }
 
-function AnimationPreview({ animation }: { animation: Animation }) {
+export function AnimationPreview({
+  animation,
+  label = `Animation preview, ${animation.frames.length} Frames at ${animation.fps} FPS`,
+  className = 'animation-preview',
+}: {
+  animation: Animation;
+  label?: string;
+  className?: string;
+}) {
   const play = useCallback(
     (canvas: HTMLCanvasElement | null) => {
       if (!canvas) return;
@@ -43,9 +51,9 @@ function AnimationPreview({ animation }: { animation: Animation }) {
   return (
     <canvas
       ref={play}
-      className="animation-preview"
+      className={className}
       role="img"
-      aria-label={`Animation preview, ${animation.frames.length} Frames at ${animation.fps} FPS`}
+      aria-label={label}
       width={animation.width}
       height={animation.height}
       style={{ aspectRatio: `${animation.width} / ${animation.height}` }}
@@ -62,6 +70,7 @@ export function FrameStrip({
   onionOpacity,
   onOnionOpacity,
   previewShown,
+  fpsEditable = true,
 }: {
   editor: Editor;
   animation: Animation;
@@ -71,6 +80,7 @@ export function FrameStrip({
   onionOpacity: number;
   onOnionOpacity: (opacity: number) => void;
   previewShown: boolean;
+  fpsEditable?: boolean;
 }) {
   return (
     <section className="card frame-strip" aria-label="Frames">
@@ -78,21 +88,23 @@ export function FrameStrip({
         {controls.map((c) => (
           <ControlButton key={c.label} control={c} iconSize={18} />
         ))}
-        <label>
-          FPS
-          <select
-            value={animation.fps}
-            onChange={(e) =>
-              editor.applyToFrames({ type: 'set-fps', fps: Number(e.currentTarget.value) })
-            }
-          >
-            {FPS_CHOICES.map((fps) => (
-              <option key={fps} value={fps}>
-                {fps}
-              </option>
-            ))}
-          </select>
-        </label>
+        {fpsEditable && (
+          <label>
+            FPS
+            <select
+              value={animation.fps}
+              onChange={(e) =>
+                editor.applyToFrames({ type: 'set-fps', fps: Number(e.currentTarget.value) })
+              }
+            >
+              {FPS_CHOICES.map((fps) => (
+                <option key={fps} value={fps}>
+                  {fps}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {onionShown && (
           <label>
             Onion skin opacity

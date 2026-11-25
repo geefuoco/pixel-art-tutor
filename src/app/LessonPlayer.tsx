@@ -1,13 +1,15 @@
-import { ChevronLeft, ChevronRight, CircleCheck, Eye, Lightbulb } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleCheck, Eye, Layers, Lightbulb, Play } from 'lucide-react';
+import { onionSkins } from '../core/animation';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, passScore, type StepCheck } from '../core/evaluate';
-import type { Mode } from '../core/lesson';
+import { frameOfStep, isAnimationLesson, type LessonStep, type Mode } from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
 import { DrawingEditor } from './DrawingEditor';
 import { Explanation } from './Explanation';
+import { FrameStrip } from './FrameStrip';
 import { FreehandSession } from './FreehandSession';
 import { LESSON_STORAGE_MESSAGES } from './lesson-storage-messages';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
@@ -22,9 +24,10 @@ import { WarningBanner } from './WarningBanner';
 import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
-import { STEP_NAMES } from './step-names';
+import { stepName } from './step-names';
 
 const GUIDE_FLASH_MS = 1500;
+const DEFAULT_ONION_OPACITY = 0.3;
 
 function Loading() {
   return (
@@ -90,9 +93,11 @@ function flashSummary(hintFlashes: number) {
     : `You used Show me ${plural(hintFlashes, 'time')}.`;
 }
 
-function checkSummary(check: StepCheck, stepName: string) {
+function checkSummary(check: StepCheck, step: LessonStep) {
   if (check.missing.length === 0 && check.extra.length === 0) {
-    return `Every ${stepName.toLowerCase()} pixel is right.`;
+    return step.kind === 'frame'
+      ? `Every pixel of Frame ${step.frame + 1} is right.`
+      : `Every ${stepName(step).toLowerCase()} pixel is right.`;
   }
   return `${plural(check.missing.length, 'pixel')} missing, ${check.extra.length} extra. Missing pixels are marked with an amber square, extra pixels with a red cross.`;
 }
@@ -110,8 +115,13 @@ function LessonSession({
 }) {
   const { lesson } = entry;
   const { editor, problem, result } = state;
-  const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
-  const [stepIndex, setStepIndex] = useState(0);
+  const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
+  const animated = isAnimationLesson(lesson);
+  const [chosenStep, setChosenStep] = useState(0);
+  const stepIndex = animated ? lesson.steps.findIndex((s) => frameOfStep(s) === frame) : chosenStep;
+  const [onionShown, setOnionShown] = useState(false);
+  const [onionOpacity, setOnionOpacity] = useState(DEFAULT_ONION_OPACITY);
+  const [previewShown, setPreviewShown] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [flashing, setFlashing] = useState(false);
   const [checked, setChecked] = useState<{
@@ -122,14 +132,16 @@ function LessonSession({
   } | null>(null);
   const [finishing, setFinishing] = useState(false);
   const step = lesson.steps[stepIndex]!;
-  const stepName = STEP_NAMES[step.kind];
+  const name = stepName(step);
   const freshCheck =
     checked && checked.stepIndex === stepIndex && checked.drawing === drawing ? checked : null;
   const check = freshCheck?.check ?? null;
   const isLastStep = stepIndex === lesson.steps.length - 1;
 
   function goToStep(index: number) {
-    setStepIndex(Math.min(lesson.steps.length - 1, Math.max(0, index)));
+    const next = Math.min(lesson.steps.length - 1, Math.max(0, index));
+    if (animated) editor.selectFrame(frameOfStep(lesson.steps[next]!));
+    else setChosenStep(next);
   }
 
   function runCheck() {
@@ -159,7 +171,7 @@ function LessonSession({
 
   async function startOver() {
     await play.startOver();
-    setStepIndex(0);
+    setChosenStep(0);
   }
 
   const lessonActions: Control[] = [
@@ -199,14 +211,52 @@ function LessonSession({
     },
   ];
 
+  const frameControls: Control[] = [
+    {
+      label: 'Onion skin',
+      Icon: Layers,
+      chords: [{ key: 'o' }],
+      run: () => setOnionShown((shown) => !shown),
+      pressed: onionShown,
+    },
+    {
+      label: 'Play preview',
+      Icon: Play,
+      chords: [{ key: 'p' }],
+      run: () => setPreviewShown((shown) => !shown),
+      pressed: previewShown,
+    },
+  ];
+
   return (
     <div className="page lesson">
       <Nav current="lessons" />
       <div className="lesson-layout">
         <DrawingEditor
           editor={editor}
-          canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels`}
+          canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels${animated ? `, Frame ${frame + 1} of ${animation.frames.length}` : ''}`}
           trailingActions={lessonActions}
+          shortcuts={animated ? frameControls : []}
+          onion={
+            animated && onionShown
+              ? { ...onionSkins(animation, frame), opacity: onionOpacity }
+              : undefined
+          }
+          below={
+            animated && (
+              <FrameStrip
+                editor={editor}
+                animation={animation}
+                frame={frame}
+                controls={frameControls}
+                onionShown={onionShown}
+                onionOpacity={onionOpacity}
+                onOnionOpacity={setOnionOpacity}
+                previewShown={previewShown}
+                fpsEditable={false}
+              />
+            )
+          }
           marks={{
             guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,
             missing: check?.missing ?? [],
@@ -221,21 +271,21 @@ function LessonSession({
           <h1 id="lesson-title">{lesson.title}</h1>
           <ol className="step-list" aria-label="Steps">
             {lesson.steps.map((s, i) => (
-              <li key={s.kind}>
+              <li key={i}>
                 <button
                   type="button"
                   className="step-button"
                   aria-current={i === stepIndex ? 'step' : undefined}
                   onClick={() => goToStep(i)}
                 >
-                  {i + 1}. {STEP_NAMES[s.kind]}
+                  {i + 1}. {stepName(s)}
                 </button>
               </li>
             ))}
           </ol>
           <section aria-labelledby="step-title" className="step">
             <h2 id="step-title">
-              Step {stepIndex + 1}: {stepName}
+              Step {stepIndex + 1}: {name}
             </h2>
             <Explanation markdown={step.explanation} resolve={entry.exampleUrl} />
           </section>
@@ -245,7 +295,7 @@ function LessonSession({
             </p>
           )}
           <p className="check-result" role="status">
-            {check && checkSummary(check, stepName)}
+            {check && checkSummary(check, step)}
           </p>
           {freshCheck && <MistakeList mistakes={freshCheck.mistakes} />}
           <div className="lesson-actions">

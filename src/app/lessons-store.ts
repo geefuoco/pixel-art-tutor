@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import type { Lesson } from '../core/lesson';
+import { isAnimationLesson, type Lesson } from '../core/lesson';
 import { readLesson } from '../core/lesson-content';
 import { decodePng } from './png-image';
+import { thumbnail } from './thumbnail';
 
 const LESSONS_DIR = '/content/lessons/';
 
@@ -58,7 +59,12 @@ async function loadLesson(id: string): Promise<LessonEntry> {
   if (reading.lesson.id !== id) {
     throw new Error(`The Lesson in ${dir} says its id is ${reading.lesson.id}`);
   }
-  return { lesson: reading.lesson, referenceUrl, exampleUrl: (src) => examples.get(src) };
+  const { lesson } = reading;
+  return {
+    lesson,
+    referenceUrl: isAnimationLesson(lesson) ? thumbnail(lesson.reference) : referenceUrl,
+    exampleUrl: (src) => examples.get(src),
+  };
 }
 
 let courseState: CourseState = { status: 'loading' };

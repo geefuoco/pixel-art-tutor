@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { checkStep, passesMode, scoreLessonDrawing } from './evaluate';
-import { createLesson, type Role } from './lesson';
+import { stillAnimation, type Animation } from './animation';
+import { checkStep, passesMode, scoreLessonAttempt } from './evaluate';
+import { createAnimationLesson, createLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
 const PALETTE = ['#111111', '#cc3333', '#881111', '#ff9999'];
@@ -127,20 +128,93 @@ describe('scoring a Lesson', () => {
   };
 
   it('scores the Reference Sprite itself 100% and a blank canvas 0%', () => {
-    expect(scoreLessonDrawing(LESSON, LESSON.reference)).toBe(1);
-    expect(scoreLessonDrawing(LESSON, BLANK)).toBe(0);
+    expect(scoreLessonAttempt(LESSON, stillAnimation(LESSON.reference))).toBe(1);
+    expect(scoreLessonAttempt(LESSON, stillAnimation(BLANK))).toBe(0);
   });
 
   it('passes at exactly 95% of the 20 sprite pixels right, and fails one pixel below', () => {
-    expect(scoreLessonDrawing(LESSON, withMistakes(1))).toBe(0.95);
-    expect(passesMode('trace', scoreLessonDrawing(LESSON, withMistakes(1)))).toBe(true);
-    expect(scoreLessonDrawing(LESSON, withMistakes(2))).toBe(0.9);
-    expect(passesMode('trace', scoreLessonDrawing(LESSON, withMistakes(2)))).toBe(false);
+    expect(scoreLessonAttempt(LESSON, stillAnimation(withMistakes(1)))).toBe(0.95);
+    expect(passesMode('trace', scoreLessonAttempt(LESSON, stillAnimation(withMistakes(1))))).toBe(
+      true,
+    );
+    expect(scoreLessonAttempt(LESSON, stillAnimation(withMistakes(2)))).toBe(0.9);
+    expect(passesMode('trace', scoreLessonAttempt(LESSON, stillAnimation(withMistakes(2))))).toBe(
+      false,
+    );
   });
 
   it('counts pixels drawn outside the sprite against the score', () => {
     const pixels = LESSON.reference.pixels.slice();
     pixels[0] = 0;
-    expect(scoreLessonDrawing(LESSON, { ...LESSON.reference, pixels })).toBe(20 / 21);
+    expect(scoreLessonAttempt(LESSON, stillAnimation({ ...LESSON.reference, pixels }))).toBe(
+      20 / 21,
+    );
+  });
+});
+
+describe('checking and scoring an animation Lesson', () => {
+  const BOB = [
+    [
+      '........',
+      '..OOOO..',
+      '.OBBBBO.',
+      '.OBBBBO.',
+      '..OOOO..',
+      '........',
+      '........',
+      '........',
+    ],
+    [
+      '........',
+      '........',
+      '..OOOO..',
+      '.OBBBBO.',
+      '.OBBBBO.',
+      '..OOOO..',
+      '........',
+      '........',
+    ],
+  ];
+  const BOBBING: Animation = {
+    width: 8,
+    height: 8,
+    palette: PALETTE,
+    fps: 4,
+    frames: BOB.map((rows) => sprite(rows).pixels),
+  };
+  const ANIMATED = createAnimationLesson({
+    id: 'bob',
+    title: 'Bob',
+    animation: BOBBING,
+    roles: ROLES,
+    frameSteps: [
+      { frame: 1, pose: 'key', explanation: '' },
+      { frame: 0, pose: 'in-between', explanation: '' },
+    ],
+  });
+  const LOW_FRAME_STEP = 0;
+
+  it('checks a Frame-Step against the whole Frame, in its final colors', () => {
+    expect(checkStep(ANIMATED, LOW_FRAME_STEP, sprite(BOB[1]!))).toEqual({
+      missing: [],
+      extra: [],
+    });
+    expect(checkStep(ANIMATED, LOW_FRAME_STEP, sprite(BOB[0]!))).toEqual({
+      missing: pointsOf(['........', '........', '..xxxx..', '........', '.xxxxxx.', '..xxxx..']),
+      extra: pointsOf(['........', '..xxxx..', '.x....x.']),
+    });
+    const blockedIn = sprite(
+      ['........', '........', '..BBBB..', '.BBBBBB.', '.BBBBBB.', '..BBBB..'].concat([
+        '........',
+        '........',
+      ]),
+    );
+    expect(checkStep(ANIMATED, LOW_FRAME_STEP, blockedIn).missing).toHaveLength(12);
+  });
+
+  it('scores every Frame together against the Reference Sprite', () => {
+    expect(scoreLessonAttempt(ANIMATED, BOBBING)).toBe(1);
+    const onlyFirstFrame = { ...BOBBING, frames: [BOBBING.frames[0]!, BLANK.pixels] };
+    expect(scoreLessonAttempt(ANIMATED, onlyFirstFrame)).toBe(0.5);
   });
 });
