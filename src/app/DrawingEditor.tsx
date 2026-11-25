@@ -27,7 +27,7 @@ import type { Editor } from '../core/editor';
 import { createSelectTool, type SelectTool } from '../core/select';
 import { canZoom, FIT_VIEW, panView, viewZoom, zoomView, type View } from '../core/view';
 import { ControlButton, matches, type Control } from './controls';
-import { PixelCanvas, type CanvasMarks } from './PixelCanvas';
+import { PixelCanvas, type CanvasMarks, type OnionSkinView } from './PixelCanvas';
 
 type Tool = 'pencil' | 'eraser' | 'fill' | 'eyedropper' | 'select';
 
@@ -52,6 +52,9 @@ export function DrawingEditor({
   leadingActions = [],
   trailingActions = [],
   marks,
+  onion,
+  shortcuts = [],
+  below,
   children,
 }: {
   editor: Editor;
@@ -60,6 +63,9 @@ export function DrawingEditor({
   leadingActions?: Control[];
   trailingActions?: Control[];
   marks?: CanvasMarks;
+  onion?: OnionSkinView;
+  shortcuts?: Control[];
+  below?: ReactNode;
   children?: ReactNode;
 }) {
   const selectTool = selectToolFor(editor);
@@ -262,7 +268,9 @@ export function DrawingEditor({
       e.preventDefault();
       return;
     }
-    const control = [...tools, ...actions].find((c) => c.chords.some((chord) => matches(chord, e)));
+    const control = [...tools, ...actions, ...shortcuts].find((c) =>
+      c.chords.some((chord) => matches(chord, e)),
+    );
     if (!control || control.disabled) return;
     e.preventDefault();
     control.run();
@@ -340,6 +348,7 @@ export function DrawingEditor({
               selection={selection}
               showMirrorAxis={mirror}
               marks={marks}
+              onion={onion}
               label={canvasLabel}
             />
           </div>
@@ -347,6 +356,7 @@ export function DrawingEditor({
         <p className="hint">
           Scroll to zoom. Pan with Space+drag, the middle mouse button or the arrow keys.
         </p>
+        {below}
       </div>
       <div className="pill palette-pill" role="group" aria-label="Palette">
         {drawing.palette.map((c, i) => (

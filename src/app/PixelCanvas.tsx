@@ -9,6 +9,12 @@ const MISSING_COLOR = '#f59e0b';
 const EXTRA_COLOR = '#e11d48';
 const MISTAKE_COLOR = '#7c3aed';
 
+export interface OnionSkinView {
+  readonly previous: readonly number[] | null;
+  readonly next: readonly number[] | null;
+  readonly opacity: number;
+}
+
 export interface CanvasMarks {
   readonly guide: readonly number[] | null;
   readonly missing: readonly Point[];
@@ -16,14 +22,24 @@ export interface CanvasMarks {
   readonly mistakes: readonly Point[];
 }
 
-function paint(canvas: HTMLCanvasElement, drawing: Drawing) {
+function paint(canvas: HTMLCanvasElement, drawing: Drawing, onion: OnionSkinView | undefined) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
+  const skins = onion ? [onion.previous, onion.next].filter((s) => s !== null) : [];
   for (let y = 0; y < drawing.height; y++) {
     for (let x = 0; x < drawing.width; x++) {
       const p = getPixel(drawing, x, y);
       ctx.fillStyle = p === TRANSPARENT ? CHECKER[(x + y) % 2]! : drawing.palette[p]!;
       ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      if (p !== TRANSPARENT || !onion) continue;
+      ctx.globalAlpha = onion.opacity;
+      for (const skin of skins) {
+        const s = skin[y * drawing.width + x]!;
+        if (s === TRANSPARENT) continue;
+        ctx.fillStyle = drawing.palette[s]!;
+        ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+      }
+      ctx.globalAlpha = 1;
     }
   }
 }
@@ -76,6 +92,7 @@ export function PixelCanvas({
   selection,
   showMirrorAxis,
   marks,
+  onion,
   label,
 }: {
   drawing: Drawing;
@@ -85,14 +102,15 @@ export function PixelCanvas({
   selection: Rect | null;
   showMirrorAxis: boolean;
   marks?: CanvasMarks;
+  onion?: OnionSkinView;
   label: string;
 }) {
   const last = useRef<Point | null>(null);
   const ref = useCallback(
     (canvas: HTMLCanvasElement | null) => {
-      if (canvas) paint(canvas, drawing);
+      if (canvas) paint(canvas, drawing, onion);
     },
-    [drawing],
+    [drawing, onion],
   );
   const marksRef = useCallback(
     (canvas: HTMLCanvasElement | null) => {

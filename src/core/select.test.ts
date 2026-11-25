@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { stillAnimation } from './animation';
 import { TRANSPARENT } from './drawing';
 import { createEditor } from './editor';
 import { createSelectTool } from './select';
@@ -7,7 +8,7 @@ import { drawingOf, rowsOf } from './test-grids';
 const T = TRANSPARENT;
 
 function setup(rows: number[][]) {
-  const editor = createEditor(drawingOf(rows));
+  const editor = createEditor(stillAnimation(drawingOf(rows)));
   const select = createSelectTool(editor);
   const pixels = () => rowsOf(editor.getState().drawing);
   return { editor, select, pixels };

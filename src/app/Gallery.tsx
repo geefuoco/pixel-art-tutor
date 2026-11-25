@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { frameDrawing } from '../core/animation';
 import type { Drawing } from '../core/drawing';
 import { passesMode } from '../core/evaluate';
 import type { GalleryEntry, GalleryState } from '../persistence/gallery';
@@ -90,7 +91,8 @@ function DrawingCard({
 }
 
 function StudioCard({ studioDrawing }: { studioDrawing: SavedDrawing }) {
-  const { id, drawing, updatedAt } = studioDrawing;
+  const { id, animation, updatedAt } = studioDrawing;
+  const drawing = frameDrawing(animation, 0);
   const date = dateTime.format(updatedAt);
   return (
     <DrawingCard

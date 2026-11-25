@@ -497,3 +497,36 @@ test('check a Studio drawing for Mistakes, see them circled and read why', async
   await expect(panel).toContainText('No Mistakes found.');
   await expect.poll(() => markedAt(3, 5)).toBe(false);
 });
+
+test('animate with Frames, onion skinning and a looping preview, kept after a reload', async ({
+  page,
+}) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  const frames = page.getByRole('region', { name: 'Frames' });
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 2, 2);
+
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await expect(canvas).toHaveAccessibleName('Studio canvas, 16 by 16 pixels, Frame 2 of 2');
+  const empty = await pixelAt(canvas, 2, 2);
+  expect(empty).not.toEqual(RED);
+  await page.keyboard.press('o');
+  await expect.poll(() => pixelAt(canvas, 2, 2)).not.toEqual(empty);
+  await clickPixel(page, canvas, 3, 2);
+
+  await page.keyboard.press(',');
+  await expect(canvas).toHaveAccessibleName('Studio canvas, 16 by 16 pixels, Frame 1 of 2');
+  await expect.poll(() => pixelAt(canvas, 2, 2)).toEqual(RED);
+  await page.keyboard.press('p');
+  await expect(
+    frames.getByRole('img', { name: 'Animation preview, 2 Frames at 8 FPS' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(frames.getByRole('button', { name: /^Frame \d$/ })).toHaveCount(2);
+  await page.keyboard.press('.');
+  await expect(canvas).toHaveAccessibleName(/Frame 2 of 2/);
+  await expect.poll(() => pixelAt(canvas, 3, 2)).toEqual(RED);
+  await expect.poll(() => pixelAt(canvas, 2, 2)).toEqual(empty);
+});

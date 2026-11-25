@@ -1,3 +1,4 @@
+import { stillAnimation, type Animation } from '../core/animation';
 import type { Drawing } from '../core/drawing';
 import type { FreehandSubScores } from '../core/freehand';
 import type { Mode, Role } from '../core/lesson';
@@ -7,7 +8,7 @@ import { recordPass, type LessonProgress, type Progress } from '../core/progress
 
 export interface SavedDrawing {
   readonly id: string;
-  readonly drawing: Drawing;
+  readonly animation: Animation;
   readonly updatedAt: number;
 }
 
@@ -88,7 +89,7 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
@@ -137,6 +138,17 @@ function fillMissingFields(
   };
 }
 
+function giveStudioDrawingsFrames(transaction: IDBTransaction) {
+  const walking = transaction.objectStore(STUDIO_DRAWINGS).openCursor();
+  walking.onsuccess = () => {
+    const cursor = walking.result;
+    if (!cursor) return;
+    const { drawing, ...rest } = cursor.value as { drawing?: Drawing };
+    if (drawing) cursor.update({ ...rest, animation: stillAnimation(drawing) });
+    cursor.continue();
+  };
+}
+
 function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DB_NAME, DB_VERSION);
@@ -155,6 +167,7 @@ function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
         }));
         fillMissingFields(request.transaction!, IN_PROGRESS_ATTEMPTS, () => ({ hintFlashes: 0 }));
       }
+      if (event.oldVersion < 8) giveStudioDrawingsFrames(request.transaction!);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

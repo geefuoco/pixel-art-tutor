@@ -35,8 +35,8 @@ export function ControlButton({ control, iconSize }: { control: Control; iconSiz
       type="button"
       className="tool"
       aria-label={label}
-      title={`${label} (${chordLabel(chords[0]!)})`}
-      aria-keyshortcuts={chords.map((c) => chordLabel(c, 'Control', 'Plus')).join(' ')}
+      title={chords[0] ? `${label} (${chordLabel(chords[0])})` : label}
+      aria-keyshortcuts={chords.map((c) => chordLabel(c, 'Control', 'Plus')).join(' ') || undefined}
       aria-pressed={pressed}
       disabled={disabled}
       onClick={run}

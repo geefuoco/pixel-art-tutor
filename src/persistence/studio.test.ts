@@ -27,6 +27,33 @@ function current(studio: Studio) {
 }
 
 describe('Studio autosave', () => {
+  it('keeps every Frame and the FPS, and resumes on the first Frame after a reload', async () => {
+    const indexedDB = new IDBFactory();
+    const studio = await openStudio(indexedDB, blank(2, 1));
+    const { editor } = ready(studio).current;
+    editor.apply({ type: 'pencil', color: 1, points: [{ x: 0, y: 0 }] });
+    editor.applyToFrames({ type: 'add-frame', at: 1, copyOf: 0 });
+    editor.apply({ type: 'pencil', color: 0, points: [{ x: 1, y: 0 }] });
+    editor.applyToFrames({ type: 'set-fps', fps: 12 });
+    await studio.flush();
+
+    const reloaded = await openStudio(indexedDB);
+    expect(current(reloaded)).toMatchObject({
+      frame: 0,
+      animation: {
+        width: 2,
+        height: 1,
+        palette: PALETTE,
+        frames: [
+          [1, _],
+          [1, 0],
+        ],
+        fps: 12,
+      },
+    });
+    expect(ready(reloaded).drawings[0]!.animation.frames).toHaveLength(2);
+  });
+
   it('resumes the drawing exactly after a reload, without its undo history', async () => {
     const indexedDB = new IDBFactory();
     const studio = await openStudio(indexedDB);
@@ -38,6 +65,8 @@ describe('Studio autosave', () => {
 
     const reloaded = await openStudio(indexedDB, blank(8, 8));
     expect(current(reloaded)).toEqual({
+      animation: { width: 3, height: 2, palette: PALETTE, frames: [[1, _, _, _, 0, 0]], fps: 8 },
+      frame: 0,
       drawing: { width: 3, height: 2, palette: PALETTE, pixels: [1, _, _, _, 0, 0] },
       canUndo: false,
       canRedo: false,
@@ -66,7 +95,7 @@ describe('Studio autosave', () => {
       palette: PALETTE,
       pixels: [0],
     });
-    expect(ready(reloaded).drawings.map((d) => [d.drawing.width, d.drawing.height])).toEqual([
+    expect(ready(reloaded).drawings.map((d) => [d.animation.width, d.animation.height])).toEqual([
       [1, 1],
       [3, 2],
     ]);
@@ -203,6 +232,6 @@ describe('Studio storage problems', () => {
     expect(ready(studio).problem).toBeNull();
     const reloaded = await openStudio(indexedDB);
     const saved = ready(reloaded).drawings.find((d) => d.id === firstId);
-    expect(saved?.drawing.pixels).toEqual([1, _, _, _, _, _]);
+    expect(saved?.animation.frames).toEqual([[1, _, _, _, _, _]]);
   });
 });

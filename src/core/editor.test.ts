@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TRANSPARENT, createDrawing, getPixel, type Drawing } from './drawing';
+import { stillAnimation } from './animation';
 import { createEditor } from './editor';
 
 const palette = ['#000000', '#ffffff', '#ff0000'];
@@ -12,7 +13,7 @@ const T = TRANSPARENT;
 
 describe('editor', () => {
   it('applies commands to its drawing and tells subscribers when it changes', () => {
-    const editor = createEditor(createDrawing({ width: 2, height: 2, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 2, height: 2, palette })));
     let notified = 0;
     const unsubscribe = editor.subscribe(() => notified++);
 
@@ -27,7 +28,7 @@ describe('editor', () => {
   });
 
   it('undo steps back through commands one at a time and redo replays them', () => {
-    const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 3, height: 1, palette })));
     expect(editor.getState()).toMatchObject({ canUndo: false, canRedo: false });
 
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
@@ -55,7 +56,7 @@ describe('editor', () => {
   });
 
   it('a new command after undo discards the undone commands', () => {
-    const editor = createEditor(createDrawing({ width: 2, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 2, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.undo();
     editor.apply({ type: 'pencil', color: 1, points: [{ x: 1, y: 0 }] });
@@ -67,7 +68,7 @@ describe('editor', () => {
   });
 
   it('commands merged into one stroke undo and redo together', () => {
-    const editor = createEditor(createDrawing({ width: 4, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 4, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 2, points: [{ x: 3, y: 0 }] });
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply(
@@ -101,7 +102,7 @@ describe('editor', () => {
   });
 
   it('a stroke that starts with no visible change is still its own undo step', () => {
-    const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 3, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply(
@@ -120,7 +121,7 @@ describe('editor', () => {
   });
 
   it('a pixel changed twice in one step undoes to its value from before the step', () => {
-    const editor = createEditor(createDrawing({ width: 2, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 2, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 2, points: [{ x: 0, y: 0 }] });
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply({ type: 'pencil', color: 1, points: [{ x: 0, y: 0 }] }, { mergeWithLast: true });
@@ -134,14 +135,14 @@ describe('editor', () => {
   });
 
   it('commands that change nothing add no undo step', () => {
-    const editor = createEditor(createDrawing({ width: 2, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 2, height: 1, palette })));
     editor.apply({ type: 'eraser', points: [{ x: 0, y: 0 }] });
     editor.apply({ type: 'fill', color: 1, at: { x: 9, y: 9 } });
     expect(editor.getState().canUndo).toBe(false);
   });
 
   it('after an undo, a merged command starts a new step instead of joining the undone one', () => {
-    const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 3, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     editor.apply({ type: 'pencil', color: 1, points: [{ x: 1, y: 0 }] });
     editor.undo();
@@ -152,7 +153,7 @@ describe('editor', () => {
   });
 
   it('moves, pastes and mirrored strokes each undo and redo as one step', () => {
-    const editor = createEditor(createDrawing({ width: 4, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 4, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 2, points: [{ x: 0, y: 0 }], mirror: true });
     expect(row(editor.getState().drawing)).toEqual([2, T, T, 2]);
     editor.apply({ type: 'move', from: { x: 0, y: 0, width: 1, height: 1 }, to: { x: 1, y: 0 } });
@@ -177,7 +178,7 @@ describe('editor', () => {
   });
 
   it('replacing a step takes back its changes and applies the new command as that step', () => {
-    const editor = createEditor(createDrawing({ width: 4, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 4, height: 1, palette })));
     editor.apply({ type: 'pencil', color: 2, points: [{ x: 3, y: 0 }] });
     const clip = { width: 2, height: 1, pixels: [0, 1] };
     const step = editor.apply({ type: 'paste', clip, at: { x: 0, y: 0 } });
@@ -192,7 +193,7 @@ describe('editor', () => {
   });
 
   it('a replacement that ends up where the step started leaves no undo step', () => {
-    const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 3, height: 1, palette })));
     const from = { x: 0, y: 0, width: 3, height: 1 };
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });
     const step = editor.apply({ type: 'move', from, to: { x: 2, y: 0 } });
@@ -204,7 +205,7 @@ describe('editor', () => {
   });
 
   it('a step can no longer be replaced once anything else is applied, undone or redone', () => {
-    const editor = createEditor(createDrawing({ width: 3, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 3, height: 1, palette })));
     const pencil = (x: number) => ({ type: 'pencil', color: 0, points: [{ x, y: 0 }] }) as const;
 
     let step = editor.apply(pencil(0));
@@ -225,7 +226,7 @@ describe('editor', () => {
   });
 
   it('undo and redo notify subscribers, and the state is stable between changes', () => {
-    const editor = createEditor(createDrawing({ width: 1, height: 1, palette }));
+    const editor = createEditor(stillAnimation(createDrawing({ width: 1, height: 1, palette })));
     let notified = 0;
     editor.subscribe(() => notified++);
     editor.apply({ type: 'pencil', color: 0, points: [{ x: 0, y: 0 }] });

@@ -1,3 +1,4 @@
+import { stillAnimation } from '../core/animation';
 import { createDrawing, enlargeCanvas, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
 import { passesMode, scoreLessonDrawing } from '../core/evaluate';
@@ -105,7 +106,7 @@ export function createLessonPlay(options: {
 
   function startEditing(drawing = blank()): Editor {
     stopAutosave();
-    const editor = createEditor(drawing);
+    const editor = createEditor(stillAnimation(drawing));
     stopAutosave = editor.subscribe(autosave);
     return editor;
   }

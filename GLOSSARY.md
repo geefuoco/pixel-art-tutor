@@ -90,6 +90,13 @@ _Avoid_: Sandbox, editor
 **Frame**:
 One image in an animation.
 
+**Animation**:
+The ordered Frames of a Studio drawing, played in a loop at one FPS for the whole animation (no per-Frame durations). A still drawing is an Animation of one Frame.
+
+**Onion Skin**:
+A faint view of the previous and next Frames behind the current one, at an adjustable opacity, for lining up motion between Frames.
+_Avoid_: Ghost
+
 **Selection**:
 A rectangle of pixels in the Studio that can be dragged, copied and pasted as a block.
 _Avoid_: Marquee

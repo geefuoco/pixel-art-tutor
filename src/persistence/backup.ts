@@ -1,3 +1,4 @@
+import { isValidFps, stillAnimation, type Animation } from '../core/animation';
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
 import { passesMode } from '../core/evaluate';
 import type { FreehandSubScores } from '../core/freehand';
@@ -16,7 +17,7 @@ import {
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 8;
+export const BACKUP_VERSION = 9;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -62,12 +63,25 @@ function readDrawing(value: unknown): Drawing | null {
   return { width, height, palette: [...palette], pixels: [...pixels] };
 }
 
-function readSavedDrawing(value: unknown): SavedDrawing | null {
+function readAnimation(value: unknown): Animation | null {
   if (!isRecord(value)) return null;
-  const { id, updatedAt, drawing } = value as Unchecked<SavedDrawing>;
-  const checked = readDrawing(drawing);
-  if (typeof id !== 'string' || id === '' || !Number.isFinite(updatedAt) || !checked) return null;
-  return { id, updatedAt: updatedAt as number, drawing: checked };
+  const { width, height, palette, frames, fps } = value as Unchecked<Animation>;
+  if (!Array.isArray(frames) || frames.length === 0) return null;
+  if (typeof fps !== 'number' || !isValidFps(fps)) return null;
+  const drawings = frames.map((pixels: unknown) => readDrawing({ width, height, palette, pixels }));
+  if (!drawings.every((d) => d !== null)) return null;
+  return { ...stillAnimation(drawings[0]!, fps), frames: drawings.map((d) => d.pixels) };
+}
+
+function readSavedDrawing(value: unknown, framesSaved: boolean): SavedDrawing | null {
+  if (!isRecord(value)) return null;
+  const { id, updatedAt } = value as Unchecked<SavedDrawing>;
+  const still = framesSaved ? null : readDrawing(value.drawing);
+  const animation = framesSaved ? readAnimation(value.animation) : still && stillAnimation(still);
+  if (typeof id !== 'string' || id === '' || !Number.isFinite(updatedAt) || !animation) {
+    return null;
+  }
+  return { id, updatedAt: updatedAt as number, animation };
 }
 
 function readCustomPalette(value: unknown): CustomPalette | null {
@@ -203,7 +217,12 @@ export function readBackup(text: string): BackupReading {
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return { ok: false, message: DAMAGED };
   }
-  const studioDrawings = readAllWithUniqueKeys(file.studioDrawings, readSavedDrawing, byId);
+  const framesSaved = version >= 9;
+  const studioDrawings = readAllWithUniqueKeys(
+    file.studioDrawings,
+    (d) => readSavedDrawing(d, framesSaved),
+    byId,
+  );
   const customPalettes =
     version === 1 ? [] : readAllWithUniqueKeys(file.customPalettes, readCustomPalette, byId);
   const hasAttempts = version >= 3;

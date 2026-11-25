@@ -1,3 +1,4 @@
+import { stillAnimation, type Animation } from '../core/animation';
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
@@ -86,18 +87,24 @@ export function createStudio(options: {
 
   let restoring = false;
 
-  function keep(id: string, drawing: Drawing) {
+  function keep(id: string, animation: Animation) {
     if (state.status !== 'ready' || restoring) return;
     lastStamp = Math.max(now(), lastStamp + 1);
-    const entry = { id, drawing, updatedAt: lastStamp };
+    const entry = { id, animation, updatedAt: lastStamp };
     update({ drawings: [entry, ...state.drawings.filter((d) => d.id !== id)] });
     write(entry);
   }
 
-  function startEditing(id: string, drawing: Drawing): CurrentDrawing {
+  function startEditing(id: string, animation: Animation): CurrentDrawing {
     stopAutosave();
-    const editor = createEditor(drawing);
-    stopAutosave = editor.subscribe(() => keep(id, editor.getState().drawing));
+    const editor = createEditor(animation);
+    let kept = animation;
+    stopAutosave = editor.subscribe(() => {
+      const edited = editor.getState().animation;
+      if (edited === kept) return;
+      kept = edited;
+      keep(id, edited);
+    });
     return { id, editor };
   }
 
@@ -120,8 +127,8 @@ export function createStudio(options: {
       }
       const latest = drawings[0];
       const current = latest
-        ? startEditing(latest.id, latest.drawing)
-        : startEditing(crypto.randomUUID(), firstDrawing);
+        ? startEditing(latest.id, latest.animation)
+        : startEditing(crypto.randomUUID(), stillAnimation(firstDrawing));
       state = { status: 'ready', current, drawings, palettes, problem };
       publish();
     })();
@@ -136,16 +143,17 @@ export function createStudio(options: {
     },
     load,
     create(drawing) {
-      const current = startEditing(crypto.randomUUID(), drawing);
+      const animation = stillAnimation(drawing);
+      const current = startEditing(crypto.randomUUID(), animation);
       update({ current });
-      if (drawing.pixels.some((p) => p !== TRANSPARENT)) keep(current.id, drawing);
+      if (drawing.pixels.some((p) => p !== TRANSPARENT)) keep(current.id, animation);
     },
     open(id) {
       if (state.status !== 'ready' || state.current.id === id) return;
       const entry = state.drawings.find((d) => d.id === id);
       if (!entry) return;
-      update({ current: startEditing(id, entry.drawing) });
-      keep(id, entry.drawing);
+      update({ current: startEditing(id, entry.animation) });
+      keep(id, entry.animation);
     },
     async savePalette(palette) {
       const checked = checkCustomPalette(palette);
