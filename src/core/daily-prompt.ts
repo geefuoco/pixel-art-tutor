@@ -4,10 +4,10 @@ import { MODES, type Mode } from './lesson';
 import { seededRandom } from './seeded-random';
 import { themePrompt, type ThemePrompt } from './theme-prompt';
 
-export const DAILY_PROMPT_KINDS = ['theme', 'technique', 'review'] as const;
+const DAILY_PROMPT_KINDS = ['theme', 'technique', 'review'] as const;
 export type DailyPromptKind = (typeof DAILY_PROMPT_KINDS)[number];
 
-export const DAILY_PROMPT_KIND_WEIGHTS: Readonly<Record<DailyPromptKind, number>> = {
+const DAILY_PROMPT_KIND_WEIGHTS: Readonly<Record<DailyPromptKind, number>> = {
   theme: 60,
   technique: 25,
   review: 15,

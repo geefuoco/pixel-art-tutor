@@ -48,7 +48,7 @@ export function DailyPromptPage() {
   );
 }
 
-function promptDay({ date, draw }: { date: string; draw: number }): string {
+function promptLabel({ date, draw }: { date: string; draw: number }): string {
   return `Daily Prompt for ${formatCalendarDate(date)}${draw > 0 ? `, prompt ${draw + 1}` : ''}`;
 }
 
@@ -71,7 +71,7 @@ function ReviewDrillCard({
       <Nav current="daily" />
       <main className="card message-card" aria-labelledby="prompt-title">
         {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
-        <p className="hint">{promptDay(drill)}</p>
+        <p className="hint">{promptLabel(drill)}</p>
         <h1 id="prompt-title">
           Review Drill: {title} in {mode}
         </h1>
@@ -140,7 +140,7 @@ function ThemePromptSession({
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="prompt-title">
-          <p className="hint">{promptDay(prompt)}</p>
+          <p className="hint">{promptLabel(prompt)}</p>
           <h1 id="prompt-title">{themePromptText(prompt)}</h1>
           <p className="hint">
             A Theme Prompt is not scored. Check your drawing to see its Mistakes and which parts of

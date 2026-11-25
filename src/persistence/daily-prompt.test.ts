@@ -209,4 +209,17 @@ describe('the Daily Prompt', () => {
     const reloaded = await openDailyPrompt(indexedDB, date);
     expect(ready(reloaded).prompt).toEqual(themePrompt(date, 1));
   });
+
+  it('keeps a draw that already has a drawing on its Theme Prompt', async () => {
+    const indexedDB = new IDBFactory();
+    const date = reviewDay();
+    const beforeAnyPass = await openDailyPrompt(indexedDB, date);
+    dot(beforeAnyPass);
+    await beforeAnyPass.flush();
+    await passTrace(indexedDB, 'apple', LAST_MONTH);
+
+    const reloaded = await openDailyPrompt(indexedDB, date);
+    expect(ready(reloaded).prompt).toEqual(themePrompt(date, 0));
+    expect(drawn(reloaded).pixels[0]).toBe(1);
+  });
 });

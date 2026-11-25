@@ -3,7 +3,7 @@ import { dailyPrompt, type DailyPrompt, type DailyPromptKind } from '../core/dai
 import { themePromptText } from '../core/theme-prompt';
 import { formatCalendarDate } from './calendar-date-format';
 import { useGallery } from './gallery-store';
-import { courseLessonIds } from './lessons-store';
+import { courseLessonIds, useCourse } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
 
@@ -15,9 +15,9 @@ const KIND_NAMES: Record<DailyPromptKind, string> = {
   review: 'Review Drill',
 };
 
-function exercise(prompt: DailyPrompt): string {
+function exercise(prompt: DailyPrompt, lessonTitle: (id: string) => string): string {
   if (prompt.kind === 'review') {
-    return `Replay ${prompt.lessonId} in ${MODE_NAMES[prompt.mode]}`;
+    return `Replay ${lessonTitle(prompt.lessonId)} in ${MODE_NAMES[prompt.mode]}`;
   }
   const text = themePromptText(prompt.prompt);
   return prompt.drawn === 'theme' ? text : `Theme Prompt instead: ${text}`;
@@ -25,6 +25,11 @@ function exercise(prompt: DailyPrompt): string {
 
 export function UpcomingPrompts() {
   const gallery = useGallery();
+  const course = useCourse();
+  const lessonTitle = (id: string) =>
+    (course.status === 'ready' &&
+      course.lessons.find((entry) => entry.lesson.id === id)?.lesson.title) ||
+    id;
   const today = localCalendarDate(new Date());
   const dates = Array.from({ length: DAYS }, (_, i) => addDays(today, i));
   const attempts = gallery.status === 'ready' ? [...gallery.attemptsByLesson.values()].flat() : [];
@@ -53,7 +58,7 @@ export function UpcomingPrompts() {
                 <tr key={date}>
                   <td>{formatCalendarDate(date)}</td>
                   <td>{KIND_NAMES[prompt.drawn]}</td>
-                  <td>{exercise(prompt)}</td>
+                  <td>{exercise(prompt, lessonTitle)}</td>
                 </tr>
               );
             })}

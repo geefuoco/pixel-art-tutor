@@ -19,13 +19,16 @@ function firstDrawOf(kind: string, from = '2026-11-25') {
   throw new Error(`No ${kind} draw in a year`);
 }
 
-function attempt(lessonId: string, mode: Mode, passed: boolean, day: number): PractisedAttempt {
-  return {
-    lessonId,
-    mode,
-    score: passed ? 1 : 0.2,
-    finishedAt: new Date(2026, 9, day, 12).getTime(),
-  };
+function onDay(day: number): number {
+  return new Date(2026, 9, day, 12).getTime();
+}
+
+function passed(lessonId: string, mode: Mode, day: number): PractisedAttempt {
+  return { lessonId, mode, score: 1, finishedAt: onDay(day) };
+}
+
+function failed(lessonId: string, mode: Mode, day: number): PractisedAttempt {
+  return { lessonId, mode, score: 0.2, finishedAt: onDay(day) };
 }
 
 const COURSE = ['dot', 'apple', 'sword', 'potion'];
@@ -36,7 +39,7 @@ describe('Review Drills', () => {
   it('falls back to the Theme Prompt for the draw when no Lesson has been passed', () => {
     const prompt = dailyPrompt(date, draw, {
       course: COURSE,
-      attempts: [attempt('dot', 'trace', false, 1)],
+      attempts: [failed('dot', 'trace', 1)],
     });
     expect(prompt).toEqual({ kind: 'theme', drawn: 'review', prompt: themePrompt(date, draw) });
   });
@@ -45,11 +48,11 @@ describe('Review Drills', () => {
     const prompt = dailyPrompt(date, draw, {
       course: COURSE,
       attempts: [
-        attempt('dot', 'trace', true, 1),
-        attempt('apple', 'trace', true, 2),
-        attempt('apple', 'hint', true, 3),
-        attempt('dot', 'hint', false, 4),
-        attempt('sword', 'trace', false, 1),
+        passed('dot', 'trace', 1),
+        passed('apple', 'trace', 2),
+        passed('apple', 'hint', 3),
+        failed('dot', 'hint', 4),
+        failed('sword', 'trace', 1),
       ],
     });
     expect(prompt).toEqual({
@@ -66,9 +69,9 @@ describe('Review Drills', () => {
     const prompt = dailyPrompt(date, draw, {
       course: COURSE,
       attempts: [
-        attempt('sword', 'trace', true, 1),
-        attempt('sword', 'hint', true, 2),
-        attempt('sword', 'freehand', true, 3),
+        passed('sword', 'trace', 1),
+        passed('sword', 'hint', 2),
+        passed('sword', 'freehand', 3),
       ],
     });
     expect(prompt).toMatchObject({ kind: 'review', lessonId: 'sword', mode: 'freehand' });
@@ -77,7 +80,7 @@ describe('Review Drills', () => {
   it('starts from Hint for a Lesson whose Trace was passed', () => {
     const prompt = dailyPrompt(date, draw, {
       course: COURSE,
-      attempts: [attempt('potion', 'trace', true, 5), attempt('dot', 'trace', true, 6)],
+      attempts: [passed('potion', 'trace', 5), passed('dot', 'trace', 6)],
     });
     expect(prompt).toMatchObject({ kind: 'review', lessonId: 'potion', mode: 'hint' });
   });
@@ -85,13 +88,13 @@ describe('Review Drills', () => {
   it('leaves out Lessons that are no longer in the Course', () => {
     const prompt = dailyPrompt(date, draw, {
       course: COURSE,
-      attempts: [attempt('retired', 'trace', true, 1), attempt('dot', 'trace', true, 2)],
+      attempts: [passed('retired', 'trace', 1), passed('dot', 'trace', 2)],
     });
     expect(prompt).toMatchObject({ kind: 'review', lessonId: 'dot' });
   });
 
   it('keeps the same drill all day, whatever is practised on that day', () => {
-    const before = [attempt('dot', 'trace', true, 1), attempt('apple', 'trace', true, 2)];
+    const before = [passed('dot', 'trace', 1), passed('apple', 'trace', 2)];
     const [year, month, day] = date.split('-').map(Number);
     const thatDay = new Date(year!, month! - 1, day!, 9).getTime();
     const prompt = dailyPrompt(date, draw, {
@@ -123,14 +126,14 @@ describe('further Review Drills on the same day', () => {
   it('replay the next passed Lesson practised least recently', () => {
     const practice = {
       course: COURSE,
-      attempts: [attempt('sword', 'trace', true, 1), attempt('dot', 'trace', true, 2)],
+      attempts: [passed('sword', 'trace', 1), passed('dot', 'trace', 2)],
     };
     expect(dailyPrompt(date, first, practice)).toMatchObject({ kind: 'review', lessonId: 'sword' });
     expect(dailyPrompt(date, second, practice)).toMatchObject({ kind: 'review', lessonId: 'dot' });
   });
 
   it('fall back to a Theme Prompt once every passed Lesson has had its drill', () => {
-    const practice = { course: COURSE, attempts: [attempt('sword', 'trace', true, 1)] };
+    const practice = { course: COURSE, attempts: [passed('sword', 'trace', 1)] };
     expect(dailyPrompt(date, first, practice)).toMatchObject({ kind: 'review', lessonId: 'sword' });
     expect(dailyPrompt(date, second, practice)).toEqual({
       kind: 'theme',
@@ -152,10 +155,13 @@ describe('Technique Drills', () => {
 });
 
 describe('Daily Prompt kind mix', () => {
-  it('gives every visitor the same kind for a date and draw', () => {
-    expect(dailyPrompt('2026-11-25', 4, NO_PRACTICE)).toEqual(
-      dailyPrompt('2026-11-25', 4, NO_PRACTICE),
+  it('gives every visitor the same kinds for a date', () => {
+    const firstDraws = dates('2026-11-25', 14).map(
+      (date) => dailyPrompt(date, 0, NO_PRACTICE).drawn,
     );
+    expect(
+      firstDraws.map((kind, day) => (kind === 'review' ? day : null)).filter((d) => d !== null),
+    ).toEqual([4, 10, 13]);
   });
 
   it('can give any kind on a further draw', () => {
@@ -175,8 +181,8 @@ describe('Daily Prompt kind mix', () => {
       [0, 1, 2].map((draw) => dailyPrompt(date, draw, NO_PRACTICE).drawn),
     );
     const share = (kind: string) => drawn.filter((k) => k === kind).length / drawn.length;
-    expect(share('theme')).toBeCloseTo(0.6, 1);
-    expect(share('technique')).toBeCloseTo(0.25, 1);
-    expect(share('review')).toBeCloseTo(0.15, 1);
+    expect(Math.abs(share('theme') - 0.6)).toBeLessThan(0.02);
+    expect(Math.abs(share('technique') - 0.25)).toBeLessThan(0.02);
+    expect(Math.abs(share('review') - 0.15)).toBeLessThan(0.02);
   });
 });

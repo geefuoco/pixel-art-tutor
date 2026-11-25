@@ -86,7 +86,7 @@ An unscored Daily Prompt that asks for a subject under constraints, such as "16x
 A Daily Prompt that gives a starting shape and asks the learner to apply one technique the Course has already taught.
 
 **Review Drill**:
-A Daily Prompt that replays the passed Lesson practised least recently before that date, in the next harder Mode (Freehand once Freehand is passed).
+A Daily Prompt that replays the passed Lesson practised least recently before that date, in the next harder Mode (Freehand once Freehand is passed). A further Review Drill on the same day takes the next Lesson in that order.
 
 ## Making
 
