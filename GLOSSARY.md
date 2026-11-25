@@ -125,6 +125,15 @@ A named palette of 1 to 32 colors the learner makes and keeps.
 **Mirror Symmetry**:
 A Studio-only toggle that repeats each pencil, eraser or fill flipped left to right across the middle of the canvas.
 
+**Tile**:
+A 16x16 drawing made to be repeated edge to edge in a game level. Each tile says which of its opposite edges repeat: left-right, top-bottom, both or neither.
+
+**Tileset Lesson**:
+A Lesson that teaches a small set of tiles, such as a ground tile and its edges, with one Step per tile. Autotile sets are out of scope.
+
+**Seam**:
+A Mistake on a tile where opposite edges that repeat meet in a pairing of colors the tile never puts side by side anywhere else, so the edges of each copy show in the repeat. Seams are only checked in tile mode: in a Tileset Lesson, or in the Studio with the Tiling Preview on.
+
 **Tiling Preview**:
 A live 3x3 repetition of the canvas that shows how a tile looks when repeated.
 

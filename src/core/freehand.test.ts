@@ -3,7 +3,7 @@ import { stillAnimation, type Animation } from './animation';
 import { TRANSPARENT, type Drawing } from './drawing';
 import { passesMode } from './evaluate';
 import { scoreFreehand } from './freehand';
-import { createAnimationLesson, createLesson, type Role } from './lesson';
+import { createAnimationLesson, createLesson, createTilesetLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
 const PALETTE = ['#111111', '#cc3333', '#881111', '#ff9999'];
@@ -328,5 +328,24 @@ describe('Freehand in an animation Lesson', () => {
       overall: 0.5,
       mistakes: [[], []],
     });
+  });
+});
+
+describe('scoring a tileset Lesson in Freehand', () => {
+  const GROUND = Array<string>(16).fill('B'.repeat(16));
+  const TILESET = createTilesetLesson({
+    id: 'ground',
+    title: 'Ground',
+    tiles: { width: 16, height: 16, palette: PALETTE, fps: 8, frames: [sprite(GROUND).pixels] },
+    roles: ROLES,
+    tileSteps: [{ name: 'Ground', seamless: ['left-right', 'top-bottom'], explanation: '' }],
+  });
+
+  it('counts seams against Line quality, since a tile has to repeat cleanly', () => {
+    const shadedAcross = Array<string>(16).fill('H' + 'B'.repeat(14) + 'S');
+    const score = scoreFreehand(TILESET, stillAnimation(sprite(shadedAcross)));
+    expect(score.mistakes[0]!.map((m) => [m.kind, m.pixels.length])).toEqual([['seam', 32]]);
+    expect(score.lineQuality).toBe(1 - 32 / 256);
+    expect(scoreFreehand(TILESET, TILESET.animation).lineQuality).toBe(1);
   });
 });

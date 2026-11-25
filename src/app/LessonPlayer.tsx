@@ -3,7 +3,15 @@ import { onionSkins } from '../core/animation';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, passScore, type StepCheck } from '../core/evaluate';
-import { frameOfStep, isAnimationLesson, type LessonStep, type Mode } from '../core/lesson';
+import {
+  frameOfStep,
+  hasSeveralFrames,
+  isAnimationLesson,
+  isTilesetLesson,
+  seamlessEdgesOfFrame,
+  type LessonStep,
+  type Mode,
+} from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
@@ -24,7 +32,8 @@ import { WarningBanner } from './WarningBanner';
 import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
-import { stepName } from './step-names';
+import { stepName, tileName } from './step-names';
+import { TilingPreview } from './TilingPreview';
 
 const GUIDE_FLASH_MS = 1500;
 const DEFAULT_ONION_OPACITY = 0.3;
@@ -95,9 +104,9 @@ function flashSummary(hintFlashes: number) {
 
 function checkSummary(check: StepCheck, step: LessonStep) {
   if (check.missing.length === 0 && check.extra.length === 0) {
-    return step.kind === 'frame'
-      ? `Every pixel of Frame ${step.frame + 1} is right.`
-      : `Every ${stepName(step).toLowerCase()} pixel is right.`;
+    if (step.kind === 'frame') return `Every pixel of Frame ${step.frame + 1} is right.`;
+    if (step.kind === 'tile') return `Every pixel of the ${step.name} tile is right.`;
+    return `Every ${stepName(step).toLowerCase()} pixel is right.`;
   }
   return `${plural(check.missing.length, 'pixel')} missing, ${check.extra.length} extra. Missing pixels are marked with an amber square, extra pixels with a red cross.`;
 }
@@ -117,8 +126,12 @@ function LessonSession({
   const { editor, problem, result } = state;
   const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
   const animated = isAnimationLesson(lesson);
+  const tileset = isTilesetLesson(lesson);
+  const severalFrames = hasSeveralFrames(lesson);
   const [chosenStep, setChosenStep] = useState(0);
-  const stepIndex = animated ? lesson.steps.findIndex((s) => frameOfStep(s) === frame) : chosenStep;
+  const stepIndex = severalFrames
+    ? lesson.steps.findIndex((s) => frameOfStep(s) === frame)
+    : chosenStep;
   const [onionShown, setOnionShown] = useState(false);
   const [onionOpacity, setOnionOpacity] = useState(DEFAULT_ONION_OPACITY);
   const [previewShown, setPreviewShown] = useState(false);
@@ -140,7 +153,7 @@ function LessonSession({
 
   function goToStep(index: number) {
     const next = Math.min(lesson.steps.length - 1, Math.max(0, index));
-    if (animated) editor.selectFrame(frameOfStep(lesson.steps[next]!));
+    if (severalFrames) editor.selectFrame(frameOfStep(lesson.steps[next]!));
     else setChosenStep(next);
   }
 
@@ -149,7 +162,7 @@ function LessonSession({
       stepIndex,
       drawing,
       check: checkStep(lesson, stepIndex, drawing),
-      mistakes: findMistakes(drawing),
+      mistakes: findMistakes(drawing, { seamless: seamlessEdgesOfFrame(lesson, frame) }),
     });
   }
 
@@ -234,7 +247,7 @@ function LessonSession({
       <div className="lesson-layout">
         <DrawingEditor
           editor={editor}
-          canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels${animated ? `, Frame ${frame + 1} of ${animation.frames.length}` : ''}`}
+          canvasLabel={`Lesson canvas, ${lesson.size} by ${lesson.size} pixels${animated ? `, Frame ${frame + 1} of ${animation.frames.length}` : ''}${tileset ? `, ${name} tile` : ''}`}
           trailingActions={lessonActions}
           shortcuts={animated ? frameControls : []}
           onion={
@@ -243,19 +256,24 @@ function LessonSession({
               : undefined
           }
           below={
-            animated && (
-              <FrameStrip
-                editor={editor}
-                animation={animation}
-                frame={frame}
-                controls={frameControls}
-                onionShown={onionShown}
-                onionOpacity={onionOpacity}
-                onOnionOpacity={setOnionOpacity}
-                previewShown={previewShown}
-                fpsEditable={false}
-              />
-            )
+            <>
+              {severalFrames && (
+                <FrameStrip
+                  editor={editor}
+                  animation={animation}
+                  frame={frame}
+                  controls={animated ? frameControls : []}
+                  onionShown={onionShown}
+                  onionOpacity={onionOpacity}
+                  onOnionOpacity={setOnionOpacity}
+                  previewShown={previewShown}
+                  fpsEditable={false}
+                  label={tileset ? 'Tiles' : undefined}
+                  frameName={tileset ? (tile) => tileName(lesson, tile) : undefined}
+                />
+              )}
+              {tileset && <TilingPreview drawing={drawing} />}
+            </>
           }
           marks={{
             guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,

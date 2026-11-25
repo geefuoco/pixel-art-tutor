@@ -699,13 +699,17 @@ a {
   width: min(100%, 560px);
 }
 
-.mistakes-panel input {
+.mistakes-panel input,
+.mistakes-panel select {
   font: inherit;
-  width: 5em;
   margin-left: 8px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+
+.mistakes-panel input {
+  width: 5em;
 }
 
 .reference {
@@ -1022,6 +1026,22 @@ a {
   object-fit: contain;
   image-rendering: pixelated;
   background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 8px 8px;
+}
+.tiling-preview {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.tiling-preview p {
+  margin: 0;
+}
+.tiling-preview canvas {
+  width: 192px;
+  max-height: 192px;
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#ffffff 0 25%, #f4f0ff 0 50%) 0 0 / 16px 16px;
 }
 .animation-preview {
   width: 96px;

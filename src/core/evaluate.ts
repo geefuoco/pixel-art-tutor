@@ -1,6 +1,6 @@
 import type { Animation } from './animation';
 import { TRANSPARENT, type Drawing, type Point } from './drawing';
-import type { FrameStep, Lesson, Mode } from './lesson';
+import type { Lesson, Mode } from './lesson';
 import { FREEHAND_PASS_SCORE, LESSON_PASS_SCORE } from './thresholds';
 
 export interface StepCheck {
@@ -16,10 +16,10 @@ function pointAt(i: number, size: number): Point {
   return { x: i % size, y: Math.floor(i / size) };
 }
 
-function checkFrameStep(lesson: Lesson, step: FrameStep, drawing: Drawing): StepCheck {
+function checkWholeTarget(lesson: Lesson, target: readonly number[], drawing: Drawing): StepCheck {
   const missing: Point[] = [];
   const extra: Point[] = [];
-  step.target.forEach((expected, i) => {
+  target.forEach((expected, i) => {
     const drawn = drawing.pixels[i]!;
     if (expected === TRANSPARENT) {
       if (drawn !== TRANSPARENT) extra.push(pointAt(i, lesson.size));
@@ -33,7 +33,9 @@ function checkFrameStep(lesson: Lesson, step: FrameStep, drawing: Drawing): Step
 export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): StepCheck {
   const step = lesson.steps[stepIndex];
   if (!step) throw new RangeError(`Lesson ${lesson.id} has no Step ${stepIndex}`);
-  if (step.kind === 'frame') return checkFrameStep(lesson, step, drawing);
+  if (step.kind === 'frame' || step.kind === 'tile') {
+    return checkWholeTarget(lesson, step.target, drawing);
+  }
   const silhouette = lesson.steps[0]!.target;
   const missing: Point[] = [];
   const extra: Point[] = [];

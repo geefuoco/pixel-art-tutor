@@ -1,8 +1,9 @@
-import type { Animation } from './animation';
+import { DEFAULT_FPS, type Animation } from './animation';
 import { TRANSPARENT, type Color, type Drawing } from './drawing';
 import {
   createAnimationLesson,
   createLesson,
+  createTilesetLesson,
   isFramePose,
   isRole,
   STEP_KINDS,
@@ -10,9 +11,11 @@ import {
   type Lesson,
   type Role,
   type StepKind,
+  type TileStepContent,
 } from './lesson';
 import { imagesIn, parseMarkdown } from './markdown';
 import { drawingFromImage, hasPartlyTransparentPixel, type RgbaImage } from './png';
+import { isEdgePair, type EdgePair } from './tiling';
 
 export type LessonReading =
   { readonly ok: true; readonly lesson: Lesson } | { readonly ok: false; readonly problem: string };
@@ -145,16 +148,72 @@ function readFrameSteps(value: unknown, exampleSprites: readonly string[]): Fram
   });
 }
 
+function checkOneLessonKind(manifest: Record<string, unknown>) {
+  const kinds = [manifest.explanations, manifest.animation, manifest.tileset].filter(
+    (value) => value !== undefined,
+  );
+  if (
+    kinds.length > 1 ||
+    (manifest.overrides !== undefined && manifest.explanations === undefined)
+  ) {
+    throw new ManifestProblem(
+      'A manifest has either explanations, an animation or a tileset, and overrides only go with explanations',
+    );
+  }
+}
+
+function readSeamless(value: unknown, name: string): EdgePair[] {
+  if (!Array.isArray(value)) {
+    throw new ManifestProblem(`The ${name} tile needs a list of seamless edges`);
+  }
+  return value.map((pair: unknown) => {
+    if (!isEdgePair(pair)) {
+      throw new ManifestProblem(
+        `${String(pair)} is not an edge pair: use left-right or top-bottom`,
+      );
+    }
+    return pair;
+  });
+}
+
+function readTileSteps(value: unknown, exampleSprites: readonly string[]): TileStepContent[] {
+  if (!isRecord(value) || !Array.isArray(value.tiles)) {
+    throw new ManifestProblem('The tileset needs a list of tiles');
+  }
+  return value.tiles.map((tile: unknown, i) => {
+    if (!isRecord(tile)) throw new ManifestProblem(`Tile ${i + 1} is not an object`);
+    const { name, seamless, explanation } = tile;
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new ManifestProblem(`Tile ${i + 1} needs a name`);
+    }
+    if (typeof explanation !== 'string') {
+      throw new ManifestProblem(`The ${name} tile needs an explanation`);
+    }
+    checkExampleSprites(`${name} tile`, explanation, exampleSprites);
+    return { name, seamless: readSeamless(seamless, name), explanation };
+  });
+}
+
+function readTilesetLesson(
+  manifest: Record<string, unknown>,
+  image: RgbaImage,
+  exampleSprites: readonly string[],
+): Lesson {
+  const tiles = animationFromStrip(image, DEFAULT_FPS);
+  return createTilesetLesson({
+    id: requireText(manifest, 'id'),
+    title: requireText(manifest, 'title'),
+    tiles,
+    roles: readRoles(manifest.roles, tiles.palette),
+    tileSteps: readTileSteps(manifest.tileset, exampleSprites),
+  });
+}
+
 function readAnimationLesson(
   manifest: Record<string, unknown>,
   image: RgbaImage,
   exampleSprites: readonly string[],
 ): Lesson {
-  if (manifest.explanations !== undefined || manifest.overrides !== undefined) {
-    throw new ManifestProblem(
-      'A manifest has either explanations or an animation, and overrides only go with explanations',
-    );
-  }
   const { animation } = manifest;
   if (!isRecord(animation)) throw new ManifestProblem('The manifest animation is not an object');
   const fps = typeof animation.fps === 'number' ? animation.fps : NaN;
@@ -179,8 +238,12 @@ export function readLesson(content: {
     if (hasPartlyTransparentPixel(image)) {
       throw new ManifestProblem('The Reference Sprite has partly transparent pixels');
     }
+    checkOneLessonKind(manifest);
     if (manifest.animation !== undefined) {
       return { ok: true, lesson: readAnimationLesson(manifest, image, exampleSprites) };
+    }
+    if (manifest.tileset !== undefined) {
+      return { ok: true, lesson: readTilesetLesson(manifest, image, exampleSprites) };
     }
     const reference = drawingFromImage(image);
     const lesson = createLesson({
