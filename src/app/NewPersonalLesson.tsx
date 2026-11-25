@@ -1,9 +1,14 @@
 import { FileUp } from 'lucide-react';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { TRANSPARENT, type Drawing } from '../core/drawing';
+import type { Drawing } from '../core/drawing';
 import { deriveSteps, ROLES, type Role } from '../core/lesson';
-import { proposeRoles, readUpload } from '../core/personal-lesson';
-import { StorageError } from '../persistence/store';
+import {
+  MAX_PERSONAL_LESSON_COLORS,
+  MAX_PERSONAL_LESSON_SIZE,
+  proposeRoles,
+  readUpload,
+} from '../core/personal-lesson';
+import { StorageError, type StorageProblem } from '../persistence/store';
 import { Nav } from './Nav';
 import { personalLessons } from './personal-lessons-store';
 import { decodePngFile } from './png-image';
@@ -38,11 +43,13 @@ function messageOf(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+const SAVE_PROBLEMS: Record<StorageProblem, string> = {
+  full: 'Browser storage is full, so the Personal Lesson could not be saved.',
+  unavailable: "Site data is blocked, so the Personal Lesson can't be saved.",
+};
+
 function saveProblem(error: unknown) {
-  if (error instanceof StorageError && error.problem === 'full') {
-    return 'Browser storage is full, so the Personal Lesson could not be saved.';
-  }
-  return "Site data is blocked, so the Personal Lesson can't be saved.";
+  return SAVE_PROBLEMS[error instanceof StorageError ? error.problem : 'unavailable'];
 }
 
 export function NewPersonalLesson() {
@@ -92,8 +99,9 @@ export function NewPersonalLesson() {
         </a>
         <h1>Make a Personal Lesson</h1>
         <p>
-          Upload a PNG sprite, up to 32x32 pixels and 32 colors, and it becomes a Lesson you can
-          play in every Mode.
+          Upload a PNG sprite, up to {MAX_PERSONAL_LESSON_SIZE}x{MAX_PERSONAL_LESSON_SIZE} pixels
+          and {MAX_PERSONAL_LESSON_COLORS} colors, and it becomes a Lesson you can play in every
+          Mode.
         </p>
         <p className="notice licence-reminder">
           Only upload sprites that are your own art or openly licensed, such as CC0. Checking the
@@ -139,7 +147,7 @@ function RoleReview({
 }) {
   const { reference, roles, title } = proposal;
   const pixelCounts = reference.palette.map(
-    (_, color) => reference.pixels.filter((p) => p !== TRANSPARENT && p === color).length,
+    (_, color) => reference.pixels.filter((p) => p === color).length,
   );
   const steps = deriveSteps(reference, roles);
 

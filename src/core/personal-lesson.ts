@@ -18,7 +18,7 @@ export type UploadReading =
   | { readonly ok: true; readonly reference: Drawing }
   | { readonly ok: false; readonly problem: string };
 
-function problemWith(image: RgbaImage): string | null {
+function sizeOrTransparencyProblem(image: RgbaImage): string | null {
   const { width, height } = image;
   if (width > MAX_PERSONAL_LESSON_SIZE || height > MAX_PERSONAL_LESSON_SIZE) {
     return `This image is ${width}x${height} pixels. A Personal Lesson can be up to ${MAX_PERSONAL_LESSON_SIZE}x${MAX_PERSONAL_LESSON_SIZE}.`;
@@ -30,7 +30,7 @@ function problemWith(image: RgbaImage): string | null {
 }
 
 export function readUpload(image: RgbaImage): UploadReading {
-  const problem = problemWith(image);
+  const problem = sizeOrTransparencyProblem(image);
   if (problem) return { ok: false, problem };
   const drawing = drawingFromImage(image);
   if (drawing.pixels.every((p) => p === TRANSPARENT)) {
@@ -73,15 +73,14 @@ function edgeColors(sprite: Drawing): number[] {
   });
 }
 
+function isGrey(sprite: Drawing, color: number): boolean {
+  return hueAndChroma(sprite.palette[color]!).chroma < ROLE_GREY_MAX_CHROMA;
+}
+
 function hueGroups(sprite: Drawing, colors: readonly number[]): number[][] {
-  const greys: number[] = [];
-  const hued: { color: number; hue: number }[] = [];
-  for (const color of colors) {
-    const { hue, chroma } = hueAndChroma(sprite.palette[color]!);
-    if (chroma < ROLE_GREY_MAX_CHROMA) greys.push(color);
-    else hued.push({ color, hue });
-  }
-  hued.sort((a, b) => a.hue - b.hue);
+  const hued = colors
+    .map((color) => ({ color, hue: hueAndChroma(sprite.palette[color]!).hue }))
+    .sort((a, b) => a.hue - b.hue);
   const splitsAfter = (i: number) =>
     (hued[(i + 1) % hued.length]!.hue - hued[i]!.hue + 360) % 360 > ROLE_HUE_GROUP_DEGREES;
   const start = hued.findIndex((_, i) => splitsAfter(i));
@@ -95,7 +94,60 @@ function hueGroups(sprite: Drawing, colors: readonly number[]): number[][] {
       group = [];
     }
   }
-  return greys.length > 0 ? [...groups, greys] : groups;
+  return groups;
+}
+
+function neighbourCounts(sprite: Drawing, color: number, ignored: number | undefined) {
+  const { width, height, pixels } = sprite;
+  const counts = new Map<number, number>();
+  pixels.forEach((p, i) => {
+    if (p !== color) return;
+    const x = i % width;
+    const y = Math.floor(i / width);
+    for (const [nx, ny] of [
+      [x - 1, y],
+      [x + 1, y],
+      [x, y - 1],
+      [x, y + 1],
+    ] as const) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const n = pixels[ny * width + nx]!;
+      if (n === TRANSPARENT || n === color || n === ignored) continue;
+      counts.set(n, (counts.get(n) ?? 0) + 1);
+    }
+  });
+  return counts;
+}
+
+function groupsWithGreys(sprite: Drawing, colors: readonly number[], outline?: number) {
+  const greys = colors.filter((c) => isGrey(sprite, c));
+  const groups = hueGroups(
+    sprite,
+    colors.filter((c) => !isGrey(sprite, c)),
+  );
+  const greyGroup: number[] = [];
+  for (const grey of greys) {
+    let touchesGrey = 0;
+    let touchesHued = 0;
+    let mostTouched: number | undefined;
+    let mostTouches = 0;
+    for (const [n, count] of neighbourCounts(sprite, grey, outline)) {
+      if (isGrey(sprite, n)) {
+        touchesGrey += count;
+        continue;
+      }
+      touchesHued += count;
+      if (count > mostTouches) {
+        mostTouched = n;
+        mostTouches = count;
+      }
+    }
+    const accentOf =
+      touchesHued > touchesGrey ? groups.find((g) => g.includes(mostTouched!)) : undefined;
+    if (accentOf) accentOf.push(grey);
+    else greyGroup.push(grey);
+  }
+  return greyGroup.length > 0 ? [...groups, greyGroup] : groups;
 }
 
 export function proposeRoles(sprite: Drawing): Role[] {
@@ -104,10 +156,8 @@ export function proposeRoles(sprite: Drawing): Role[] {
   const roles: Role[] = sprite.palette.map(() => 'base');
   const outline = used.length > 1 ? mostCommon(edgeColors(sprite)) : undefined;
   if (outline !== undefined) roles[outline] = 'outline';
-  for (const group of hueGroups(
-    sprite,
-    used.filter((c) => c !== outline),
-  )) {
+  const others = used.filter((c) => c !== outline);
+  for (const group of groupsWithGreys(sprite, others, outline)) {
     const base = mostCommon(opaque.filter((p) => group.includes(p)));
     const baseLightness = lightness(sprite.palette[base]!);
     for (const color of group) {
@@ -142,7 +192,7 @@ export function personalLessonManifest(lesson: Lesson): LessonManifest {
   };
 }
 
-function colors(count: number, role: Role): string {
+function colorCountPhrase(count: number, role: Role): string {
   return `${count} ${role} ${count === 1 ? 'color' : 'colors'}`;
 }
 
@@ -150,13 +200,13 @@ const EXPLANATION_TEMPLATES: Record<StepKind, (count: number) => string> = {
   silhouette: () =>
     'Every sprite starts as a shape. Block in the whole sprite in one flat color and leave the detail for later. If the silhouette reads well on its own, the finished sprite will too.',
   outline: (n) =>
-    `Draw the outline over the edge of the silhouette, using ${colors(n, 'outline')}. Keep it **1 pixel wide**: where the line steps diagonally, pixels touch only at their corners.`,
+    `Draw the outline over the edge of the silhouette, using ${colorCountPhrase(n, 'outline')}. Keep it **1 pixel wide**: where the line steps diagonally, pixels touch only at their corners.`,
   base: (n) =>
-    `Base colors are the flat middle tones of each part of the sprite. This sprite has ${colors(n, 'base')}.`,
+    `Base colors are the flat middle tones of each part of the sprite. This sprite has ${colorCountPhrase(n, 'base')}.`,
   shadow: (n) =>
-    `Shadow goes on the sides that face away from the light. It is a darker version of a base color, not black. This sprite uses ${colors(n, 'shadow')}.`,
+    `Shadow goes on the sides that face away from the light. It is a darker version of a base color, not black. This sprite uses ${colorCountPhrase(n, 'shadow')}.`,
   highlight: (n) =>
-    `Highlights are the brightest colors, used sparingly where the light hits hardest. This sprite uses ${colors(n, 'highlight')}.`,
+    `Highlights are the brightest colors, used sparingly where the light hits hardest. This sprite uses ${colorCountPhrase(n, 'highlight')}.`,
 };
 
 export function createPersonalLesson(options: {

@@ -134,6 +134,16 @@ describe('proposing Roles for a sprite', () => {
     ]);
   });
 
+  it('makes a lone white glint and a lone black shadow part of the colored group they touch', () => {
+    const apple = spriteOf(['.OOOO.', 'ORWRRO', 'ORRRRO', 'ORRRKO', '.OOOO.', '......'], 'ORWK', [
+      '#2b1a1a',
+      '#cc3333',
+      '#ffffff',
+      '#000000',
+    ]);
+    expect(proposeRoles(apple)).toEqual(['outline', 'base', 'highlight', 'shadow']);
+  });
+
   it('makes the only color of a one-color sprite its base', () => {
     const blob = spriteOf(['.BB.', 'BBBB', '.BB.', '....'], 'B', ['#336699']);
     expect(proposeRoles(blob)).toEqual(['base']);

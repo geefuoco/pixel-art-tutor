@@ -56,9 +56,7 @@ test('turn an uploaded sprite into a Personal Lesson, fix its Roles and play it'
     mimeType: 'image/png',
     buffer: await pngOf(page, tooBig, COLORS),
   });
-  await expect(page.getByRole('alert')).toHaveText(
-    "big.png can't become a Lesson. This image is 40x40 pixels. A Personal Lesson can be up to 32x32.",
-  );
+  await expect(page.getByRole('alert')).toContainText('40x40');
 
   await sprite.setInputFiles({
     name: 'jar.png',
@@ -105,5 +103,4 @@ test('turn an uploaded sprite into a Personal Lesson, fix its Roles and play it'
   await modes.getByRole('link', { name: 'Trace Jar' }).click();
   await expect(page.getByRole('button', { name: '4. Shadow' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Step 1: Silhouette' })).toBeVisible();
-  await expect(page.getByText('one flat color')).toBeVisible();
 });

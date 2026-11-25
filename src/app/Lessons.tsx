@@ -4,6 +4,7 @@ import type { Lesson } from '../core/lesson';
 import { MODES, type Mode } from '../core/lesson';
 import { personalLessonManifest } from '../core/personal-lesson';
 import { exportPng } from '../core/png';
+import type { StorageProblem } from '../persistence/store';
 import { downloadFile } from './download';
 import { hasPassed, type Progress } from '../core/progress';
 import { useCourse, type LessonEntry } from './lessons-store';
@@ -125,6 +126,11 @@ function downloadReference(lesson: Lesson) {
   );
 }
 
+const PERSONAL_STORAGE_MESSAGES: Record<StorageProblem, string> = {
+  full: 'browser storage is full, so your Personal Lessons could not be read.',
+  unavailable: "site data is blocked, so Personal Lessons can't be kept.",
+};
+
 function PersonalLessons({ progress }: { progress: Progress }) {
   const personal = usePersonalLessons();
   const [copied, setCopied] = useState<{ lessonId: string; text: string } | null>(null);
@@ -148,11 +154,7 @@ function PersonalLessons({ progress }: { progress: Progress }) {
         </a>
       </div>
       {personal.status === 'ready' && personal.problem && (
-        <WarningBanner>
-          {personal.problem === 'full'
-            ? 'browser storage is full, so your Personal Lessons could not be read.'
-            : "site data is blocked, so Personal Lessons can't be kept."}
-        </WarningBanner>
+        <WarningBanner>{PERSONAL_STORAGE_MESSAGES[personal.problem]}</WarningBanner>
       )}
       {personal.status === 'ready' && personal.lessons.length === 0 && (
         <p className="hint">Upload a sprite of your own to turn it into a Lesson.</p>

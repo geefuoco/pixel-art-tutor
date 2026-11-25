@@ -1,7 +1,7 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
 import { passesMode } from '../core/evaluate';
 import type { FreehandSubScores } from '../core/freehand';
-import { isMode, MODES, ROLES, type Mode, type Role } from '../core/lesson';
+import { isMode, isRole, MODES, type Mode } from '../core/lesson';
 import { createPersonalLesson } from '../core/personal-lesson';
 import type { LessonProgress } from '../core/progress';
 import { checkCustomPalette, type CustomPalette } from '../core/palettes';
@@ -156,23 +156,19 @@ function readLessonProgress(value: unknown): LessonProgress | null {
   return passedInOrder ? { lessonId, passedModes: [...(passedModes as Mode[])] } : null;
 }
 
-function isRole(value: unknown): value is Role {
-  return (ROLES as readonly unknown[]).includes(value);
-}
-
 function readPersonalLesson(value: unknown): PersonalLessonRecord | null {
   if (!isRecord(value)) return null;
   const { id, title, reference, roles, createdAt } = value as Unchecked<PersonalLessonRecord>;
-  const checked = readDrawing(reference);
-  if (!isText(id) || !isText(title) || !checked || !Number.isFinite(createdAt)) return null;
+  const sprite = readDrawing(reference);
+  if (!isText(id) || !isText(title) || !sprite || !Number.isFinite(createdAt)) return null;
   if (!Array.isArray(roles) || !roles.every(isRole)) return null;
   try {
-    createPersonalLesson({ id, title, reference: checked, roles });
+    createPersonalLesson({ id, title, reference: sprite, roles });
   } catch (error) {
     if (error instanceof RangeError) return null;
     throw error;
   }
-  return { id, title, reference: checked, roles: [...roles], createdAt: createdAt as number };
+  return { id, title, reference: sprite, roles: [...roles], createdAt: createdAt as number };
 }
 
 function readAllWithUniqueKeys<T>(

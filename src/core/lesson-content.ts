@@ -1,4 +1,4 @@
-import { createLesson, ROLES, STEP_KINDS, type Lesson, type Role, type StepKind } from './lesson';
+import { createLesson, isRole, STEP_KINDS, type Lesson, type Role, type StepKind } from './lesson';
 import { imagesIn, parseMarkdown } from './markdown';
 import { drawingFromImage, hasPartlyTransparentPixel, type RgbaImage } from './png';
 
@@ -9,10 +9,6 @@ class ManifestProblem extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isRole(value: unknown): value is Role {
-  return (ROLES as readonly unknown[]).includes(value);
 }
 
 function isStepKind(value: string): value is StepKind {
