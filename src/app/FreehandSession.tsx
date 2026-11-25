@@ -8,7 +8,7 @@ import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
 import { DrawingEditor } from './DrawingEditor';
 import { LESSON_STORAGE_MESSAGES } from './lesson-storage-messages';
-import type { CourseLesson } from './lessons-store';
+import type { LessonEntry } from './lessons-store';
 import { MistakeList } from './MistakeList';
 import { Nav } from './Nav';
 import { percent } from './percent';
@@ -41,7 +41,7 @@ export function FreehandSession({
   play,
   state,
 }: {
-  entry: CourseLesson;
+  entry: LessonEntry;
   play: LessonPlay;
   state: Extract<LessonPlayState, { status: 'ready' }>;
 }) {

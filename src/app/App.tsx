@@ -3,6 +3,7 @@ import { Home } from './Home';
 import { LessonPlayer } from './LessonPlayer';
 import { Lessons } from './Lessons';
 import { NotFound } from './NotFound';
+import { NewPersonalLesson } from './NewPersonalLesson';
 import { useRoute } from './router';
 import { Settings } from './Settings';
 import { Studio } from './Studio';
@@ -22,6 +23,8 @@ export function App() {
           mode={route.mode}
         />
       );
+    case 'new-personal-lesson':
+      return <NewPersonalLesson />;
     case 'studio':
       return <Studio />;
     case 'gallery':

@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, CircleCheck, Eye, Lightbulb } from 'lucide-r
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
 import { checkStep, passScore, type StepCheck } from '../core/evaluate';
-import type { Mode, StepKind } from '../core/lesson';
+import type { Mode } from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
@@ -11,24 +11,18 @@ import { Explanation } from './Explanation';
 import { FreehandSession } from './FreehandSession';
 import { LESSON_STORAGE_MESSAGES } from './lesson-storage-messages';
 import { lessonPlayFor, useLessonPlay } from './lesson-plays';
-import { useCourse, type CourseLesson } from './lessons-store';
+import { useCourse, type LessonEntry } from './lessons-store';
 import { MistakeList } from './MistakeList';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
+import { personalLessonEntry, usePersonalLessons } from './personal-lessons-store';
 import { useCourseProgress } from './progress-store';
 import { unlockMessage } from './unlock-message';
 import { WarningBanner } from './WarningBanner';
 import { percent } from './percent';
 import { plural } from './plural';
 import { lessonAttemptsHref, routeHref } from './router';
-
-const STEP_NAMES: Record<StepKind, string> = {
-  silhouette: 'Silhouette',
-  outline: 'Outline',
-  base: 'Base colors',
-  shadow: 'Shadow',
-  highlight: 'Highlight',
-};
+import { STEP_NAMES } from './step-names';
 
 const GUIDE_FLASH_MS = 1500;
 
@@ -65,6 +59,11 @@ function Problem({
 export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode }) {
   const course = useCourse();
   const progress = useCourseProgress();
+  const personal = usePersonalLessons();
+  if (personal.status === 'loading') return <Loading />;
+  const personalLesson = personal.lessons.find((l) => l.id === lessonId);
+  if (personalLesson)
+    return <PlayedLesson entry={personalLessonEntry(personalLesson)} mode={mode} />;
   if (course.status === 'failed') return <Problem message={course.message} />;
   if (course.status === 'loading' || progress.status === 'loading') return <Loading />;
   const entry = course.lessons.find((l) => l.lesson.id === lessonId);
@@ -76,7 +75,7 @@ export function LessonPlayer({ lessonId, mode }: { lessonId: string; mode: Mode 
 
 type StepMode = Exclude<Mode, 'freehand'>;
 
-function PlayedLesson({ entry, mode }: { entry: CourseLesson; mode: Mode }) {
+function PlayedLesson({ entry, mode }: { entry: LessonEntry; mode: Mode }) {
   const handle = lessonPlayFor(entry.lesson, mode);
   const state = useLessonPlay(handle);
   if (state.status === 'loading') return <Loading />;
@@ -104,7 +103,7 @@ function LessonSession({
   play,
   state,
 }: {
-  entry: CourseLesson;
+  entry: LessonEntry;
   mode: StepMode;
   play: LessonPlay;
   state: Extract<LessonPlayState, { status: 'ready' }>;

@@ -1,6 +1,6 @@
-import { createLesson, ROLES, STEP_KINDS, type Lesson, type Role, type StepKind } from './lesson';
+import { createLesson, isRole, STEP_KINDS, type Lesson, type Role, type StepKind } from './lesson';
 import { imagesIn, parseMarkdown } from './markdown';
-import { drawingFromImage, type RgbaImage } from './png';
+import { drawingFromImage, hasPartlyTransparentPixel, type RgbaImage } from './png';
 
 export type LessonReading =
   { readonly ok: true; readonly lesson: Lesson } | { readonly ok: false; readonly problem: string };
@@ -9,10 +9,6 @@ class ManifestProblem extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isRole(value: unknown): value is Role {
-  return (ROLES as readonly unknown[]).includes(value);
 }
 
 function isStepKind(value: string): value is StepKind {
@@ -80,13 +76,6 @@ function readSilhouetteColor(value: unknown, palette: readonly string[]): number
     );
   }
   return index;
-}
-
-function hasPartlyTransparentPixel(image: RgbaImage): boolean {
-  for (let i = 3; i < image.data.length; i += 4) {
-    if (image.data[i] !== 0 && image.data[i] !== 255) return true;
-  }
-  return false;
 }
 
 export function readLesson(content: {

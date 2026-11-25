@@ -23,6 +23,11 @@ function labOf(color: Color): Lab {
   return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
 }
 
+export function hueAndChroma(color: Color): { hue: number; chroma: number } {
+  const [, a, b] = labOf(color);
+  return { hue: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360, chroma: Math.hypot(a, b) };
+}
+
 export function lightness(color: Color): number {
   return labOf(color)[0];
 }

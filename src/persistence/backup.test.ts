@@ -171,6 +171,30 @@ describe('backup and restore', () => {
       },
     ],
   };
+  const jarPixels = [...[1, 0, 0, 1, 2, 2, 0, 1], ...Array<number>(56).fill(_)];
+  const version8 = {
+    ...version7,
+    version: 8,
+    personalLessons: [
+      {
+        id: 'personal-1',
+        title: 'Jar',
+        reference: {
+          width: 8,
+          height: 8,
+          palette: ['#1a1a2e', '#cc3333', '#881c1c'],
+          pixels: jarPixels,
+        },
+        roles: ['outline', 'base', 'shadow'],
+        createdAt: 9,
+      },
+    ],
+  };
+  const withPersonalLesson = (changes: object) =>
+    JSON.stringify({
+      ...version8,
+      personalLessons: [{ ...version8.personalLessons[0], ...changes }],
+    });
   const withSubScores = (subScores: unknown) =>
     JSON.stringify({ ...version7, attempts: [{ ...version7.attempts[1], subScores }] });
   const thirtyThree = Array.from(
@@ -181,7 +205,34 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 8 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 9 }), /newer version/],
+    [
+      'a Personal Lesson with a color that has no Role',
+      withPersonalLesson({ roles: ['outline', 'base'] }),
+      /damaged/,
+    ],
+    [
+      'a Personal Lesson with a Role that is not one',
+      withPersonalLesson({ roles: ['outline', 'base', 'glow'] }),
+      /damaged/,
+    ],
+    [
+      'a Personal Lesson that is not a Lesson size',
+      withPersonalLesson({
+        reference: { width: 3, height: 1, palette: ['#1a1a2e'], pixels: [0, 0, 0] },
+        roles: ['outline'],
+      }),
+      /damaged/,
+    ],
+    ['a Personal Lesson without a title', withPersonalLesson({ title: '' }), /damaged/],
+    [
+      'two Personal Lessons with the same id',
+      JSON.stringify({
+        ...version8,
+        personalLessons: [...version8.personalLessons, ...version8.personalLessons],
+      }),
+      /damaged/,
+    ],
     [
       'an Attempt with a sub-score above 100%',
       withSubScores({ shape: 1.5, palette: 1, lineQuality: 1 }),
@@ -314,6 +365,23 @@ describe('backup and restore', () => {
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
     expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores Personal Lessons along with the rest', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version8))).toMatchObject({ ok: true });
+    expect(await store.listPersonalLessons()).toEqual(version8.personalLessons);
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores a version 7 backup, made before Personal Lessons, as having none', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    await studio.restore(JSON.stringify(version8));
+    expect(await studio.restore(JSON.stringify(version7))).toMatchObject({ ok: true });
+    expect(await store.listPersonalLessons()).toEqual([]);
   });
 
   it('restores progress along with the rest, replacing the progress there was', async () => {

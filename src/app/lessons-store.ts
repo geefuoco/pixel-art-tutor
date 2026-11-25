@@ -24,7 +24,7 @@ const exampleUrls = import.meta.glob<string>('/content/lessons/*/examples/*.png'
   import: 'default',
 });
 
-export interface CourseLesson {
+export interface LessonEntry {
   readonly lesson: Lesson;
   readonly referenceUrl: string;
   readonly exampleUrl: (src: string) => string | undefined;
@@ -32,10 +32,10 @@ export interface CourseLesson {
 
 export type CourseState =
   | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly lessons: readonly CourseLesson[] }
+  | { readonly status: 'ready'; readonly lessons: readonly LessonEntry[] }
   | { readonly status: 'failed'; readonly message: string };
 
-async function loadLesson(id: string): Promise<CourseLesson> {
+async function loadLesson(id: string): Promise<LessonEntry> {
   const dir = `${LESSONS_DIR}${id}/`;
   const manifest = manifests[`${dir}manifest.json`];
   const referenceUrl = references[`${dir}reference.png`];

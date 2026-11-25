@@ -3,6 +3,10 @@ import { TRANSPARENT, type Color, type Drawing } from './drawing';
 export const ROLES = ['outline', 'base', 'shadow', 'highlight'] as const;
 export type Role = (typeof ROLES)[number];
 
+export function isRole(value: unknown): value is Role {
+  return (ROLES as readonly unknown[]).includes(value);
+}
+
 export const STEP_KINDS = ['silhouette', ...ROLES] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 

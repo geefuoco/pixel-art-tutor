@@ -1,10 +1,10 @@
 import type { Mode } from '../core/lesson';
 import { unlockRequirement, type Progress } from '../core/progress';
-import type { CourseLesson } from './lessons-store';
+import type { LessonEntry } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 
 export function unlockMessage(
-  lessons: readonly CourseLesson[],
+  lessons: readonly LessonEntry[],
   progress: Progress,
   lessonId: string,
   mode: Mode,
