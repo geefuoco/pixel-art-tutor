@@ -1,0 +1,33 @@
+{
+  "id": "grass-path",
+  "title": "Grass path tiles",
+  "roles": {
+    "#84c669": "base",
+    "#fdbe53": "base",
+    "#eaa56c": "base",
+    "#65a556": "shadow",
+    "#e38628": "shadow",
+    "#cf8254": "shadow",
+    "#ffffff": "highlight",
+    "#fec99c": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Grass",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "A tile is drawn once and repeated edge to edge to fill a game level. Its right edge sits against the next copy's left edge, and its bottom edge against the top of the copy below. Watch the **Tiling Preview** as you draw: it repeats your tile 3 by 3.\n\nThis grass is a fill tile, so it has to repeat in both directions. Keep the flowers and tufts away from the edges and nothing gets cut in half.\n\n![Grass, repeated](examples/grass-repeated.png) ![The same grass with a border](examples/grass-bordered-repeated.png)\n\nNever outline a tile. A border down each side doubles up where copies meet, and the level turns into a grid. Check marks a **seam** like that."
+      },
+      {
+        "name": "Path top edge",
+        "seamless": ["left-right"],
+        "explanation": "Edge tiles join two materials. This one runs along the top of a dirt path, with grass above and dirt below. It only repeats left to right, so only its left and right edges have to match.\n\nThe edge is not a straight line. Grass and dirt poke into each other and a few darker pixels shade the lip, but the left and right columns are the same, so the copies line up.\n\nThe top row is plain grass, so a Grass tile sits above this one without a seam."
+      },
+      {
+        "name": "Path bottom edge",
+        "seamless": ["left-right"],
+        "explanation": "The bottom edge closes the path. Its top rows are plain dirt, so it continues straight on from the top edge tile, and its bottom rows are plain grass, which carries on into a Grass tile below.\n\nStack Grass, the top edge, the bottom edge and Grass again, and you get a path that runs as far as you like:\n\n![Grass, path and grass](examples/path.png)"
+      }
+    ]
+  }
+}

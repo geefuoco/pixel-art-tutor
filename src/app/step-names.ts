@@ -1,4 +1,10 @@
-import type { FramePose, LessonStep, StepKind } from '../core/lesson';
+import {
+  frameOfStep,
+  type FramePose,
+  type Lesson,
+  type LessonStep,
+  type StepKind,
+} from '../core/lesson';
 
 export const STEP_NAMES: Record<StepKind, string> = {
   silhouette: 'Silhouette',
@@ -14,7 +20,12 @@ const POSE_NAMES: Record<FramePose, string> = {
 };
 
 export function stepName(step: LessonStep): string {
-  return step.kind === 'frame'
-    ? `Frame ${step.frame + 1}, ${POSE_NAMES[step.pose]}`
-    : STEP_NAMES[step.kind];
+  if (step.kind === 'frame') return `Frame ${step.frame + 1}, ${POSE_NAMES[step.pose]}`;
+  if (step.kind === 'tile') return step.name;
+  return STEP_NAMES[step.kind];
+}
+
+export function tileName(lesson: Lesson, tile: number): string {
+  const step = lesson.steps.find((s) => frameOfStep(s) === tile);
+  return step ? stepName(step) : `Tile ${tile + 1}`;
 }

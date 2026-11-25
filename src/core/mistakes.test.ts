@@ -311,3 +311,126 @@ describe('the bundled palettes', () => {
     },
   );
 });
+
+describe('seams', () => {
+  const tile = (rows: string[]) =>
+    spriteOf(rows, 'gdsh', ['#3e8948', '#eaa56c', '#193c3e', '#ffffff']);
+
+  it('flags both edges where a tile meets itself in colors it never puts side by side', () => {
+    const drawing = tile(['gdds', 'gdds', 'gdds', 'gdds']);
+    expect(findMistakes(drawing, { seamless: ['left-right'] })).toEqual([
+      { kind: 'seam', pixels: pointsOf(['x..x', 'x..x', 'x..x', 'x..x']) },
+    ]);
+  });
+
+  it('checks top and bottom edges only when they are meant to repeat', () => {
+    const drawing = tile(['gggg', 'dddd', 'dddd', 'ssss']);
+    expect(findMistakes(drawing, { seamless: ['left-right'] })).toEqual([]);
+    expect(findMistakes(drawing, { seamless: ['left-right', 'top-bottom'] })).toEqual([
+      { kind: 'seam', pixels: pointsOf(['xxxx', '....', '....', 'xxxx']) },
+    ]);
+  });
+
+  it('looks for seams only in tile mode', () => {
+    expect(findMistakes(tile(['gdds', 'gdds', 'gdds', 'gdds']))).toEqual([]);
+  });
+
+  it('flags a border drawn down the sides, which doubles up where tiles meet', () => {
+    const drawing = tile(['sggs', 'sggs', 'sggs', 'sggs']);
+    expect(findMistakes(drawing, { seamless: ['left-right'] })).toEqual([
+      { kind: 'seam', pixels: pointsOf(['x..x', 'x..x', 'x..x', 'x..x']) },
+    ]);
+  });
+
+  it('does not flag texture that crosses the edge the way it sits inside the tile', () => {
+    const drawing = tile([
+      'dddddddd',
+      'hdddddsd',
+      'dddsdddd',
+      'ddddddds',
+      'dhdddddd',
+      'ddddhddd',
+      'sddddddd',
+      'dddddddd',
+    ]);
+    expect(findMistakes(drawing, { seamless: ['left-right', 'top-bottom'] })).toEqual([]);
+  });
+
+  it('finds no Mistakes in the shipped Grass path tiles, seams included', () => {
+    const pathTile = (rows: string[]) =>
+      spriteOf(rows, 'gkyowdsh', [
+        '#84c669',
+        '#65a556',
+        '#fdbe53',
+        '#e38628',
+        '#ffffff',
+        '#eaa56c',
+        '#cf8254',
+        '#fec99c',
+      ]);
+    const grass = pathTile([
+      'gggggggggggggggg',
+      'gggyygggggggkgkg',
+      'ggoyyogggggggkgg',
+      'gyywwyyggggggggg',
+      'gyywwyyggggggggg',
+      'gkoyyokggggggggg',
+      'gggyyggggggggggg',
+      'gggkkggggggggggg',
+      'gggggggggggggggg',
+      'gggggggggggyyggg',
+      'ggggggggggoyyogg',
+      'gggggggggyywwyyg',
+      'gggggggggyywwyyg',
+      'gkgkgggggkoyyokg',
+      'ggkggggggggyyggg',
+      'gggggggggggkkggg',
+    ]);
+    const topEdge = pathTile([
+      'gggggggggggggggg',
+      'ggggkggggggggggg',
+      'kkkgdgkkkkkggkkk',
+      'dddkkkdddddkkddd',
+      'dddddddddddddddd',
+      'dddddddsdddhdssd',
+      'dddddddddddsdssd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+    ]);
+    const bottomEdge = pathTile([
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddddd',
+      'dddddddddddddhhd',
+      'dddddddddddddhhd',
+      'dddddddsdddsdssd',
+      'dddddddddddddddd',
+      'dddgggdddddggddd',
+      'ggggdggggggggggg',
+      'gggggggggggggggg',
+      'gggggggggggggggg',
+    ]);
+    expect(findMistakes(grass, { colorBudget: 8, seamless: ['left-right', 'top-bottom'] })).toEqual(
+      [],
+    );
+    expect(findMistakes(topEdge, { colorBudget: 8, seamless: ['left-right'] })).toEqual([]);
+    expect(findMistakes(bottomEdge, { colorBudget: 8, seamless: ['left-right'] })).toEqual([]);
+  });
+
+  it('does not flag a mortar line on one edge that meets bricks on the other', () => {
+    const drawing = tile(['sddddddd', 'sddddddd', 'ssssssss', 'dddsdddd', 'dddsdddd', 'ssssssss']);
+    expect(findMistakes(drawing, { seamless: ['left-right', 'top-bottom'] })).toEqual([]);
+  });
+});

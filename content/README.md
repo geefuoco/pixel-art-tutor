@@ -55,6 +55,28 @@ An animation Lesson has one Step per Frame instead of the silhouette-to-highligh
 - `roles` still gives every color a Role. Freehand uses them to score Palette.
 - Each Frame-Step is checked against its whole Frame in its final colors.
 
+## Tileset Lessons
+
+A tileset Lesson teaches a small set of 16x16 tiles, such as a ground tile and its edges, with one Step per tile. Autotile sets are out of scope. Its `reference.png` is a horizontal strip of 16x16 tiles, and its manifest has `tileset` in place of `explanations` and `overrides`:
+
+```json
+{
+  "id": "grass-path",
+  "title": "Grass path tiles",
+  "roles": { "#84c669": "base", "...": "..." },
+  "tileset": {
+    "tiles": [
+      { "name": "Grass", "seamless": ["left-right", "top-bottom"], "explanation": "Markdown." },
+      { "name": "Path top edge", "seamless": ["left-right"], "explanation": "..." }
+    ]
+  }
+}
+```
+
+- `tiles` has one entry per tile, in strip order, and the Steps follow that order.
+- `seamless` lists the edges that repeat: `left-right`, `top-bottom`, both or neither. Check marks a seam where those edges do not continue each other.
+- Each tile Step is checked against its whole tile in its final colors, and the Lesson shows a live Tiling Preview.
+
 To turn a Personal Lesson into a built-in one, use its **Copy manifest** and **Download reference.png** buttons on the Lessons page, put both in `lessons/<id>/`, add the id to `course.json`, and rewrite the templated explanations.
 
 The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.

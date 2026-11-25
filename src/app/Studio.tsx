@@ -10,6 +10,7 @@ import {
   ImageDown,
   Images,
   Layers,
+  LayoutGrid,
   Play,
   Plus,
   ScanSearch,
@@ -20,6 +21,7 @@ import { frameDrawing, onionSkins } from '../core/animation';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
+import type { EdgePair } from '../core/tiling';
 import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
 import {
   asepriteFrameMap,
@@ -42,6 +44,7 @@ import { decodePngFile } from './png-image';
 import { dateTime } from './date-time';
 import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
+import { TilingPreview } from './TilingPreview';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
 type ExportChoice = 'frame' | SheetLayout;
@@ -51,6 +54,14 @@ const EXPORT_CHOICES: Record<ExportChoice, string> = {
   strip: 'Sprite sheet, strip',
   grid: 'Sprite sheet, grid',
 };
+
+const SEAMLESS_CHOICES = {
+  both: { label: 'Left-right and top-bottom', edges: ['left-right', 'top-bottom'] },
+  'left-right': { label: 'Left-right', edges: ['left-right'] },
+  'top-bottom': { label: 'Top-bottom', edges: ['top-bottom'] },
+} satisfies Record<string, { label: string; edges: readonly EdgePair[] }>;
+
+type SeamlessChoice = keyof typeof SEAMLESS_CHOICES;
 
 type Panel = 'new-drawing' | 'export' | 'drawings' | 'mistakes' | null;
 
@@ -142,7 +153,10 @@ function StudioEditor({
   const [mirror, setMirror] = useState(false);
   const [chosenBudget, setChosenBudget] = useState<number | null>(null);
   const colorBudget = Math.min(chosenBudget ?? drawing.palette.length, drawing.palette.length);
-  const mistakes = panel === 'mistakes' ? findMistakes(drawing, { colorBudget }) : null;
+  const [tilingShown, setTilingShown] = useState(false);
+  const [seamlessChoice, setSeamlessChoice] = useState<SeamlessChoice>('both');
+  const seamless = tilingShown ? SEAMLESS_CHOICES[seamlessChoice].edges : [];
+  const mistakes = panel === 'mistakes' ? findMistakes(drawing, { colorBudget, seamless }) : null;
 
   const leadingActions: Control[] = [
     {
@@ -179,6 +193,13 @@ function StudioEditor({
       chords: [{ key: 's' }],
       run: () => setMirror((m) => !m),
       pressed: mirror,
+    },
+    {
+      label: 'Tiling Preview',
+      Icon: LayoutGrid,
+      chords: [{ key: 't' }],
+      run: () => setTilingShown((shown) => !shown),
+      pressed: tilingShown,
     },
     {
       label: 'Check for Mistakes',
@@ -300,16 +321,19 @@ function StudioEditor({
         onion={onionShown ? { ...onionSkins(animation, frame), opacity: onionOpacity } : undefined}
         shortcuts={frameControls}
         below={
-          <FrameStrip
-            editor={editor}
-            animation={animation}
-            frame={frame}
-            controls={frameControls}
-            onionShown={onionShown}
-            onionOpacity={onionOpacity}
-            onOnionOpacity={setOnionOpacity}
-            previewShown={previewShown}
-          />
+          <>
+            {tilingShown && <TilingPreview drawing={drawing} />}
+            <FrameStrip
+              editor={editor}
+              animation={animation}
+              frame={frame}
+              controls={frameControls}
+              onionShown={onionShown}
+              onionOpacity={onionOpacity}
+              onOnionOpacity={setOnionOpacity}
+              previewShown={previewShown}
+            />
+          </>
         }
         leadingActions={leadingActions}
         trailingActions={trailingActions}
@@ -394,8 +418,28 @@ function StudioEditor({
                 }}
               />
             </label>
+            {tilingShown && (
+              <label>
+                Seamless edges
+                <select
+                  value={seamlessChoice}
+                  onChange={(e) => setSeamlessChoice(e.currentTarget.value as SeamlessChoice)}
+                >
+                  {Object.entries(SEAMLESS_CHOICES).map(([value, { label }]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <MistakeList mistakes={mistakes} />
-            <p className="hint">The check updates as you draw.</p>
+            <p className="hint">
+              The check updates as you draw.
+              {tilingShown
+                ? ' With the Tiling Preview on, it also looks for seams.'
+                : ' Turn on the Tiling Preview (T) to look for seams too.'}
+            </p>
             <button type="button" className="btn" onClick={() => setPanel(null)}>
               Close
             </button>

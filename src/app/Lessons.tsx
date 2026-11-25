@@ -1,7 +1,7 @@
 import { Check, ClipboardCopy, Download, Lock, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { Lesson } from '../core/lesson';
-import { isAnimationLesson, MODES, type Mode } from '../core/lesson';
+import { isAnimationLesson, isTilesetLesson, MODES, type Mode } from '../core/lesson';
 import { personalLessonManifest } from '../core/personal-lesson';
 import { exportPng } from '../core/png';
 import type { StorageProblem } from '../persistence/store';
@@ -10,6 +10,7 @@ import { hasPassed, type Progress } from '../core/progress';
 import { useCourse, type LessonEntry } from './lessons-store';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
+import { plural } from './plural';
 import { personalLessonEntry, usePersonalLessons } from './personal-lessons-store';
 import { useCourseProgress } from './progress-store';
 import { lessonHref, newPersonalLessonHref } from './router';
@@ -118,7 +119,9 @@ function CourseList({
 function lessonSummary(lesson: Lesson) {
   const parts = isAnimationLesson(lesson)
     ? `${lesson.animation.frames.length} Frames`
-    : `${lesson.steps.length} Steps`;
+    : isTilesetLesson(lesson)
+      ? plural(lesson.steps.length, 'tile')
+      : `${lesson.steps.length} Steps`;
   return `${lesson.size}x${lesson.size}, ${lesson.palette.length} colors, ${parts}`;
 }
 

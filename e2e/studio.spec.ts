@@ -498,6 +498,34 @@ test('check a Studio drawing for Mistakes, see them circled and read why', async
   await expect.poll(() => markedAt(3, 5)).toBe(false);
 });
 
+test('repeat a drawing in the Tiling Preview and check its edges for seams', async ({ page }) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  for (const x of [0, STUDIO_SIZE - 1]) {
+    const top = await pixelPosition(canvas, x, 0);
+    const bottom = await pixelPosition(canvas, x, STUDIO_SIZE - 1);
+    await page.mouse.move(top.x, top.y);
+    await page.mouse.down();
+    await page.mouse.move(bottom.x, bottom.y, { steps: 8 });
+    await page.mouse.up();
+  }
+
+  await page.keyboard.press('c');
+  const panel = page.getByRole('region', { name: 'Check for Mistakes' });
+  await expect(panel).toContainText('No Mistakes found.');
+
+  await page.keyboard.press('t');
+  const preview = page.getByRole('img', { name: /Tiling Preview/ });
+  const tiled = { width: STUDIO_SIZE * 3, height: STUDIO_SIZE * 3 };
+  await expect.poll(() => pixelAt(preview, STUDIO_SIZE, STUDIO_SIZE + 4, tiled)).toEqual(RED);
+  await expect.poll(() => pixelAt(preview, STUDIO_SIZE - 1, 4, tiled)).toEqual(RED);
+  await expect(panel.getByRole('group').filter({ hasText: 'Seams: 32 pixels' })).toBeVisible();
+
+  await panel.getByLabel('Seamless edges').selectOption({ label: 'Top-bottom' });
+  await expect(panel).toContainText('No Mistakes found.');
+});
+
 test('animate with Frames, onion skinning and a looping preview, kept after a reload', async ({
   page,
 }) => {

@@ -1,10 +1,10 @@
 import { CircleCheck, Layers, Play } from 'lucide-react';
-import { onionSkins } from '../core/animation';
+import { frameDrawing, onionSkins } from '../core/animation';
 import { useState, useSyncExternalStore } from 'react';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { passScore } from '../core/evaluate';
 import type { FreehandSubScores } from '../core/freehand';
-import { isAnimationLesson } from '../core/lesson';
+import { isAnimationLesson, isTilesetLesson, seamlessEdgesOfFrame } from '../core/lesson';
 import { findMistakes, type Mistake } from '../core/mistakes';
 import type { LessonPlay, LessonPlayState } from '../persistence/lesson-play';
 import type { Control } from './controls';
@@ -17,7 +17,9 @@ import { Nav } from './Nav';
 import { percent } from './percent';
 import { lessonAttemptsHref, routeHref } from './router';
 import { SUB_SCORE_KEYS, SUB_SCORE_NAMES } from './sub-score-names';
+import { tileName } from './step-names';
 import { thumbnail } from './thumbnail';
+import { TilingPreview } from './TilingPreview';
 import { WarningBanner } from './WarningBanner';
 
 const DEFAULT_ONION_OPACITY = 0.3;
@@ -54,6 +56,8 @@ export function FreehandSession({
   const { editor, problem, result } = state;
   const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
   const animated = isAnimationLesson(lesson);
+  const tileset = isTilesetLesson(lesson);
+  const framed = animation.frames.length > 1;
   const [onionShown, setOnionShown] = useState(false);
   const [onionOpacity, setOnionOpacity] = useState(DEFAULT_ONION_OPACITY);
   const [previewShown, setPreviewShown] = useState(false);
@@ -69,7 +73,10 @@ export function FreehandSession({
   function runCheck() {
     setChecked({
       drawing,
-      mistakes: findMistakes(drawing, { colorBudget: lesson.palette.length }),
+      mistakes: findMistakes(drawing, {
+        colorBudget: lesson.palette.length,
+        seamless: seamlessEdgesOfFrame(lesson, frame),
+      }),
     });
   }
 
@@ -109,7 +116,7 @@ export function FreehandSession({
       <div className="lesson-layout">
         <DrawingEditor
           editor={editor}
-          canvasLabel={`Lesson canvas, ${drawing.width} by ${drawing.height} pixels${animated ? `, Frame ${frame + 1} of ${animation.frames.length}` : ''}`}
+          canvasLabel={`Lesson canvas, ${drawing.width} by ${drawing.height} pixels${animated ? `, Frame ${frame + 1} of ${animation.frames.length}` : ''}${tileset ? `, ${tileName(lesson, frame)} tile` : ''}`}
           trailingActions={actions}
           shortcuts={animated ? frameControls : []}
           onion={
@@ -118,19 +125,24 @@ export function FreehandSession({
               : undefined
           }
           below={
-            animated && (
-              <FrameStrip
-                editor={editor}
-                animation={animation}
-                frame={frame}
-                controls={frameControls}
-                onionShown={onionShown}
-                onionOpacity={onionOpacity}
-                onOnionOpacity={setOnionOpacity}
-                previewShown={previewShown}
-                fpsEditable={false}
-              />
-            )
+            <>
+              {framed && (
+                <FrameStrip
+                  editor={editor}
+                  animation={animation}
+                  frame={frame}
+                  controls={animated ? frameControls : []}
+                  onionShown={onionShown}
+                  onionOpacity={onionOpacity}
+                  onOnionOpacity={setOnionOpacity}
+                  previewShown={previewShown}
+                  fpsEditable={false}
+                  label={tileset ? 'Tiles' : undefined}
+                  frameName={tileset ? (tile) => tileName(lesson, tile) : undefined}
+                />
+              )}
+              {tileset && <TilingPreview drawing={drawing} />}
+            </>
           }
           marks={{
             guide: null,
@@ -145,7 +157,13 @@ export function FreehandSession({
           <p className="hint">Freehand</p>
           <h1 id="lesson-title">{lesson.title}</h1>
           <figure className="reference">
-            {animated ? (
+            {tileset ? (
+              <img
+                className="reference-sprite"
+                src={thumbnail(frameDrawing(lesson.animation, frame))}
+                alt={`Reference Sprite: ${tileName(lesson, frame)} tile`}
+              />
+            ) : animated ? (
               <AnimationPreview
                 animation={lesson.animation}
                 className="reference-sprite"
@@ -159,26 +177,38 @@ export function FreehandSession({
               />
             )}
             <figcaption className="hint">
-              Draw this from scratch, anywhere on the canvas. It does not need to be the same size
-              to the pixel.
-              {animated &&
-                ` Draw each of its ${lesson.animation.frames.length} Frames in the Frame of the same number.`}
+              {tileset ? (
+                <>
+                  Draw this tile from scratch. It fills the whole canvas and has to repeat without
+                  seams, so the canvas stays {lesson.size}x{lesson.size}.
+                  {framed && ' Pick a tile below to draw the next one.'}
+                </>
+              ) : (
+                <>
+                  Draw this from scratch, anywhere on the canvas. It does not need to be the same
+                  size to the pixel.
+                  {animated &&
+                    ` Draw each of its ${lesson.animation.frames.length} Frames in the Frame of the same number.`}
+                </>
+              )}
             </figcaption>
           </figure>
-          <label className="canvas-size">
-            Canvas size
-            <select
-              value={drawing.width}
-              disabled={result !== null}
-              onChange={(e) => play.enlargeCanvas(Number(e.currentTarget.value))}
-            >
-              {canvasSizes(lesson.size).map((size) => (
-                <option key={size} value={size} disabled={size < drawing.width}>
-                  {size}x{size}
-                </option>
-              ))}
-            </select>
-          </label>
+          {!tileset && (
+            <label className="canvas-size">
+              Canvas size
+              <select
+                value={drawing.width}
+                disabled={result !== null}
+                onChange={(e) => play.enlargeCanvas(Number(e.currentTarget.value))}
+              >
+                {canvasSizes(lesson.size).map((size) => (
+                  <option key={size} value={size} disabled={size < drawing.width}>
+                    {size}x{size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {freshMistakes && !result && <MistakeList mistakes={freshMistakes} />}
           <div className="lesson-actions">
             <button type="button" className="btn" onClick={runCheck}>
@@ -209,6 +239,7 @@ export function FreehandSession({
               {resultMistakes && (
                 <>
                   {animated && <p>Mistakes in Frame {frame + 1}:</p>}
+                  {tileset && framed && <p>Mistakes in the {tileName(lesson, frame)} tile:</p>}
                   <MistakeList mistakes={resultMistakes} />
                 </>
               )}

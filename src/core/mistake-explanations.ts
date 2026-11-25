@@ -36,6 +36,11 @@ export const MISTAKE_EXPLANATIONS: Record<MistakeKind, MistakeExplanation> = {
     explanation:
       'This drawing uses more colors than its budget. A small palette keeps a sprite readable and consistent, and makes every color earn its place.\n\nThe marked pixels use the least used colors. Swap them for a color you already use, such as the nearest shade.',
   },
+  seam: {
+    name: 'Seams',
+    explanation:
+      'A seam is a line you can see where a tile meets the next copy of itself. Its opposite edges do not continue each other, so the grid of tiles shows through: a ground that should look endless turns into a checkerboard of squares.\n\nThe marked pixels sit on edges that meet in colors the tile never puts side by side anywhere else. Look at the Tiling Preview, then change one edge so it carries on from the opposite one, the way the inside of the tile does.',
+  },
   'low-contrast': {
     name: 'Low contrast',
     explanation:

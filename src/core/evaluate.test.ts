@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { stillAnimation, type Animation } from './animation';
 import { checkStep, passesMode, scoreLessonAttempt } from './evaluate';
-import { createAnimationLesson, createLesson, type Role } from './lesson';
+import { createAnimationLesson, createLesson, createTilesetLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
 const PALETTE = ['#111111', '#cc3333', '#881111', '#ff9999'];
@@ -216,5 +216,37 @@ describe('checking and scoring an animation Lesson', () => {
     expect(scoreLessonAttempt(ANIMATED, BOBBING)).toBe(1);
     const onlyFirstFrame = { ...BOBBING, frames: [BOBBING.frames[0]!, BLANK.pixels] };
     expect(scoreLessonAttempt(ANIMATED, onlyFirstFrame)).toBe(0.5);
+  });
+});
+
+describe('checking a tileset Lesson', () => {
+  const row = (fill: string, at = -1, other = '') =>
+    [...fill.repeat(16)].map((c, x) => (x === at ? other : c)).join('');
+  const GROUND = Array.from({ length: 16 }, (_, y) => (y === 3 ? row('B', 9, 'S') : row('B')));
+  const EDGE = Array.from({ length: 16 }, (_, y) => (y < 2 ? row('.') : row('B')));
+  const TILESET = createTilesetLesson({
+    id: 'path',
+    title: 'Path',
+    tiles: {
+      width: 16,
+      height: 16,
+      palette: PALETTE,
+      fps: 8,
+      frames: [GROUND, EDGE].map((rows) => sprite(rows).pixels),
+    },
+    roles: ROLES,
+    tileSteps: [
+      { name: 'Ground', seamless: ['left-right', 'top-bottom'], explanation: '' },
+      { name: 'Top edge', seamless: ['left-right'], explanation: '' },
+    ],
+  });
+  const EDGE_STEP = 1;
+
+  it('checks a tile Step against the whole tile, in its final colors', () => {
+    expect(checkStep(TILESET, EDGE_STEP, sprite(EDGE))).toEqual({ missing: [], extra: [] });
+    expect(checkStep(TILESET, EDGE_STEP, sprite(GROUND))).toEqual({
+      missing: [{ x: 9, y: 3 }],
+      extra: Array.from({ length: 32 }, (_, i) => ({ x: i % 16, y: Math.floor(i / 16) })),
+    });
   });
 });

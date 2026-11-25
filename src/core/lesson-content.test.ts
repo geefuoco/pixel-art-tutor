@@ -192,7 +192,7 @@ describe('reading an animation Lesson from repo content', () => {
     [
       'explanations as well as animation Steps',
       { ...ANIMATION, explanations: MANIFEST.explanations },
-      /either explanations or an animation/,
+      /either explanations, an animation or a tileset/,
     ],
     [
       'an FPS out of range',
@@ -250,5 +250,86 @@ describe('reading an animation Lesson from repo content', () => {
     const ragged = imageOf(HOP_ROWS.map((row) => row.slice(0, 28)));
     const reading = readAnimation(ANIMATION, ragged);
     expect(reading.ok || reading.problem).toMatch(/28x8/);
+  });
+});
+
+describe('reading a tileset Lesson from repo content', () => {
+  const GROUND = Array.from({ length: 16 }, (_, y) =>
+    y === 5 ? 'BBBBBBSBBBBBBBBB' : 'B'.repeat(16),
+  );
+  const EDGE = Array.from({ length: 16 }, (_, y) => (y < 4 ? 'O'.repeat(16) : 'B'.repeat(16)));
+  const strip = imageOf(GROUND.map((row, y) => row + EDGE[y]));
+  const TILESET = {
+    id: 'path',
+    title: 'Path',
+    roles: MANIFEST.roles,
+    tileset: {
+      tiles: [
+        {
+          name: 'Ground',
+          seamless: ['left-right', 'top-bottom'],
+          explanation: 'Fill.\n\n![Blocked in](examples/blocked.png)',
+        },
+        { name: 'Top edge', seamless: ['left-right'], explanation: 'Edge.' },
+      ],
+    },
+  };
+  const readTileset = (manifest: unknown, reference = strip) =>
+    readLesson({ manifest, reference, exampleSprites: ['examples/blocked.png'] });
+
+  it('cuts the strip into 16x16 tiles, one Step each in strip order', () => {
+    const reading = readTileset(TILESET);
+    if (!reading.ok) throw new Error(reading.problem);
+    const { lesson } = reading;
+    expect([lesson.size, lesson.animation.frames.length]).toEqual([16, 2]);
+    expect(
+      lesson.steps.map((s) => s.kind === 'tile' && [s.tile, s.name, s.seamless, s.explanation]),
+    ).toEqual([
+      [0, 'Ground', ['left-right', 'top-bottom'], TILESET.tileset.tiles[0]!.explanation],
+      [1, 'Top edge', ['left-right'], 'Edge.'],
+    ]);
+    expect(lesson.steps[1]!.target.slice(0, 16).map((p) => lesson.palette[p])).toEqual(
+      Array(16).fill('#111111'),
+    );
+  });
+
+  const withTiles = (tiles: unknown[]) => ({ ...TILESET, tileset: { tiles } });
+  const [ground, edge] = TILESET.tileset.tiles;
+
+  it.each([
+    [
+      'tiles that are not 16x16',
+      TILESET,
+      imageOf(['OOOOOOOO', ...Array<string>(6).fill('BBBBBBBB'), 'SSSSSSSS']),
+      /16x16 tiles, not 8x8/,
+    ],
+    ['a tile with no Step', withTiles([ground]), strip, /2 tiles but 1 tile Steps/],
+    [
+      'a tile with no name',
+      withTiles([ground, { ...edge, name: ' ' }]),
+      strip,
+      /Tile 2 needs a name/,
+    ],
+    [
+      'an edge pair that is not left-right or top-bottom',
+      withTiles([ground, { ...edge, seamless: ['diagonal'] }]),
+      strip,
+      /diagonal is not an edge pair/,
+    ],
+    [
+      'an Example Sprite that is not shipped',
+      withTiles([ground, { ...edge, explanation: '![x](examples/nope.png)' }]),
+      strip,
+      /examples\/nope.png/,
+    ],
+    [
+      'an animation as well as a tileset',
+      { ...TILESET, animation: { fps: 6, steps: [] } },
+      strip,
+      /either explanations, an animation or a tileset/,
+    ],
+  ])('rejects %s', (_, manifest, reference, problem) => {
+    const reading = readTileset(manifest, reference);
+    expect(reading.ok || reading.problem).toMatch(problem);
   });
 });

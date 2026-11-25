@@ -1,5 +1,6 @@
 import { frameDrawing, isValidFps, stillAnimation, type Animation } from './animation';
 import { TRANSPARENT, type Color, type Drawing } from './drawing';
+import type { EdgePair } from './tiling';
 
 export const ROLES = ['outline', 'base', 'shadow', 'highlight'] as const;
 export type Role = (typeof ROLES)[number];
@@ -45,14 +46,36 @@ export interface FrameStep {
   readonly explanation: string;
 }
 
-export type LessonStep = SpriteStep | FrameStep;
+export const TILE_SIZE = 16;
+
+export interface TileStep {
+  readonly kind: 'tile';
+  readonly tile: number;
+  readonly name: string;
+  readonly seamless: readonly EdgePair[];
+  readonly target: readonly number[];
+  readonly explanation: string;
+}
+
+export type LessonStep = SpriteStep | FrameStep | TileStep;
 
 export function isAnimationLesson(lesson: Lesson): boolean {
-  return lesson.animation.frames.length > 1;
+  return lesson.steps.some((s) => s.kind === 'frame');
+}
+
+export function isTilesetLesson(lesson: Lesson): boolean {
+  return lesson.steps.some((s) => s.kind === 'tile');
+}
+
+export function seamlessEdgesOfFrame(lesson: Lesson, frame: number): readonly EdgePair[] {
+  const step = lesson.steps.find((s) => s.kind === 'tile' && s.tile === frame);
+  return step?.kind === 'tile' ? step.seamless : [];
 }
 
 export function frameOfStep(step: LessonStep): number {
-  return step.kind === 'frame' ? step.frame : 0;
+  if (step.kind === 'frame') return step.frame;
+  if (step.kind === 'tile') return step.tile;
+  return 0;
 }
 
 export interface Lesson {
@@ -221,6 +244,51 @@ export function createAnimationLesson(options: {
     palette: animation.palette,
     reference: frameDrawing(animation, 0),
     animation,
+    roles,
+    steps,
+  };
+}
+
+export interface TileStepContent {
+  readonly name: string;
+  readonly seamless: readonly EdgePair[];
+  readonly explanation: string;
+}
+
+export function createTilesetLesson(options: {
+  id: string;
+  title: string;
+  tiles: Animation;
+  roles: readonly Role[];
+  tileSteps: readonly TileStepContent[];
+}): Lesson {
+  const { id, title, tiles, roles, tileSteps } = options;
+  if (tiles.width !== TILE_SIZE || tiles.height !== TILE_SIZE) {
+    throw new RangeError(
+      `A tileset Lesson is made of ${TILE_SIZE}x${TILE_SIZE} tiles, not ${tiles.width}x${tiles.height}`,
+    );
+  }
+  const size = checkSpriteShape(tiles.width, tiles.height, tiles.palette, roles);
+  if (tileSteps.length !== tiles.frames.length) {
+    throw new RangeError(
+      `The tileset has ${tiles.frames.length} tiles but ${tileSteps.length} tile Steps`,
+    );
+  }
+  const steps = tileSteps.map(({ name, seamless, explanation }, tile): TileStep => ({
+    kind: 'tile',
+    tile,
+    name,
+    seamless,
+    target: tiles.frames[tile]!,
+    explanation,
+  }));
+  return {
+    id,
+    title,
+    size,
+    palette: tiles.palette,
+    reference: frameDrawing(tiles, 0),
+    animation: tiles,
     roles,
     steps,
   };

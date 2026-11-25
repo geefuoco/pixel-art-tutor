@@ -5,6 +5,7 @@ import { jaggedPixels } from './jaggies';
 import { pillowShadedPixels } from './pillow-shading';
 import { colorAt, DIAGONALS, NEIGHBOURS, OFF_CANVAS, SIDES } from './pixel-grid';
 import { LOW_CONTRAST_DELTA_E } from './thresholds';
+import { seamPixels, type EdgePair } from './tiling';
 
 export type MistakeKind =
   | 'orphan-pixel'
@@ -13,7 +14,8 @@ export type MistakeKind =
   | 'banding'
   | 'pillow-shading'
   | 'too-many-colors'
-  | 'low-contrast';
+  | 'low-contrast'
+  | 'seam';
 
 export interface Mistake {
   readonly kind: MistakeKind;
@@ -85,7 +87,10 @@ function hasLowContrastEdge(drawing: Drawing, { x, y, color }: ColoredPixel): bo
   });
 }
 
-export function findMistakes(drawing: Drawing, options: { colorBudget?: number } = {}): Mistake[] {
+export function findMistakes(
+  drawing: Drawing,
+  options: { colorBudget?: number; seamless?: readonly EdgePair[] } = {},
+): Mistake[] {
   const found: Mistake[] = [];
   const add = (kind: MistakeKind, pixels: Point[]) => {
     if (pixels.length > 0) found.push({ kind, pixels });
@@ -97,5 +102,6 @@ export function findMistakes(drawing: Drawing, options: { colorBudget?: number }
   add('pillow-shading', pillowShadedPixels(drawing));
   add('too-many-colors', overBudgetPixels(drawing, options.colorBudget));
   add('low-contrast', pixelsWhere(drawing, hasLowContrastEdge));
+  add('seam', seamPixels(drawing, options.seamless ?? []));
   return found;
 }
