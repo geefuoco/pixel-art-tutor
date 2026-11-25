@@ -22,17 +22,17 @@
       {
         "frame": 3,
         "pose": "key",
-        "explanation": "The second key pose is the stretch: narrower and taller than the squash. A slime is soft, so it keeps roughly the same amount of body. What it loses in width it gains in height.\n\nTurn on **Onion skin** (O) to see the Frames on either side faintly behind this one, and check that the bottom lines up with the squash.\n\n![Frame 1: squash](examples/frame-1.png) ![Frame 3: stretch](examples/frame-3.png)"
+        "explanation": "The second key pose is the stretch: narrower and taller than the squash. A slime is soft, so it keeps roughly the same amount of body. What it loses in width it gains in height.\n\nClick Frame 1 in the Frame strip to compare, and check that the bottom row sits on the same ground line as the squash.\n\n![Frame 1: squash](examples/frame-1.png) ![Frame 3: stretch](examples/frame-3.png)"
       },
       {
         "frame": 2,
         "pose": "in-between",
-        "explanation": "In-betweens carry the motion from one key pose to the next. This one sits halfway: a little narrower than the squash, a little taller, rising one row at the top.\n\nWith Onion skin on, you can see both key poses at once. Aim between them.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+        "explanation": "In-betweens carry the motion from one key pose to the next. This one is on the way up: as wide as the squash at its widest, but one row taller at the top.\n\nTurn on **Onion skin** (O). Frames 1 and 3 sit on either side of this one, so you can see both key poses faintly behind it. Aim between them.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
       },
       {
         "frame": 4,
         "pose": "in-between",
-        "explanation": "The last in-between takes the slime from the stretch back down to the squash, so the loop runs smoothly from Frame 4 into Frame 1.\n\nIt matches Frame 2 in shape, but the slime blinks here. A small change between in-betweens like this keeps an idle loop from feeling mechanical.\n\nPress **Play preview** (P) to watch the whole loop.\n\n![Frame 2](examples/frame-2.png) ![Frame 4](examples/frame-4.png)"
+        "explanation": "The last in-between takes the slime from the stretch back down, so the loop runs smoothly from Frame 4 into Frame 1.\n\nIt has the same body as Frame 2, but the eyes sit one row higher. Small differences between in-betweens like this keep an idle loop from feeling mechanical.\n\nWith Onion skin on you see Frame 3 behind this one. Press **Play preview** (P) to watch the whole loop.\n\n![Frame 2](examples/frame-2.png) ![Frame 4](examples/frame-4.png)"
       }
     ]
   }
