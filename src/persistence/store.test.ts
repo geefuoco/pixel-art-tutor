@@ -1,5 +1,6 @@
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { stillAnimation } from '../core/animation';
 import { createDrawing, TRANSPARENT } from '../core/drawing';
 import type { Mode } from '../core/lesson';
 import { openStore, StorageError } from './store';
@@ -17,20 +18,33 @@ describe('store: Studio drawings', () => {
     };
     const newer = { ...createDrawing({ width: 1, height: 2, palette: PALETTE }), pixels: [0, 1] };
     const store = openStore(indexedDB);
-    await store.putStudioDrawing({ id: 'b', drawing: older, updatedAt: 100 });
-    await store.putStudioDrawing({ id: 'a', drawing: newer, updatedAt: 200 });
+    await store.putStudioDrawing({ id: 'b', animation: stillAnimation(older), updatedAt: 100 });
+    await store.putStudioDrawing({
+      id: 'a',
+      animation: { ...stillAnimation(newer), frames: [newer.pixels, [1, 1]], fps: 4 },
+      updatedAt: 200,
+    });
 
     const reopened = openStore(indexedDB);
     expect(await reopened.listStudioDrawings()).toEqual([
       {
         id: 'a',
         updatedAt: 200,
-        drawing: { width: 1, height: 2, palette: PALETTE, pixels: [0, 1] },
+        animation: {
+          width: 1,
+          height: 2,
+          palette: PALETTE,
+          frames: [
+            [0, 1],
+            [1, 1],
+          ],
+          fps: 4,
+        },
       },
       {
         id: 'b',
         updatedAt: 100,
-        drawing: { width: 2, height: 1, palette: PALETTE, pixels: [1, -1] },
+        animation: { width: 2, height: 1, palette: PALETTE, frames: [[1, -1]], fps: 8 },
       },
     ]);
   });
@@ -44,18 +58,57 @@ describe('store: Studio drawings', () => {
   it('reports storage as full when a write goes over the quota, keeping what was saved', async () => {
     const indexedDB = new IDBFactory();
     const store = openStore(indexedDB);
-    const drawing = createDrawing({ width: 1, height: 1, palette: PALETTE });
-    await store.putStudioDrawing({ id: 'a', drawing, updatedAt: 1 });
+    const animation = stillAnimation(createDrawing({ width: 1, height: 1, palette: PALETTE }));
+    await store.putStudioDrawing({ id: 'a', animation, updatedAt: 1 });
 
     vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {
       throw new DOMException('Quota exceeded', 'QuotaExceededError');
     });
-    const write = store.putStudioDrawing({ id: 'b', drawing, updatedAt: 2 });
+    const write = store.putStudioDrawing({ id: 'b', animation, updatedAt: 2 });
     await expect(write).rejects.toThrow(StorageError);
     await expect(write).rejects.toMatchObject({ problem: 'full' });
     vi.restoreAllMocks();
 
     expect((await openStore(indexedDB).listStudioDrawings()).map((d) => d.id)).toEqual(['a']);
+  });
+});
+
+describe('store: Frames', () => {
+  it('reads Studio drawings saved before Frames as a single Frame at the default FPS', async () => {
+    const indexedDB = new IDBFactory();
+    const drawing = {
+      ...createDrawing({ width: 2, height: 1, palette: PALETTE }),
+      pixels: [1, TRANSPARENT],
+    };
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('pixel-art-tutor', 7);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        for (const name of ['custom-palettes', 'attempts', 'personal-lessons']) {
+          db.createObjectStore(name, { keyPath: 'id' });
+        }
+        db.createObjectStore('in-progress-attempts', { keyPath: ['lessonId', 'mode'] });
+        db.createObjectStore('progress', { keyPath: 'lessonId' });
+        db.createObjectStore('studio-drawings', { keyPath: 'id' }).put({
+          id: 'old',
+          drawing,
+          updatedAt: 3,
+        });
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    expect(await openStore(indexedDB).listStudioDrawings()).toEqual([
+      {
+        id: 'old',
+        animation: { width: 2, height: 1, palette: PALETTE, frames: [[1, TRANSPARENT]], fps: 8 },
+        updatedAt: 3,
+      },
+    ]);
   });
 });
 
@@ -93,7 +146,13 @@ describe('store: custom palettes', () => {
     });
 
     const store = openStore(indexedDB);
-    expect(await store.listStudioDrawings()).toEqual([{ id: 'old', drawing, updatedAt: 1 }]);
+    expect(await store.listStudioDrawings()).toEqual([
+      {
+        id: 'old',
+        animation: { width: 1, height: 1, palette: PALETTE, frames: [[TRANSPARENT]], fps: 8 },
+        updatedAt: 1,
+      },
+    ]);
     expect(await store.listCustomPalettes()).toEqual([]);
     await store.putCustomPalette({ id: 'p', name: 'New', colors: ['#000000'] });
     expect(await store.listCustomPalettes()).toHaveLength(1);

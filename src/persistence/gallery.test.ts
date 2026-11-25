@@ -1,5 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
+import { stillAnimation } from '../core/animation';
 import { createDrawing, type Drawing } from '../core/drawing';
 import type { Mode } from '../core/lesson';
 import { createGallery, type Gallery } from './gallery';
@@ -45,8 +46,16 @@ describe('the Gallery', () => {
   it('shows the Attempts in the Gallery and every Studio drawing, newest first', async () => {
     const indexedDB = new IDBFactory();
     const store = openStore(indexedDB);
-    await store.putStudioDrawing({ id: 's1', drawing: drawingOf(0), updatedAt: 10 });
-    await store.putStudioDrawing({ id: 's2', drawing: drawingOf(0, 1), updatedAt: 40 });
+    await store.putStudioDrawing({
+      id: 's1',
+      animation: stillAnimation(drawingOf(0)),
+      updatedAt: 10,
+    });
+    await store.putStudioDrawing({
+      id: 's2',
+      animation: stillAnimation(drawingOf(0, 1)),
+      updatedAt: 40,
+    });
     await store.saveAttempt(attempt('passed', 30, { mode: 'hint', hintFlashes: 2 }), {
       passed: true,
     });
@@ -58,7 +67,11 @@ describe('the Gallery', () => {
       {
         kind: 'studio',
         date: 40,
-        studioDrawing: { id: 's2', drawing: drawingOf(0, 1), updatedAt: 40 },
+        studioDrawing: {
+          id: 's2',
+          animation: { width: 2, height: 1, palette: PALETTE, frames: [[0, 1]], fps: 8 },
+          updatedAt: 40,
+        },
       },
       {
         kind: 'attempt',
@@ -77,7 +90,11 @@ describe('the Gallery', () => {
       {
         kind: 'studio',
         date: 10,
-        studioDrawing: { id: 's1', drawing: drawingOf(0), updatedAt: 10 },
+        studioDrawing: {
+          id: 's1',
+          animation: { width: 1, height: 1, palette: PALETTE, frames: [[0]], fps: 8 },
+          updatedAt: 10,
+        },
       },
     ]);
   });
@@ -122,7 +139,11 @@ describe('the Gallery', () => {
   it('shows what has been saved since it last looked when it looks again', async () => {
     const indexedDB = new IDBFactory();
     const gallery = await galleryOver(indexedDB);
-    await openStore(indexedDB).putStudioDrawing({ id: 's', drawing: drawingOf(1), updatedAt: 1 });
+    await openStore(indexedDB).putStudioDrawing({
+      id: 's',
+      animation: stillAnimation(drawingOf(1)),
+      updatedAt: 1,
+    });
     expect(ready(gallery).entries).toEqual([]);
 
     await gallery.refresh();

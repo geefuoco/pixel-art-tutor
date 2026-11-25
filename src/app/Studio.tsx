@@ -1,12 +1,22 @@
 import {
+  ArrowLeft,
+  ArrowRight,
   CaretsToAxisDashedVertical,
+  ChevronLeft,
+  ChevronRight,
+  CopyPlus,
   FilePlus,
   FolderOpen,
   ImageDown,
   Images,
+  Layers,
+  Play,
+  Plus,
   ScanSearch,
+  Trash2,
 } from 'lucide-react';
 import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
+import { frameDrawing, onionSkins } from '../core/animation';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
@@ -16,6 +26,7 @@ import type { CurrentDrawing } from '../persistence/studio';
 import type { Control } from './controls';
 import { downloadFile } from './download';
 import { DrawingEditor } from './DrawingEditor';
+import { FrameStrip } from './FrameStrip';
 import { MistakeList } from './MistakeList';
 import { Nav } from './Nav';
 import { WarningBanner } from './WarningBanner';
@@ -81,7 +92,11 @@ function StudioEditor({
   problem: StorageProblem | null;
 }) {
   const { editor } = current;
-  const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
+  const { drawing, animation, frame } = useSyncExternalStore(editor.subscribe, editor.getState);
+  const lastFrame = animation.frames.length - 1;
+  const [onionShown, setOnionShown] = useState(false);
+  const [onionOpacity, setOnionOpacity] = useState(0.3);
+  const [previewShown, setPreviewShown] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [exportScale, setExportScale] = useState(1);
   const [openError, setOpenError] = useState<string | null>(null);
@@ -136,6 +151,70 @@ function StudioEditor({
     },
   ];
 
+  const frameControls: Control[] = [
+    {
+      label: 'Previous Frame',
+      Icon: ChevronLeft,
+      chords: [{ key: ',' }],
+      run: () => editor.selectFrame(frame - 1),
+      disabled: frame === 0,
+    },
+    {
+      label: 'Next Frame',
+      Icon: ChevronRight,
+      chords: [{ key: '.' }],
+      run: () => editor.selectFrame(frame + 1),
+      disabled: frame === lastFrame,
+    },
+    {
+      label: 'Add Frame',
+      Icon: Plus,
+      chords: [],
+      run: () => editor.applyToFrames({ type: 'add-frame', at: frame + 1 }),
+    },
+    {
+      label: 'Duplicate Frame',
+      Icon: CopyPlus,
+      chords: [],
+      run: () => editor.applyToFrames({ type: 'add-frame', at: frame + 1, copyOf: frame }),
+    },
+    {
+      label: 'Move Frame earlier',
+      Icon: ArrowLeft,
+      chords: [],
+      run: () => editor.applyToFrames({ type: 'move-frame', from: frame, to: frame - 1 }),
+      disabled: frame === 0,
+    },
+    {
+      label: 'Move Frame later',
+      Icon: ArrowRight,
+      chords: [],
+      run: () => editor.applyToFrames({ type: 'move-frame', from: frame, to: frame + 1 }),
+      disabled: frame === lastFrame,
+    },
+    {
+      label: 'Delete Frame',
+      Icon: Trash2,
+      chords: [],
+      run: () => editor.applyToFrames({ type: 'remove-frame', frame }),
+      disabled: lastFrame === 0,
+    },
+    {
+      label: 'Onion skin',
+      Icon: Layers,
+      chords: [{ key: 'o' }],
+      run: () => setOnionShown((shown) => !shown),
+      pressed: onionShown,
+    },
+    {
+      label: 'Play preview',
+      Icon: Play,
+      chords: [{ key: 'p' }],
+      run: () => setPreviewShown((shown) => !shown),
+      pressed: previewShown,
+    },
+  ];
+
   function closePanels() {
     setPanel(null);
     setOpenError(null);
@@ -174,8 +253,22 @@ function StudioEditor({
       <Nav current="studio" />
       <DrawingEditor
         editor={editor}
-        canvasLabel={`Studio canvas, ${drawing.width} by ${drawing.height} pixels`}
+        canvasLabel={`Studio canvas, ${drawing.width} by ${drawing.height} pixels${lastFrame > 0 ? `, Frame ${frame + 1} of ${lastFrame + 1}` : ''}`}
         mirror={mirror}
+        onion={onionShown ? { ...onionSkins(animation, frame), opacity: onionOpacity } : undefined}
+        shortcuts={frameControls}
+        below={
+          <FrameStrip
+            editor={editor}
+            animation={animation}
+            frame={frame}
+            controls={frameControls}
+            onionShown={onionShown}
+            onionOpacity={onionOpacity}
+            onOnionOpacity={setOnionOpacity}
+            previewShown={previewShown}
+          />
+        }
         leadingActions={leadingActions}
         trailingActions={trailingActions}
         marks={
@@ -221,12 +314,12 @@ function StudioEditor({
                       autoFocus={i === 0}
                     >
                       <img
-                        src={thumbnail(d.drawing)}
+                        src={thumbnail(frameDrawing(d.animation, 0))}
                         alt=""
-                        style={{ aspectRatio: `${d.drawing.width} / ${d.drawing.height}` }}
+                        style={{ aspectRatio: `${d.animation.width} / ${d.animation.height}` }}
                       />
                       <span className="drawing-size">
-                        {d.drawing.width}x{d.drawing.height}
+                        {d.animation.width}x{d.animation.height}
                       </span>
                       <span className="hint">{dateTime.format(d.updatedAt)}</span>
                     </button>
@@ -294,8 +387,9 @@ function StudioEditor({
               Cancel
             </button>
             <p className="hint">
-              Saves a {drawing.width * exportScale}x{drawing.height * exportScale} PNG. Each pixel
-              becomes a sharp {exportScale}x{exportScale} block.
+              Saves {lastFrame > 0 ? `Frame ${frame + 1} as ` : ''}a {drawing.width * exportScale}x
+              {drawing.height * exportScale} PNG. Each pixel becomes a sharp {exportScale}x
+              {exportScale} block.
             </p>
           </form>
         )}

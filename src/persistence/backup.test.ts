@@ -52,12 +52,17 @@ describe('backup and restore', () => {
     });
 
     const expected = [
-      { width: 1, height: 2, palette: PALETTE, pixels: [0, _] },
-      { width: 3, height: 2, palette: PALETTE, pixels: [1, _, _, _, _, _] },
+      { width: 1, height: 2, palette: PALETTE, frames: [[0, _]], fps: 8 },
+      { width: 3, height: 2, palette: PALETTE, frames: [[1, _, _, _, _, _]], fps: 8 },
     ];
-    expect((await target.store.listStudioDrawings()).map((d) => d.drawing)).toEqual(expected);
-    expect(ready(target.studio).drawings.map((d) => d.drawing)).toEqual(expected);
-    expect(ready(target.studio).current.editor.getState().drawing).toEqual(expected[0]);
+    expect((await target.store.listStudioDrawings()).map((d) => d.animation)).toEqual(expected);
+    expect(ready(target.studio).drawings.map((d) => d.animation)).toEqual(expected);
+    expect(ready(target.studio).current.editor.getState().drawing).toEqual({
+      width: 1,
+      height: 2,
+      palette: PALETTE,
+      pixels: [0, _],
+    });
     expect(await target.store.listStudioDrawings()).toEqual(
       await source.store.listStudioDrawings(),
     );
@@ -190,6 +195,36 @@ describe('backup and restore', () => {
       },
     ],
   };
+  const version9 = {
+    ...version8,
+    version: 9,
+    studioDrawings: [
+      {
+        id: 'a',
+        updatedAt: 5,
+        animation: {
+          width: 2,
+          height: 1,
+          palette: PALETTE,
+          frames: [
+            [1, _],
+            [_, 0],
+          ],
+          fps: 12,
+        },
+      },
+    ],
+  };
+  const withAnimation = (changes: object) =>
+    JSON.stringify({
+      ...version9,
+      studioDrawings: [
+        {
+          ...version9.studioDrawings[0],
+          animation: { ...version9.studioDrawings[0]!.animation, ...changes },
+        },
+      ],
+    });
   const withPersonalLesson = (changes: object) =>
     JSON.stringify({
       ...version8,
@@ -205,7 +240,26 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 9 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 10 }), /newer version/],
+    ['an animation with no Frames', withAnimation({ frames: [] }), /damaged/],
+    ['a Frame with too few pixels', withAnimation({ frames: [[1, _], [0]] }), /damaged/],
+    [
+      'a Frame with a pixel outside the palette',
+      withAnimation({
+        frames: [
+          [1, _],
+          [2, _],
+        ],
+      }),
+      /damaged/,
+    ],
+    ['an animation without its FPS', withAnimation({ fps: undefined }), /damaged/],
+    ['an animation at 0 FPS', withAnimation({ fps: 0 }), /damaged/],
+    [
+      'a drawing saved without Frames in a backup made after Frames',
+      JSON.stringify({ ...version9, studioDrawings: valid.studioDrawings }),
+      /damaged/,
+    ],
     [
       'a Personal Lesson with a color that has no Role',
       withPersonalLesson({ roles: ['outline', 'base'] }),
@@ -342,8 +396,24 @@ describe('backup and restore', () => {
       drawingCount: 1,
       paletteCount: 1,
     });
-    expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
+    expect(await store.listStudioDrawings()).toEqual([
+      {
+        id: 'a',
+        updatedAt: 5,
+        animation: { width: 2, height: 1, palette: PALETTE, frames: [[1, _]], fps: 8 },
+      },
+    ]);
     expect(await store.listCustomPalettes()).toEqual(valid.customPalettes);
+  });
+
+  it('restores animations with every Frame and their FPS', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version9))).toMatchObject({ ok: true });
+    expect(await store.listStudioDrawings()).toEqual(version9.studioDrawings);
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
   });
 
   it('restores Attempts and in-progress Attempts with their flash counts along with the rest', async () => {
@@ -447,7 +517,13 @@ describe('backup and restore', () => {
       drawingCount: 1,
       paletteCount: 0,
     });
-    expect(await store.listStudioDrawings()).toEqual(valid.studioDrawings);
+    expect(await store.listStudioDrawings()).toEqual([
+      {
+        id: 'a',
+        updatedAt: 5,
+        animation: { width: 2, height: 1, palette: PALETTE, frames: [[1, _]], fps: 8 },
+      },
+    ]);
     expect(await store.listCustomPalettes()).toEqual([]);
   });
 
@@ -509,6 +585,6 @@ describe('backup and restore', () => {
     await studio.restore(backup);
     await studio.flush();
 
-    expect((await store.listStudioDrawings()).map((d) => d.drawing.width)).toEqual([1, 3]);
+    expect((await store.listStudioDrawings()).map((d) => d.animation.width)).toEqual([1, 3]);
   });
 });
