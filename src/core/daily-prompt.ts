@@ -2,6 +2,7 @@ import { checkCalendarDate, localCalendarDate, type CalendarDate } from './calen
 import { passesMode } from './evaluate';
 import { MODES, type Mode } from './lesson';
 import { seededRandom } from './seeded-random';
+import type { TechniqueDrill } from './technique-drill';
 import { themePrompt, type ThemePrompt } from './theme-prompt';
 
 const DAILY_PROMPT_KINDS = ['theme', 'technique', 'review'] as const;
@@ -40,7 +41,15 @@ export interface ReviewDrill {
   readonly mode: Mode;
 }
 
-export type DailyPrompt = ThemeDraw | ReviewDrill;
+export interface TechniqueDrillPrompt {
+  readonly kind: 'technique';
+  readonly drawn: 'technique';
+  readonly date: CalendarDate;
+  readonly draw: number;
+  readonly drill: TechniqueDrill;
+}
+
+export type DailyPrompt = ThemeDraw | ReviewDrill | TechniqueDrillPrompt;
 
 interface ReviewCandidate {
   readonly lessonId: string;
@@ -58,10 +67,14 @@ function drawnKind(date: CalendarDate, draw: number): DailyPromptKind {
   return 'theme';
 }
 
-function reviewCandidates(date: CalendarDate, practice: Practice): ReviewCandidate[] {
-  const before = practice.attempts.filter(
+function attemptsBefore(date: CalendarDate, practice: Practice): PractisedAttempt[] {
+  return practice.attempts.filter(
     (attempt) => localCalendarDate(new Date(attempt.finishedAt)) < date,
   );
+}
+
+function reviewCandidates(date: CalendarDate, practice: Practice): ReviewCandidate[] {
+  const before = attemptsBefore(date, practice);
   return practice.course
     .map((lessonId) => {
       const practised = before.filter((attempt) => attempt.lessonId === lessonId);
@@ -80,20 +93,56 @@ function nextHarderMode(hardestPassed: number): Mode {
   return MODES[Math.min(hardestPassed + 1, MODES.length - 1)]!;
 }
 
-function reviewDrawsUpTo(date: CalendarDate, draw: number): number[] {
+function drawsUpTo(date: CalendarDate, draw: number, kind: DailyPromptKind): number[] {
   return Array.from({ length: draw + 1 }, (_, earlier) => earlier).filter(
-    (earlier) => drawnKind(date, earlier) === 'review',
+    (earlier) => drawnKind(date, earlier) === kind,
   );
 }
 
-export function dailyPrompt(date: CalendarDate, draw: number, practice: Practice): DailyPrompt {
+function drillsToGive(
+  date: CalendarDate,
+  practice: Practice,
+  drills: readonly TechniqueDrill[],
+): TechniqueDrill[] {
+  const passed = new Set(
+    attemptsBefore(date, practice)
+      .filter((attempt) => practice.course.includes(attempt.lessonId))
+      .filter((attempt) => passesMode(attempt.mode, attempt.score))
+      .map((attempt) => attempt.lessonId),
+  );
+  return drills.filter((drill) => passed.has(drill.lessonId));
+}
+
+function techniqueDrill(
+  date: CalendarDate,
+  draw: number,
+  practice: Practice,
+  drills: readonly TechniqueDrill[],
+): TechniqueDrill | undefined {
+  let remaining = drillsToGive(date, practice, drills);
+  let given: TechniqueDrill | undefined;
+  for (const earlier of drawsUpTo(date, draw, 'technique')) {
+    if (remaining.length === 0) return undefined;
+    const roll = seededRandom(`technique-drill/${date}/${earlier}`)();
+    given = remaining[Math.floor(roll * remaining.length)]!;
+    remaining = remaining.filter((drill) => drill !== given);
+  }
+  return given;
+}
+
+export function dailyPrompt(
+  date: CalendarDate,
+  draw: number,
+  practice: Practice,
+  drills: readonly TechniqueDrill[] = [],
+): DailyPrompt {
   if (!Number.isInteger(draw) || draw < 0) {
     throw new RangeError(`A draw is a whole number from 0, not ${draw}`);
   }
   const day = checkCalendarDate(date);
   const drawn = drawnKind(day, draw);
   if (drawn === 'review') {
-    const reviewsSoFar = reviewDrawsUpTo(day, draw).length - 1;
+    const reviewsSoFar = drawsUpTo(day, draw, 'review').length - 1;
     const candidate = reviewCandidates(day, practice)[reviewsSoFar];
     if (candidate) {
       return {
@@ -105,6 +154,10 @@ export function dailyPrompt(date: CalendarDate, draw: number, practice: Practice
         mode: nextHarderMode(candidate.hardestPassed),
       };
     }
+  }
+  if (drawn === 'technique') {
+    const drill = techniqueDrill(day, draw, practice, drills);
+    if (drill) return { kind: 'technique', drawn, date: day, draw, drill };
   }
   return { kind: 'theme', drawn, prompt: themePrompt(day, draw) };
 }

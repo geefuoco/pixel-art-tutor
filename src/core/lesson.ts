@@ -82,6 +82,18 @@ export function frameOfStep(step: LessonStep): number {
   return 0;
 }
 
+export function roleOfColor(
+  palette: readonly Color[],
+  roles: readonly Role[],
+  drawing: Drawing,
+): (color: number) => Role | undefined {
+  const colors = palette.map((c) => c.toLowerCase());
+  return (color) => {
+    const index = colors.indexOf(drawing.palette[color]!.toLowerCase());
+    return index < 0 ? undefined : roles[index];
+  };
+}
+
 export interface Lesson {
   readonly id: string;
   readonly title: string;

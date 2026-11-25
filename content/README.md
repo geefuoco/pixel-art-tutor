@@ -77,6 +77,42 @@ A tileset Lesson teaches a small set of 16x16 tiles, such as a ground tile and i
 - `seamless` lists the edges that repeat: `left-right`, `top-bottom`, both or neither. Check marks a seam where those edges do not continue each other.
 - Each tile Step is checked against its whole tile in its final colors, and the Lesson shows a live Tiling Preview.
 
+## Technique Drills
+
+A Technique Drill gives a starting sprite and asks for one technique a Course Lesson has taught. `drills/techniques.json` names the Lesson that teaches each technique, and the Daily Prompt only gives a drill once that Lesson has been passed:
+
+```json
+{ "outline": "red-potion", "shading": "red-potion", "tiling": "grass-path" }
+```
+
+Each drill lives in `drills/<id>/`:
+
+- `start.png`: the starting sprite, 8x8, 16x16 or 32x32, every pixel fully opaque or fully transparent. The learner draws on top of it.
+- `manifest.json`: what the image can't say.
+- `CREDITS.md`: author, source and licence. Art must be good-quality CC0.
+
+```json
+{
+  "id": "shade-red-slime",
+  "title": "Shade a red slime",
+  "technique": "shading",
+  "instruction": "Plain text shown under the title.",
+  "roles": { "#e43b44": "base", "#9e2835": "shadow", "#f6757a": "highlight", "...": "..." },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-left"
+}
+```
+
+- `technique` is `outline`, `shading` or `tiling`.
+- `roles` gives every color in `start.png` a Role, and can add colors the sprite doesn't use yet, such as the shadow and highlight for a shading drill. Together they are the drill's palette.
+- `checks` lists what Check reports as met or not, on top of the drawing's Mistakes:
+  - `shadow-away-from-light` and `highlight-toward-light`: the shadow pixels sit on the side away from `light` (`top-left`, `top-right`, `above`, `left` or `right`), and the highlight pixels on the side facing it.
+  - `closed-outline`: every pixel on the edge of the shape is an outline color.
+  - `clean-outline`: the outline is 1 pixel wide, with no jaggies.
+  - `seamless`: no seam on the edges listed in `seamless` (`left-right`, `top-bottom`). The drill shows a Tiling Preview.
+
+The app reads drills with `readTechniqueDrills` in `src/core/technique-drill.ts`, which rejects content that breaks these rules.
+
 To turn a Personal Lesson into a built-in one, use its **Copy manifest** and **Download reference.png** buttons on the Lessons page, put both in `lessons/<id>/`, add the id to `course.json`, and rewrite the templated explanations.
 
 The app reads a Lesson with `readLesson` in `src/core/lesson-content.ts`, which rejects content that breaks these rules.

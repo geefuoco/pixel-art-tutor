@@ -45,6 +45,7 @@ export interface PromptDrawing {
   readonly date: CalendarDate;
   readonly draw: number;
   readonly text: string;
+  readonly drillId?: string;
   readonly animation: Animation;
   readonly inGallery: boolean;
   readonly updatedAt: number;

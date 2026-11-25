@@ -83,7 +83,7 @@ The exercise for a calendar date: a Theme Prompt, a Technique Drill or a Review 
 An unscored Daily Prompt that asks for a subject under constraints, such as "16x16 health potion, 4 colors, light from top-left".
 
 **Technique Drill**:
-A Daily Prompt that gives a starting shape and asks the learner to apply one technique the Course has already taught.
+A Daily Prompt that gives a starting sprite and asks the learner to apply one technique (outline, shading or tiling), drawn only from techniques whose Course Lesson the learner passed before that date. It is unscored: checking it shows its Mistakes and whether each of its technique checks is met.
 
 **Review Drill**:
 A Daily Prompt that replays the passed Lesson practised least recently before that date, in the next harder Mode (Freehand once Freehand is passed). A further Review Drill on the same day takes the next Lesson in that order.

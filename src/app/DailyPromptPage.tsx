@@ -1,8 +1,16 @@
 import { useState, useSyncExternalStore } from 'react';
-import type { ReviewDrill } from '../core/daily-prompt';
+import type { ReviewDrill, TechniqueDrillPrompt } from '../core/daily-prompt';
+import type { Drawing } from '../core/drawing';
 import type { Editor } from '../core/editor';
+import type { Mistake } from '../core/mistakes';
+import { techniqueDrillFeedback } from '../core/technique-drill-feedback';
 import { themePromptText, type ThemePrompt } from '../core/theme-prompt';
-import { themePromptFeedback, type CheckOutcome } from '../core/theme-prompt-feedback';
+import {
+  themePromptFeedback,
+  type CheckOutcome,
+  type PromptCheck,
+} from '../core/theme-prompt-feedback';
+import { techniqueDrillText } from '../persistence/daily-prompt';
 import type { StorageProblem } from '../persistence/store';
 import { formatCalendarDate } from './calendar-date-format';
 import { dailyPrompt, useDailyPrompt } from './daily-prompt-store';
@@ -12,6 +20,7 @@ import { MistakeList } from './MistakeList';
 import { MODE_NAMES } from './mode-names';
 import { Nav } from './Nav';
 import { lessonHref, routeHref } from './router';
+import { TilingPreview } from './TilingPreview';
 import { WarningBanner } from './WarningBanner';
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
@@ -37,6 +46,16 @@ export function DailyPromptPage() {
   }
   if (state.kind === 'review') {
     return <ReviewDrillCard drill={state.drill} problem={state.problem} />;
+  }
+  if (state.kind === 'technique') {
+    return (
+      <TechniqueDrillSession
+        drill={state.drill}
+        editor={state.editor}
+        inGallery={state.inGallery}
+        problem={state.problem}
+      />
+    );
   }
   return (
     <ThemePromptSession
@@ -104,10 +123,75 @@ function ThemePromptSession({
   inGallery: boolean;
   problem: StorageProblem | null;
 }) {
+  return (
+    <PromptDrawingSession
+      label={promptLabel(prompt)}
+      title={themePromptText(prompt)}
+      intro="A Theme Prompt is not scored. Check your drawing to see its Mistakes and which parts of the prompt it meets. Your drawing is kept as you go."
+      checksTitle="The prompt"
+      feedbackFor={(drawing) => themePromptFeedback(prompt, drawing)}
+      tiling={false}
+      editor={editor}
+      inGallery={inGallery}
+      problem={problem}
+    />
+  );
+}
+
+function TechniqueDrillSession({
+  drill,
+  editor,
+  inGallery,
+  problem,
+}: {
+  drill: TechniqueDrillPrompt;
+  editor: Editor;
+  inGallery: boolean;
+  problem: StorageProblem | null;
+}) {
+  return (
+    <PromptDrawingSession
+      label={promptLabel(drill)}
+      title={techniqueDrillText(drill.drill)}
+      intro={drill.drill.instruction}
+      checksTitle="The drill"
+      feedbackFor={(drawing) => techniqueDrillFeedback(drill.drill, drawing)}
+      tiling={drill.drill.seamless.length > 0}
+      editor={editor}
+      inGallery={inGallery}
+      problem={problem}
+    />
+  );
+}
+
+function PromptDrawingSession({
+  label,
+  title,
+  intro,
+  checksTitle,
+  feedbackFor,
+  tiling,
+  editor,
+  inGallery,
+  problem,
+}: {
+  label: string;
+  title: string;
+  intro: string;
+  checksTitle: string;
+  feedbackFor: (drawing: Drawing) => {
+    checks: readonly PromptCheck[];
+    mistakes: readonly Mistake[];
+  };
+  tiling: boolean;
+  editor: Editor;
+  inGallery: boolean;
+  problem: StorageProblem | null;
+}) {
   const { drawing } = useSyncExternalStore(editor.subscribe, editor.getState);
-  const [checkedPrompt, setCheckedPrompt] = useState<ThemePrompt | null>(null);
+  const [checkedEditor, setCheckedEditor] = useState<Editor | null>(null);
   const [saving, setSaving] = useState(false);
-  const feedback = checkedPrompt === prompt ? themePromptFeedback(prompt, drawing) : null;
+  const feedback = checkedEditor === editor ? feedbackFor(drawing) : null;
 
   async function saveToGallery() {
     setSaving(true);
@@ -135,18 +219,16 @@ function ThemePromptSession({
                 }
               : undefined
           }
+          below={tiling ? <TilingPreview drawing={drawing} /> : undefined}
         >
           {problem && <WarningBanner>{STORAGE_MESSAGES[problem]}</WarningBanner>}
         </DrawingEditor>
         <aside className="card lesson-panel" aria-labelledby="prompt-title">
-          <p className="hint">{promptLabel(prompt)}</p>
-          <h1 id="prompt-title">{themePromptText(prompt)}</h1>
-          <p className="hint">
-            A Theme Prompt is not scored. Check your drawing to see its Mistakes and which parts of
-            the prompt it meets. Your drawing is kept as you go.
-          </p>
+          <p className="hint">{label}</p>
+          <h1 id="prompt-title">{title}</h1>
+          <p className="hint">{intro}</p>
           <div className="lesson-actions">
-            <button type="button" className="btn" onClick={() => setCheckedPrompt(prompt)}>
+            <button type="button" className="btn" onClick={() => setCheckedEditor(editor)}>
               Check drawing
             </button>
             <button
@@ -169,14 +251,14 @@ function ThemePromptSession({
           {feedback && (
             <>
               <section aria-labelledby="checks-title">
-                <h2 id="checks-title">The prompt</h2>
+                <h2 id="checks-title">{checksTitle}</h2>
                 <ul className="prompt-checks">
-                  {feedback.checks.map(({ label, outcome }) => (
-                    <li key={label}>
+                  {feedback.checks.map(({ label: checkLabel, outcome }) => (
+                    <li key={checkLabel}>
                       <span className={`prompt-check prompt-check-${outcome}`}>
                         {OUTCOME_NAMES[outcome]}
                       </span>{' '}
-                      {label}
+                      {checkLabel}
                     </li>
                   ))}
                 </ul>
