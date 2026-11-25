@@ -530,3 +530,48 @@ test('animate with Frames, onion skinning and a looping preview, kept after a re
   await expect.poll(() => pixelAt(canvas, 3, 2)).toEqual(RED);
   await expect.poll(() => pixelAt(canvas, 2, 2)).toEqual(empty);
 });
+
+test('export an animation as a sprite sheet PNG with an Aseprite-style JSON frame map', async ({
+  page,
+}) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 0, 0);
+  const frames = page.getByRole('region', { name: 'Frames' });
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await clickPixel(page, canvas, 15, 15);
+
+  await page.getByRole('button', { name: 'Export PNG' }).click();
+  const form = page.getByRole('form', { name: 'Export PNG' });
+  await form.getByLabel('Frames').selectOption({ label: 'Sprite sheet, grid' });
+  await form.getByLabel('Scale').selectOption('2');
+  await expect(form).toContainText('all 3 Frames as a 64x64 PNG');
+
+  const [png] = await Promise.all([
+    page.waitForEvent('download'),
+    form.getByRole('button', { name: 'Export PNG', exact: true }).click(),
+  ]);
+  expect(png.suggestedFilename()).toBe('sprite-sheet-64x64.png');
+  const decoded = await decodedPixels(page, await readFile((await png.path())!), [
+    { x: 1, y: 1 },
+    { x: 32, y: 0 },
+    { x: 31, y: 63 },
+  ]);
+  expect([decoded.width, decoded.height]).toEqual([64, 64]);
+  expect(decoded.pixels).toEqual([RED, [0, 0, 0, 0], RED]);
+
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    form.getByRole('button', { name: 'Export JSON' }).click(),
+  ]);
+  expect(json.suggestedFilename()).toBe('sprite-sheet-64x64.json');
+  const map = JSON.parse((await readFile((await json.path())!)).toString());
+  expect(map.meta).toMatchObject({ image: 'sprite-sheet-64x64.png', size: { w: 64, h: 64 } });
+  expect(map.frames.map((f: { frame: unknown }) => f.frame)).toEqual([
+    { x: 0, y: 0, w: 32, h: 32 },
+    { x: 32, y: 0, w: 32, h: 32 },
+    { x: 0, y: 32, w: 32, h: 32 },
+  ]);
+});

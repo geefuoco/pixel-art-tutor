@@ -16,11 +16,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from 'react';
-import { frameDrawing, onionSkins } from '../core/animation';
+import { frameDrawing, onionSkins, type Animation } from '../core/animation';
 import { MAX_DRAWING_SIZE, type Drawing } from '../core/drawing';
 import { findMistakes } from '../core/mistakes';
 import type { CustomPalette } from '../core/palettes';
 import { drawingFromImage, exportPng, MAX_EXPORT_SCALE } from '../core/png';
+import { asepriteFrameMap, spriteSheet, type SheetLayout } from '../core/sprite-sheet';
 import type { SavedDrawing, StorageProblem } from '../persistence/store';
 import type { CurrentDrawing } from '../persistence/studio';
 import type { Control } from './controls';
@@ -38,6 +39,14 @@ import { thumbnail } from './thumbnail';
 import { routeHref } from './router';
 import { blankStudioDrawing, studio, useStudio } from './studio-store';
 
+type ExportChoice = 'frame' | SheetLayout;
+
+const EXPORT_CHOICES: Record<ExportChoice, string> = {
+  frame: 'This Frame',
+  strip: 'Sprite sheet, strip',
+  grid: 'Sprite sheet, grid',
+};
+
 type Panel = 'new-drawing' | 'export' | 'drawings' | 'mistakes' | null;
 
 const STORAGE_MESSAGES: Record<StorageProblem, string> = {
@@ -48,11 +57,25 @@ const STORAGE_MESSAGES: Record<StorageProblem, string> = {
 
 const EXPORT_SCALES = Array.from({ length: MAX_EXPORT_SCALE }, (_, i) => i + 1);
 
-function downloadPng(drawing: Drawing, scale: number) {
+function downloadPng(drawing: Drawing, scale: number, filename: string) {
   const bytes = exportPng(drawing, scale);
+  downloadFile(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }), filename);
+}
+
+function sizedName(prefix: string, drawing: Drawing, scale: number) {
+  return `${prefix}-${drawing.width * scale}x${drawing.height * scale}`;
+}
+
+function sheetPngName(sheet: Drawing, scale: number) {
+  return `${sizedName('sprite-sheet', sheet, scale)}.png`;
+}
+
+function downloadFrameMap(animation: Animation, layout: SheetLayout, scale: number) {
+  const image = sheetPngName(spriteSheet(animation, layout).image, scale);
+  const map = asepriteFrameMap(animation, { layout, scale, image });
   downloadFile(
-    new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
-    `drawing-${drawing.width * scale}x${drawing.height * scale}.png`,
+    new Blob([JSON.stringify(map, null, 2)], { type: 'application/json' }),
+    image.replace(/\.png$/, '.json'),
   );
 }
 
@@ -99,6 +122,9 @@ function StudioEditor({
   const [previewShown, setPreviewShown] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [exportScale, setExportScale] = useState(1);
+  const [chosenExport, setChosenExport] = useState<ExportChoice>('frame');
+  const exportChoice = lastFrame > 0 ? chosenExport : 'frame';
+  const exported = exportChoice === 'frame' ? drawing : spriteSheet(animation, exportChoice).image;
   const [openError, setOpenError] = useState<string | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [mirror, setMirror] = useState(false);
@@ -244,8 +270,14 @@ function StudioEditor({
 
   function exportDrawing(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    downloadPng(drawing, exportScale);
-    setPanel(null);
+    downloadPng(
+      exported,
+      exportScale,
+      exportChoice === 'frame'
+        ? `${sizedName('drawing', drawing, exportScale)}.png`
+        : sheetPngName(exported, exportScale),
+    );
+    if (exportChoice === 'frame') setPanel(null);
   }
 
   return (
@@ -366,12 +398,28 @@ function StudioEditor({
             onSubmit={exportDrawing}
             onKeyDown={(e) => e.key === 'Escape' && setPanel(null)}
           >
+            {lastFrame > 0 && (
+              <label>
+                Frames
+                <select
+                  value={exportChoice}
+                  onChange={(e) => setChosenExport(e.currentTarget.value as ExportChoice)}
+                  autoFocus
+                >
+                  {Object.entries(EXPORT_CHOICES).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               Scale
               <select
                 value={exportScale}
                 onChange={(e) => setExportScale(Number(e.currentTarget.value))}
-                autoFocus
+                autoFocus={lastFrame === 0}
               >
                 {EXPORT_SCALES.map((s) => (
                   <option key={s} value={s}>
@@ -381,15 +429,31 @@ function StudioEditor({
               </select>
             </label>
             <button type="submit" className="btn primary">
-              Export
+              {exportChoice === 'frame' ? 'Export' : 'Export PNG'}
             </button>
+            {exportChoice !== 'frame' && (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => downloadFrameMap(animation, exportChoice, exportScale)}
+              >
+                Export JSON
+              </button>
+            )}
             <button type="button" className="btn" onClick={() => setPanel(null)}>
-              Cancel
+              {exportChoice === 'frame' ? 'Cancel' : 'Done'}
             </button>
             <p className="hint">
-              Saves {lastFrame > 0 ? `Frame ${frame + 1} as ` : ''}a {drawing.width * exportScale}x
-              {drawing.height * exportScale} PNG. Each pixel becomes a sharp {exportScale}x
-              {exportScale} block.
+              Saves{' '}
+              {exportChoice === 'frame'
+                ? lastFrame > 0
+                  ? `Frame ${frame + 1} as `
+                  : ''
+                : `all ${lastFrame + 1} Frames as `}
+              a {exported.width * exportScale}x{exported.height * exportScale} PNG. Each pixel
+              becomes a sharp {exportScale}x{exportScale} block.
+              {exportChoice !== 'frame' &&
+                ' The JSON is an Aseprite-style frame map giving where each Frame is and how long it shows.'}
             </p>
           </form>
         )}
