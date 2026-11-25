@@ -138,5 +138,5 @@ A Mistake on a tile where opposite edges that repeat meet in a pairing of colors
 A live 3x3 repetition of the canvas that shows how a tile looks when repeated.
 
 **Gallery**:
-The learner's saved record of drawings and Attempts over time. It holds every Studio drawing, every passed Attempt, every finished Freehand Attempt, and any other Attempt the learner saves to it.
+The learner's saved record of drawings and Attempts over time. It holds every Studio drawing, every passed Attempt, every finished Freehand Attempt, any other Attempt the learner saves to it, and any Daily Prompt drawing the learner saves to it.
 _Avoid_: Portfolio, history

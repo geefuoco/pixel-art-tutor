@@ -3,7 +3,8 @@ import { frameDrawing } from '../core/animation';
 import type { Drawing } from '../core/drawing';
 import { passesMode } from '../core/evaluate';
 import type { GalleryEntry, GalleryState } from '../persistence/gallery';
-import type { Attempt, SavedDrawing, StorageProblem } from '../persistence/store';
+import type { Attempt, PromptDrawing, SavedDrawing, StorageProblem } from '../persistence/store';
+import { formatCalendarDate } from './calendar-date-format';
 import { dateTime } from './date-time';
 import { gallery, useGallery } from './gallery-store';
 import { useCourse } from './lessons-store';
@@ -126,12 +127,41 @@ function GalleryAttemptCard({ attempt, titleOf }: { attempt: Attempt; titleOf: T
   );
 }
 
-function GalleryCard({ entry, titleOf }: { entry: GalleryEntry; titleOf: TitleOf }) {
-  return entry.kind === 'studio' ? (
-    <StudioCard studioDrawing={entry.studioDrawing} />
-  ) : (
-    <GalleryAttemptCard attempt={entry.attempt} titleOf={titleOf} />
+function PromptCard({ promptDrawing }: { promptDrawing: PromptDrawing }) {
+  const { text, date, animation } = promptDrawing;
+  const day = formatCalendarDate(date);
+  return (
+    <DrawingCard
+      label={`Daily Prompt, ${day}`}
+      drawing={frameDrawing(animation, 0)}
+      heading="Daily Prompt"
+      date={day}
+    >
+      <p>{text}</p>
+    </DrawingCard>
   );
+}
+
+function GalleryCard({ entry, titleOf }: { entry: GalleryEntry; titleOf: TitleOf }) {
+  switch (entry.kind) {
+    case 'studio':
+      return <StudioCard studioDrawing={entry.studioDrawing} />;
+    case 'attempt':
+      return <GalleryAttemptCard attempt={entry.attempt} titleOf={titleOf} />;
+    case 'prompt':
+      return <PromptCard promptDrawing={entry.promptDrawing} />;
+  }
+}
+
+function entryKey(entry: GalleryEntry): string {
+  switch (entry.kind) {
+    case 'studio':
+      return `studio/${entry.studioDrawing.id}`;
+    case 'attempt':
+      return `attempt/${entry.attempt.id}`;
+    case 'prompt':
+      return `prompt/${entry.promptDrawing.date}/${entry.promptDrawing.draw}`;
+  }
 }
 
 function GalleryPage({
@@ -166,18 +196,13 @@ export function Gallery() {
           <h1>Gallery</h1>
           {entries.length === 0 ? (
             <p className="hint">
-              Nothing here yet. Lessons you pass and your Studio drawings show up here.
+              Nothing here yet. Lessons you pass, your Studio drawings and the Daily Prompt drawings
+              you save show up here.
             </p>
           ) : (
             <ul className="gallery-list">
               {entries.map((entry) => (
-                <li
-                  key={
-                    entry.kind === 'studio'
-                      ? `studio/${entry.studioDrawing.id}`
-                      : `attempt/${entry.attempt.id}`
-                  }
-                >
+                <li key={entryKey(entry)}>
                   <GalleryCard entry={entry} titleOf={titleOf} />
                 </li>
               ))}

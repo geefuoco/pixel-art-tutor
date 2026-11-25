@@ -16,6 +16,9 @@ export function Home() {
           <a className="btn primary" href={routeHref.lessons}>
             Start a Lesson
           </a>
+          <a className="btn" href={routeHref.daily}>
+            Today's Daily Prompt
+          </a>
           <a className="btn" href={routeHref.studio}>
             Open the Studio
           </a>

@@ -3,6 +3,7 @@ import type { Drawing } from '../core/drawing';
 import type { FreehandSubScores } from '../core/freehand';
 import type { Mode, Role } from '../core/lesson';
 import { passesMode } from '../core/evaluate';
+import type { CalendarDate } from '../core/calendar-date';
 import type { CustomPalette } from '../core/palettes';
 import { recordPass, type LessonProgress, type Progress } from '../core/progress';
 
@@ -40,6 +41,15 @@ export interface PersonalLessonRecord {
   readonly createdAt: number;
 }
 
+export interface PromptDrawing {
+  readonly date: CalendarDate;
+  readonly draw: number;
+  readonly text: string;
+  readonly animation: Animation;
+  readonly inGallery: boolean;
+  readonly updatedAt: number;
+}
+
 export interface StoreContents {
   readonly studioDrawings: readonly SavedDrawing[];
   readonly customPalettes: readonly CustomPalette[];
@@ -47,6 +57,7 @@ export interface StoreContents {
   readonly inProgressAttempts: readonly InProgressAttempt[];
   readonly progress: Progress;
   readonly personalLessons: readonly PersonalLessonRecord[];
+  readonly promptDrawings: readonly PromptDrawing[];
 }
 
 export interface Store {
@@ -64,6 +75,8 @@ export interface Store {
   listProgress(): Promise<LessonProgress[]>;
   listPersonalLessons(): Promise<PersonalLessonRecord[]>;
   putPersonalLesson(record: PersonalLessonRecord): Promise<void>;
+  listPromptDrawings(): Promise<PromptDrawing[]>;
+  putPromptDrawing(entry: PromptDrawing): Promise<void>;
   readAll(): Promise<StoreContents>;
   replaceAll(contents: StoreContents): Promise<void>;
 }
@@ -89,13 +102,14 @@ function toStorageError(error: unknown): StorageError {
 }
 
 const DB_NAME = 'pixel-art-tutor';
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 const STUDIO_DRAWINGS = 'studio-drawings';
 const CUSTOM_PALETTES = 'custom-palettes';
 const ATTEMPTS = 'attempts';
 const IN_PROGRESS_ATTEMPTS = 'in-progress-attempts';
 const PROGRESS = 'progress';
 const PERSONAL_LESSONS = 'personal-lessons';
+const PROMPT_DRAWINGS = 'prompt-drawings';
 const KEY_PATHS: Record<string, string | string[]> = {
   [STUDIO_DRAWINGS]: 'id',
   [CUSTOM_PALETTES]: 'id',
@@ -103,6 +117,7 @@ const KEY_PATHS: Record<string, string | string[]> = {
   [IN_PROGRESS_ATTEMPTS]: ['lessonId', 'mode'],
   [PROGRESS]: 'lessonId',
   [PERSONAL_LESSONS]: 'id',
+  [PROMPT_DRAWINGS]: ['date', 'draw'],
 };
 const OBJECT_STORES = Object.keys(KEY_PATHS);
 
@@ -304,6 +319,15 @@ export function openStore(factory: IDBFactory | undefined): Store {
     async putPersonalLesson(record) {
       await transact('readwrite', (objectStore) => objectStore(PERSONAL_LESSONS).put(record));
     },
+    async listPromptDrawings() {
+      const all = await transact<PromptDrawing[]>('readonly', (objectStore) =>
+        objectStore(PROMPT_DRAWINGS).getAll(),
+      );
+      return all.sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+    async putPromptDrawing(entry) {
+      await transact('readwrite', (objectStore) => objectStore(PROMPT_DRAWINGS).put(entry));
+    },
     async readAll() {
       const [
         studioDrawings,
@@ -312,6 +336,7 @@ export function openStore(factory: IDBFactory | undefined): Store {
         inProgressAttempts,
         progress,
         personalLessons,
+        promptDrawings,
       ] = await Promise.all([
         this.listStudioDrawings(),
         this.listCustomPalettes(),
@@ -321,6 +346,7 @@ export function openStore(factory: IDBFactory | undefined): Store {
         ),
         this.listProgress(),
         this.listPersonalLessons(),
+        this.listPromptDrawings(),
       ]);
       return {
         studioDrawings,
@@ -329,6 +355,7 @@ export function openStore(factory: IDBFactory | undefined): Store {
         inProgressAttempts,
         progress,
         personalLessons,
+        promptDrawings,
       };
     },
     async replaceAll(contents) {
@@ -345,6 +372,8 @@ export function openStore(factory: IDBFactory | undefined): Store {
         for (const entry of contents.progress) objectStore(PROGRESS).put(entry);
         objectStore(PERSONAL_LESSONS).clear();
         for (const record of contents.personalLessons) objectStore(PERSONAL_LESSONS).put(record);
+        objectStore(PROMPT_DRAWINGS).clear();
+        for (const entry of contents.promptDrawings) objectStore(PROMPT_DRAWINGS).put(entry);
         const cleared = objectStore(STUDIO_DRAWINGS).clear();
         for (const entry of contents.studioDrawings) objectStore(STUDIO_DRAWINGS).put(entry);
         return cleared;

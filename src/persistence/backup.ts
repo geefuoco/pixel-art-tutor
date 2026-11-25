@@ -1,4 +1,5 @@
 import { isValidFps, stillAnimation, type Animation } from '../core/animation';
+import { checkCalendarDate } from '../core/calendar-date';
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Drawing } from '../core/drawing';
 import { passesMode } from '../core/evaluate';
 import type { FreehandSubScores } from '../core/freehand';
@@ -11,13 +12,14 @@ import {
   type Attempt,
   type InProgressAttempt,
   type PersonalLessonRecord,
+  type PromptDrawing,
   type SavedDrawing,
   type Store,
   type StoreContents,
 } from './store';
 
 export const BACKUP_FORMAT = 'pixel-art-tutor-backup';
-export const BACKUP_VERSION = 10;
+export const BACKUP_VERSION = 11;
 
 export async function createBackup(store: Store): Promise<string> {
   const contents = await store.readAll();
@@ -215,6 +217,25 @@ function readPersonalLesson(value: unknown): PersonalLessonRecord | null {
   return { id, title, reference: sprite, roles: [...roles], createdAt: createdAt as number };
 }
 
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    return checkCalendarDate(value) === value;
+  } catch (error) {
+    if (error instanceof RangeError) return false;
+    throw error;
+  }
+}
+
+function readPromptDrawing(value: unknown): PromptDrawing | null {
+  if (!isRecord(value)) return null;
+  const { date, draw, text, inGallery, updatedAt } = value as Unchecked<PromptDrawing>;
+  const animation = readAnimation(value.animation);
+  if (!isCalendarDate(date) || !isCount(draw) || !isText(text) || !animation) return null;
+  if (typeof inGallery !== 'boolean' || !Number.isFinite(updatedAt)) return null;
+  return { date, draw, text, animation, inGallery, updatedAt: updatedAt as number };
+}
+
 function readAllWithUniqueKeys<T>(
   values: unknown,
   read: (value: unknown) => T | null,
@@ -279,13 +300,18 @@ export function readBackup(text: string): BackupReading {
       : attempts && progressFromAttempts(attempts);
   const personalLessons =
     version >= 8 ? readAllWithUniqueKeys(file.personalLessons, readPersonalLesson, byId) : [];
+  const promptDrawings =
+    version >= 11
+      ? readAllWithUniqueKeys(file.promptDrawings, readPromptDrawing, (d) => `${d.date}\n${d.draw}`)
+      : [];
   if (
     !studioDrawings ||
     !customPalettes ||
     !attempts ||
     !inProgressAttempts ||
     !progress ||
-    !personalLessons
+    !personalLessons ||
+    !promptDrawings
   ) {
     return { ok: false, message: DAMAGED };
   }
@@ -298,6 +324,7 @@ export function readBackup(text: string): BackupReading {
       inProgressAttempts,
       progress,
       personalLessons,
+      promptDrawings,
     },
   };
 }

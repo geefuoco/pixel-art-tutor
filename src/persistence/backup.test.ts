@@ -240,6 +240,25 @@ describe('backup and restore', () => {
       animation: bobbing,
     })),
   };
+  const version11 = {
+    ...version10,
+    version: 11,
+    promptDrawings: [
+      {
+        date: '2026-11-25',
+        draw: 1,
+        text: '8x8 coin, 2 colors from 2bit Demichrome, side view',
+        animation: bobbing,
+        inGallery: true,
+        updatedAt: 12,
+      },
+    ],
+  };
+  const withPromptDrawing = (changes: object) =>
+    JSON.stringify({
+      ...version11,
+      promptDrawings: [{ ...version11.promptDrawings[0], ...changes }],
+    });
   const withAnimation = (changes: object) =>
     JSON.stringify({
       ...version9,
@@ -265,7 +284,27 @@ describe('backup and restore', () => {
   it.each([
     ['cut short', '{"format": "pixel-art-tutor-backup", "vers', /could not be read.*damaged/],
     ['some other JSON', JSON.stringify({ hello: 'world' }), /not a Pixel Art Tutor backup/],
-    ['from a newer app', JSON.stringify({ ...valid, version: 11 }), /newer version/],
+    ['from a newer app', JSON.stringify({ ...valid, version: 12 }), /newer version/],
+    [
+      'a prompt drawing on a date not on the calendar',
+      withPromptDrawing({ date: '2026-02-30' }),
+      /damaged/,
+    ],
+    ['a prompt drawing with a draw below 0', withPromptDrawing({ draw: -1 }), /damaged/],
+    ['a prompt drawing without its prompt', withPromptDrawing({ text: '' }), /damaged/],
+    [
+      'a prompt drawing not saying whether it is in the Gallery',
+      withPromptDrawing({ inGallery: undefined }),
+      /damaged/,
+    ],
+    [
+      'two prompt drawings for the same draw',
+      JSON.stringify({
+        ...version11,
+        promptDrawings: [...version11.promptDrawings, ...version11.promptDrawings],
+      }),
+      /damaged/,
+    ],
     ['an animation with no Frames', withAnimation({ frames: [] }), /damaged/],
     ['a Frame with too few pixels', withAnimation({ frames: [[1, _], [0]] }), /damaged/],
     [
@@ -487,6 +526,23 @@ describe('backup and restore', () => {
     const again = await openStudio(new IDBFactory());
     await again.studio.restore(await studio.backup());
     expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores Daily Prompt drawings along with the rest', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    expect(await studio.restore(JSON.stringify(version11))).toMatchObject({ ok: true });
+    expect(await store.listPromptDrawings()).toEqual(version11.promptDrawings);
+
+    const again = await openStudio(new IDBFactory());
+    await again.studio.restore(await studio.backup());
+    expect(await again.store.readAll()).toEqual(await store.readAll());
+  });
+
+  it('restores a version 10 backup, made before Daily Prompts, as having no prompt drawings', async () => {
+    const { store, studio } = await openStudio(new IDBFactory());
+    await studio.restore(JSON.stringify(version11));
+    expect(await studio.restore(JSON.stringify(version10))).toMatchObject({ ok: true });
+    expect(await store.listPromptDrawings()).toEqual([]);
   });
 
   it('restores a version 7 backup, made before Personal Lessons, as having none', async () => {
