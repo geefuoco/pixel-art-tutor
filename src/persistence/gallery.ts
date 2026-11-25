@@ -1,6 +1,7 @@
 import {
   StorageError,
   type Attempt,
+  type PromptDrawing,
   type SavedDrawing,
   type Store,
   type StorageProblem,
@@ -8,7 +9,8 @@ import {
 
 export type GalleryEntry =
   | { readonly kind: 'studio'; readonly date: number; readonly studioDrawing: SavedDrawing }
-  | { readonly kind: 'attempt'; readonly date: number; readonly attempt: Attempt };
+  | { readonly kind: 'attempt'; readonly date: number; readonly attempt: Attempt }
+  | { readonly kind: 'prompt'; readonly date: number; readonly promptDrawing: PromptDrawing };
 
 export type GalleryState =
   | { readonly status: 'loading' }
@@ -44,9 +46,10 @@ export function createGallery(options: { store: Store }): Gallery {
 
   async function read(): Promise<Extract<GalleryState, { status: 'ready' }>> {
     try {
-      const [studioDrawings, attempts] = await Promise.all([
+      const [studioDrawings, attempts, promptDrawings] = await Promise.all([
         store.listStudioDrawings(),
         store.listAttempts(),
+        store.listPromptDrawings(),
       ]);
       const entries: GalleryEntry[] = [
         ...studioDrawings.map((studioDrawing) => ({
@@ -57,6 +60,13 @@ export function createGallery(options: { store: Store }): Gallery {
         ...attempts
           .filter((attempt) => attempt.inGallery)
           .map((attempt) => ({ kind: 'attempt' as const, date: attempt.finishedAt, attempt })),
+        ...promptDrawings
+          .filter((promptDrawing) => promptDrawing.inGallery)
+          .map((promptDrawing) => ({
+            kind: 'prompt' as const,
+            date: promptDrawing.updatedAt,
+            promptDrawing,
+          })),
       ].sort((a, b) => b.date - a.date);
       return { status: 'ready', entries, attemptsByLesson: groupByLesson(attempts), problem: null };
     } catch (error) {

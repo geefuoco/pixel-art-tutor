@@ -1,3 +1,4 @@
+import { DailyPromptPage } from './DailyPromptPage';
 import { Gallery, LessonAttempts } from './Gallery';
 import { Home } from './Home';
 import { LessonPlayer } from './LessonPlayer';
@@ -7,6 +8,7 @@ import { NewPersonalLesson } from './NewPersonalLesson';
 import { useRoute } from './router';
 import { Settings } from './Settings';
 import { Studio } from './Studio';
+import { UpcomingPrompts } from './UpcomingPrompts';
 
 export function App() {
   const route = useRoute();
@@ -25,6 +27,10 @@ export function App() {
       );
     case 'new-personal-lesson':
       return <NewPersonalLesson />;
+    case 'daily':
+      return <DailyPromptPage />;
+    case 'upcoming-prompts':
+      return import.meta.env.DEV ? <UpcomingPrompts /> : <NotFound />;
     case 'studio':
       return <Studio />;
     case 'gallery':

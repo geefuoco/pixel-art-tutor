@@ -7,6 +7,7 @@ import { plural } from './plural';
 import { Palettes } from './Palettes';
 import { routeHref } from './router';
 import { forgetLessonPlays } from './lesson-plays';
+import { dailyPrompt } from './daily-prompt-store';
 import { personalLessons } from './personal-lessons-store';
 import { courseProgress } from './progress-store';
 import { studio } from './studio-store';
@@ -83,7 +84,7 @@ export function Settings() {
     const result = await studio.restore(backup.text);
     if (result.ok) {
       forgetLessonPlays();
-      await Promise.all([courseProgress.reload(), personalLessons.reload()]);
+      await Promise.all([courseProgress.reload(), personalLessons.reload(), dailyPrompt.reload()]);
     }
     setBusy(false);
     setChosen(null);
