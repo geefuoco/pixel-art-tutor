@@ -30,9 +30,9 @@ export function frameDrawing(animation: Animation, frame: number): Drawing {
   return { width, height, palette, pixels };
 }
 
-function assertFrameSlot(animation: Animation, index: number, slots: number) {
-  if (!Number.isInteger(index) || index < 0 || index >= slots) {
-    throw new RangeError(`There is no Frame ${index + 1} of ${animation.frames.length}`);
+export function assertFramePosition(index: number, positions: number) {
+  if (!Number.isInteger(index) || index < 0 || index >= positions) {
+    throw new RangeError(`Frame position ${index + 1} is not between 1 and ${positions}`);
   }
 }
 
@@ -40,7 +40,7 @@ export function applyFrameCommand(animation: Animation, command: FrameCommand): 
   const frames = animation.frames.slice();
   switch (command.type) {
     case 'add-frame': {
-      assertFrameSlot(animation, command.at, frames.length + 1);
+      assertFramePosition(command.at, frames.length + 1);
       const blank = new Array<number>(animation.width * animation.height).fill(TRANSPARENT);
       const added =
         command.copyOf === undefined ? blank : frameDrawing(animation, command.copyOf).pixels;
@@ -48,14 +48,14 @@ export function applyFrameCommand(animation: Animation, command: FrameCommand): 
       return { ...animation, frames };
     }
     case 'remove-frame': {
-      assertFrameSlot(animation, command.frame, frames.length);
+      assertFramePosition(command.frame, frames.length);
       if (frames.length === 1) return animation;
       frames.splice(command.frame, 1);
       return { ...animation, frames };
     }
     case 'move-frame': {
-      assertFrameSlot(animation, command.from, frames.length);
-      assertFrameSlot(animation, command.to, frames.length);
+      assertFramePosition(command.from, frames.length);
+      assertFramePosition(command.to, frames.length);
       if (command.from === command.to) return animation;
       frames.splice(command.to, 0, ...frames.splice(command.from, 1));
       return { ...animation, frames };

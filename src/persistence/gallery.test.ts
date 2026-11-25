@@ -67,7 +67,11 @@ describe('the Gallery', () => {
       {
         kind: 'studio',
         date: 40,
-        studioDrawing: { id: 's2', animation: stillAnimation(drawingOf(0, 1)), updatedAt: 40 },
+        studioDrawing: {
+          id: 's2',
+          animation: { width: 2, height: 1, palette: PALETTE, frames: [[0, 1]], fps: 8 },
+          updatedAt: 40,
+        },
       },
       {
         kind: 'attempt',
@@ -86,7 +90,11 @@ describe('the Gallery', () => {
       {
         kind: 'studio',
         date: 10,
-        studioDrawing: { id: 's1', animation: stillAnimation(drawingOf(0)), updatedAt: 10 },
+        studioDrawing: {
+          id: 's1',
+          animation: { width: 1, height: 1, palette: PALETTE, frames: [[0]], fps: 8 },
+          updatedAt: 10,
+        },
       },
     ]);
   });

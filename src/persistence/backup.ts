@@ -70,14 +70,28 @@ function readAnimation(value: unknown): Animation | null {
   if (typeof fps !== 'number' || !isValidFps(fps)) return null;
   const drawings = frames.map((pixels: unknown) => readDrawing({ width, height, palette, pixels }));
   if (!drawings.every((d) => d !== null)) return null;
-  return { ...stillAnimation(drawings[0]!, fps), frames: drawings.map((d) => d.pixels) };
+  const [first] = drawings;
+  return {
+    width: first!.width,
+    height: first!.height,
+    palette: first!.palette,
+    frames: drawings.map((d) => d.pixels),
+    fps,
+  };
 }
 
-function readSavedDrawing(value: unknown, framesSaved: boolean): SavedDrawing | null {
+function readStillAsAnimation(value: unknown): Animation | null {
+  const still = readDrawing(value);
+  return still && stillAnimation(still);
+}
+
+function readSavedDrawing(
+  value: unknown,
+  readStudioAnimation: (record: Record<string, unknown>) => Animation | null,
+): SavedDrawing | null {
   if (!isRecord(value)) return null;
   const { id, updatedAt } = value as Unchecked<SavedDrawing>;
-  const still = framesSaved ? null : readDrawing(value.drawing);
-  const animation = framesSaved ? readAnimation(value.animation) : still && stillAnimation(still);
+  const animation = readStudioAnimation(value);
   if (typeof id !== 'string' || id === '' || !Number.isFinite(updatedAt) || !animation) {
     return null;
   }
@@ -217,10 +231,13 @@ export function readBackup(text: string): BackupReading {
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
     return { ok: false, message: DAMAGED };
   }
-  const framesSaved = version >= 9;
+  const readStudioAnimation =
+    version >= 9
+      ? (record: Record<string, unknown>) => readAnimation(record.animation)
+      : (record: Record<string, unknown>) => readStillAsAnimation(record.drawing);
   const studioDrawings = readAllWithUniqueKeys(
     file.studioDrawings,
-    (d) => readSavedDrawing(d, framesSaved),
+    (d) => readSavedDrawing(d, readStudioAnimation),
     byId,
   );
   const customPalettes =

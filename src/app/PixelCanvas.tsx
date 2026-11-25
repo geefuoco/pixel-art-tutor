@@ -1,4 +1,5 @@
 import { useCallback, useRef, type CSSProperties, type PointerEvent } from 'react';
+import type { OnionSkins } from '../core/animation';
 import { getPixel, TRANSPARENT, type Drawing, type Point, type Rect } from '../core/drawing';
 
 const CELL = 24;
@@ -9,11 +10,7 @@ const MISSING_COLOR = '#f59e0b';
 const EXTRA_COLOR = '#e11d48';
 const MISTAKE_COLOR = '#7c3aed';
 
-export interface OnionSkinView {
-  readonly previous: readonly number[] | null;
-  readonly next: readonly number[] | null;
-  readonly opacity: number;
-}
+export type OnionSkinView = OnionSkins & { readonly opacity: number };
 
 export interface CanvasMarks {
   readonly guide: readonly number[] | null;

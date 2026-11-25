@@ -976,7 +976,7 @@ a {
   font-weight: 700;
   font-size: 13px;
 }
-.frame-actions input[type='number'] {
+.frame-actions select {
   font: inherit;
   width: 4em;
   padding: 4px 6px;

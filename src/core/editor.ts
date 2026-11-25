@@ -1,4 +1,10 @@
-import { applyFrameCommand, frameDrawing, type Animation, type FrameCommand } from './animation';
+import {
+  applyFrameCommand,
+  assertFramePosition,
+  frameDrawing,
+  type Animation,
+  type FrameCommand,
+} from './animation';
 import { applyCommand, type Command, type Drawing } from './drawing';
 
 export type StepId = number;
@@ -51,9 +57,13 @@ function frameAfter(command: FrameCommand, current: number, frameCount: number):
     case 'add-frame':
       return command.at;
     case 'remove-frame':
+      if (command.frame < current) return current - 1;
       return Math.min(current, frameCount - 1);
-    case 'move-frame':
-      return command.to;
+    case 'move-frame': {
+      if (command.from === current) return command.to;
+      const withoutMoved = current > command.from ? current - 1 : current;
+      return withoutMoved >= command.to ? withoutMoved + 1 : withoutMoved;
+    }
     case 'set-fps':
       return current;
   }
@@ -185,7 +195,7 @@ export function createEditor(initial: Animation): Editor {
       publish();
     },
     selectFrame(index) {
-      frameDrawing(animation, index);
+      assertFramePosition(index, animation.frames.length);
       if (index === frame) return;
       openStep = null;
       frame = index;

@@ -1,6 +1,5 @@
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { stillAnimation } from '../core/animation';
 import { createDrawing, TRANSPARENT as _ } from '../core/drawing';
 import { createBackup } from './backup';
 import { openStore } from './store';
@@ -53,13 +52,17 @@ describe('backup and restore', () => {
     });
 
     const expected = [
-      { width: 1, height: 2, palette: PALETTE, pixels: [0, _] },
-      { width: 3, height: 2, palette: PALETTE, pixels: [1, _, _, _, _, _] },
+      { width: 1, height: 2, palette: PALETTE, frames: [[0, _]], fps: 8 },
+      { width: 3, height: 2, palette: PALETTE, frames: [[1, _, _, _, _, _]], fps: 8 },
     ];
-    const stills = expected.map((drawing) => stillAnimation(drawing));
-    expect((await target.store.listStudioDrawings()).map((d) => d.animation)).toEqual(stills);
-    expect(ready(target.studio).drawings.map((d) => d.animation)).toEqual(stills);
-    expect(ready(target.studio).current.editor.getState().drawing).toEqual(expected[0]);
+    expect((await target.store.listStudioDrawings()).map((d) => d.animation)).toEqual(expected);
+    expect(ready(target.studio).drawings.map((d) => d.animation)).toEqual(expected);
+    expect(ready(target.studio).current.editor.getState().drawing).toEqual({
+      width: 1,
+      height: 2,
+      palette: PALETTE,
+      pixels: [0, _],
+    });
     expect(await target.store.listStudioDrawings()).toEqual(
       await source.store.listStudioDrawings(),
     );
@@ -514,7 +517,13 @@ describe('backup and restore', () => {
       drawingCount: 1,
       paletteCount: 0,
     });
-    expect((await store.listStudioDrawings()).map((d) => d.id)).toEqual(['a']);
+    expect(await store.listStudioDrawings()).toEqual([
+      {
+        id: 'a',
+        updatedAt: 5,
+        animation: { width: 2, height: 1, palette: PALETTE, frames: [[1, _]], fps: 8 },
+      },
+    ]);
     expect(await store.listCustomPalettes()).toEqual([]);
   });
 

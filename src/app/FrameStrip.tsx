@@ -1,18 +1,13 @@
 import { useCallback } from 'react';
-import {
-  frameDrawing,
-  MAX_FPS,
-  MIN_FPS,
-  previewFrame,
-  isValidFps,
-  type Animation,
-} from '../core/animation';
+import { frameDrawing, MAX_FPS, MIN_FPS, previewFrame, type Animation } from '../core/animation';
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import type { Editor } from '../core/editor';
 import { ControlButton, type Control } from './controls';
 import { thumbnail } from './thumbnail';
 
-export const ONION_OPACITIES = { min: 0.1, max: 0.9, step: 0.1 } as const;
+const FPS_CHOICES = Array.from({ length: MAX_FPS - MIN_FPS + 1 }, (_, i) => MIN_FPS + i);
+
+const ONION_OPACITIES = { min: 0.1, max: 0.9, step: 0.1 } as const;
 
 function paintFrame(canvas: HTMLCanvasElement, drawing: Drawing) {
   const ctx = canvas.getContext('2d');
@@ -85,17 +80,18 @@ export function FrameStrip({
         ))}
         <label>
           FPS
-          <input
-            type="number"
-            min={MIN_FPS}
-            max={MAX_FPS}
-            step={1}
+          <select
             value={animation.fps}
-            onChange={(e) => {
-              const fps = e.currentTarget.valueAsNumber;
-              if (isValidFps(fps)) editor.applyToFrames({ type: 'set-fps', fps });
-            }}
-          />
+            onChange={(e) =>
+              editor.applyToFrames({ type: 'set-fps', fps: Number(e.currentTarget.value) })
+            }
+          >
+            {FPS_CHOICES.map((fps) => (
+              <option key={fps} value={fps}>
+                {fps}
+              </option>
+            ))}
+          </select>
         </label>
         {onionShown && (
           <label>

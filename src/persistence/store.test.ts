@@ -147,7 +147,11 @@ describe('store: custom palettes', () => {
 
     const store = openStore(indexedDB);
     expect(await store.listStudioDrawings()).toEqual([
-      { id: 'old', animation: stillAnimation(drawing), updatedAt: 1 },
+      {
+        id: 'old',
+        animation: { width: 1, height: 1, palette: PALETTE, frames: [[TRANSPARENT]], fps: 8 },
+        updatedAt: 1,
+      },
     ]);
     expect(await store.listCustomPalettes()).toEqual([]);
     await store.putCustomPalette({ id: 'p', name: 'New', colors: ['#000000'] });

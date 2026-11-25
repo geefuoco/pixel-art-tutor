@@ -61,6 +61,20 @@ describe('Frames', () => {
     expect(editor.getState().animation.frames).toEqual([[0, _]]);
   });
 
+  it('removing or moving another Frame keeps editing the same Frame', () => {
+    const editor = editorWithFrames(3);
+    editor.applyToFrames({ type: 'remove-frame', frame: 0 });
+    expect(editor.getState()).toMatchObject({ frame: 1, drawing: { pixels: [0, 1] } });
+    editor.applyToFrames({ type: 'add-frame', at: 2 });
+    editor.selectFrame(1);
+    editor.applyToFrames({ type: 'move-frame', from: 0, to: 2 });
+    expect(editor.getState()).toMatchObject({ frame: 0, drawing: { pixels: [0, 1] } });
+    editor.applyToFrames({ type: 'move-frame', from: 2, to: 1 });
+    expect(editor.getState()).toMatchObject({ frame: 0, drawing: { pixels: [0, 1] } });
+    editor.applyToFrames({ type: 'move-frame', from: 1, to: 0 });
+    expect(editor.getState()).toMatchObject({ frame: 1, drawing: { pixels: [0, 1] } });
+  });
+
   it('moving a Frame reorders the Frames and follows the moved Frame', () => {
     const editor = editorWithFrames(3);
     editor.applyToFrames({ type: 'move-frame', from: 2, to: 0 });
@@ -127,9 +141,7 @@ describe('Frames', () => {
     editor.applyToFrames({ type: 'set-fps', fps: 12 });
     expect(editor.getState()).toMatchObject({ frame: 1, animation: { fps: 12 } });
     editor.undo();
-    expect(editor.getState().animation.fps).toBe(
-      stillAnimation(createDrawing({ width: 1, height: 1, palette })).fps,
-    );
+    expect(editor.getState().animation.fps).toBe(8);
   });
 
   it('rejects Frames that do not exist and FPS outside 1 to 30', () => {
