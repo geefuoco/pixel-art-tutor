@@ -52,6 +52,7 @@ a {
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -60,9 +61,11 @@ a {
   font-weight: 800;
   font-size: 20px;
   margin-right: auto;
+  white-space: nowrap;
 }
 
 .nav-link {
+  white-space: nowrap;
   font-weight: 700;
   color: var(--muted);
   padding: 8px 14px;
@@ -525,6 +528,7 @@ a {
 
 .lesson-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
 }
@@ -584,6 +588,12 @@ a {
   grid-template-columns: 1fr minmax(280px, 340px);
   align-items: start;
   gap: 16px;
+}
+
+@media (max-width: 899px) {
+  .lesson-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .lesson-panel {
