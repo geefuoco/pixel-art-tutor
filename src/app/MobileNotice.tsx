@@ -11,8 +11,8 @@ export function MobileNotice() {
       </div>
       <h1 id="mobile-notice-title">Not supported on mobile</h1>
       <p>
-        Pixel Art Tutor is built for drawing with a mouse and keyboard on a screen at least 500
-        pixels wide. Touch and stylus drawing are not supported.
+        Pixel Art Tutor is built for drawing with a mouse and keyboard, in a window at least 500
+        pixels wide.
       </p>
       <button type="button" className="btn primary" onClick={mobileNoticeChoice.continueAnyway}>
         Continue anyway

@@ -8,8 +8,10 @@ export interface MobileNoticeChoice {
 
 const CONTINUED_KEY = 'pixel-art-tutor:continued-on-mobile';
 
+const STORAGE_REFUSALS = new Set(['SecurityError', 'QuotaExceededError']);
+
 function rethrowUnlessStorageRefused(error: unknown) {
-  if (!(error instanceof DOMException)) throw error;
+  if (!(error instanceof DOMException && STORAGE_REFUSALS.has(error.name))) throw error;
 }
 
 function readContinued(storage: DeviceStorage | undefined): boolean {
