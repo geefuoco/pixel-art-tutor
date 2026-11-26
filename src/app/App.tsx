@@ -3,6 +3,8 @@ import { Gallery, LessonAttempts } from './Gallery';
 import { Home } from './Home';
 import { LessonPlayer } from './LessonPlayer';
 import { Lessons } from './Lessons';
+import { MobileNotice } from './MobileNotice';
+import { useShowMobileNotice } from './mobile-notice-store';
 import { NotFound } from './NotFound';
 import { NewPersonalLesson } from './NewPersonalLesson';
 import { useRoute } from './router';
@@ -12,6 +14,7 @@ import { UpcomingPrompts } from './UpcomingPrompts';
 
 export function App() {
   const route = useRoute();
+  if (useShowMobileNotice()) return <MobileNotice />;
   switch (route.page) {
     case 'home':
       return <Home />;

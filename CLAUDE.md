@@ -11,7 +11,7 @@
 ## Architecture
 
 - `src/core` is framework-free TypeScript: no React, no DOM. Its typecheck config has no DOM lib and lint rejects React imports there. The UI never mutates pixels directly; it applies commands to the drawing document.
-- `src/persistence` keeps data in IndexedDB behind one Store interface, and holds the Studio session that saves to it (the drawing being edited, the kept drawings, autosave). Framework-free like the core (lint rejects React imports), but it may use browser storage APIs.
+- `src/persistence` keeps data in IndexedDB behind one Store interface, and holds the Studio session that saves to it (the drawing being edited, the kept drawings, autosave). Per-device UI choices that must be read synchronously on first render (such as continuing past the mobile notice) use localStorage instead, and fall back to memory when storage is blocked. Framework-free like the core (lint rejects React imports), but it may use browser storage APIs.
 - `src/app` is the React shell. Routing is hash-based so deep links work on GitHub Pages.
 
 ## Testing
