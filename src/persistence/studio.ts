@@ -1,5 +1,8 @@
+import { stillAnimation, type Animation } from '../core/animation';
 import { TRANSPARENT, type Drawing } from '../core/drawing';
 import { createEditor, type Editor } from '../core/editor';
+import { checkCustomPalette, type CustomPalette } from '../core/palettes';
+import { createBackup, readBackup } from './backup';
 import { StorageError, type SavedDrawing, type Store, type StorageProblem } from './store';
 
 export interface CurrentDrawing {
@@ -13,6 +16,7 @@ export type StudioState =
       readonly status: 'ready';
       readonly current: CurrentDrawing;
       readonly drawings: readonly SavedDrawing[];
+      readonly palettes: readonly CustomPalette[];
       readonly problem: StorageProblem | null;
     };
 
@@ -22,8 +26,16 @@ export interface Studio {
   load(): Promise<void>;
   create(drawing: Drawing): void;
   open(id: string): void;
+  savePalette(palette: CustomPalette): Promise<void>;
+  deletePalette(id: string): Promise<void>;
   flush(): Promise<void>;
+  backup(): Promise<string>;
+  restore(backup: string): Promise<RestoreOutcome>;
 }
+
+export type RestoreOutcome =
+  | { readonly ok: true; readonly drawingCount: number; readonly paletteCount: number }
+  | { readonly ok: false; readonly message: string };
 
 export function createStudio(options: {
   store: Store;
@@ -73,19 +85,54 @@ export function createStudio(options: {
     void done.finally(() => pending.delete(done));
   }
 
-  function keep(id: string, drawing: Drawing) {
-    if (state.status !== 'ready') return;
+  let restoring = false;
+
+  function keep(id: string, animation: Animation) {
+    if (state.status !== 'ready' || restoring) return;
     lastStamp = Math.max(now(), lastStamp + 1);
-    const entry = { id, drawing, updatedAt: lastStamp };
+    const entry = { id, animation, updatedAt: lastStamp };
     update({ drawings: [entry, ...state.drawings.filter((d) => d.id !== id)] });
     write(entry);
   }
 
-  function startEditing(id: string, drawing: Drawing): CurrentDrawing {
+  function startEditing(id: string, animation: Animation): CurrentDrawing {
     stopAutosave();
-    const editor = createEditor(drawing);
-    stopAutosave = editor.subscribe(() => keep(id, editor.getState().drawing));
+    const editor = createEditor(animation);
+    let kept = animation;
+    stopAutosave = editor.subscribe(() => {
+      const edited = editor.getState().animation;
+      if (edited === kept) return;
+      kept = edited;
+      keep(id, edited);
+    });
     return { id, editor };
+  }
+
+  async function flush() {
+    while (pending.size > 0) await Promise.all(pending);
+  }
+
+  function load() {
+    loading ??= (async () => {
+      let drawings: SavedDrawing[] = [];
+      let palettes: CustomPalette[] = [];
+      let problem: StorageProblem | null = null;
+      try {
+        [drawings, palettes] = await Promise.all([
+          store.listStudioDrawings(),
+          store.listCustomPalettes(),
+        ]);
+      } catch (error) {
+        problem = problemOf(error);
+      }
+      const latest = drawings[0];
+      const current = latest
+        ? startEditing(latest.id, latest.animation)
+        : startEditing(crypto.randomUUID(), stillAnimation(firstDrawing));
+      state = { status: 'ready', current, drawings, palettes, problem };
+      publish();
+    })();
+    return loading;
   }
 
   return {
@@ -94,41 +141,64 @@ export function createStudio(options: {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    load() {
-      loading ??= (async () => {
-        let drawings: SavedDrawing[] = [];
-        let problem: StorageProblem | null = null;
-        try {
-          drawings = await store.listStudioDrawings();
-        } catch (error) {
-          problem = problemOf(error);
-        }
-        const latest = drawings[0];
-        const current = latest
-          ? startEditing(latest.id, latest.drawing)
-          : startEditing(crypto.randomUUID(), firstDrawing);
-        state = { status: 'ready', current, drawings, problem };
-        publish();
-      })();
-      return loading;
-    },
+    load,
     create(drawing) {
-      const current = startEditing(crypto.randomUUID(), drawing);
+      const animation = stillAnimation(drawing);
+      const current = startEditing(crypto.randomUUID(), animation);
       update({ current });
-      if (drawing.pixels.some((p) => p !== TRANSPARENT)) keep(current.id, drawing);
+      if (drawing.pixels.some((p) => p !== TRANSPARENT)) keep(current.id, animation);
     },
     open(id) {
       if (state.status !== 'ready' || state.current.id === id) return;
       const entry = state.drawings.find((d) => d.id === id);
       if (!entry) return;
-      update({ current: startEditing(id, entry.drawing) });
-      keep(id, entry.drawing);
+      update({ current: startEditing(id, entry.animation) });
+      keep(id, entry.animation);
     },
-    async flush() {
-      while (pending.size > 0) await Promise.all(pending);
+    async savePalette(palette) {
+      const checked = checkCustomPalette(palette);
+      if (!checked) throw new RangeError('A palette needs a name and 1 to 32 distinct colors');
+      await store.putCustomPalette(checked);
+      update({ palettes: await store.listCustomPalettes() });
+    },
+    async deletePalette(id) {
+      await store.deleteCustomPalette(id);
+      update({ palettes: await store.listCustomPalettes() });
+    },
+    flush,
+    async backup() {
+      await flush();
+      return createBackup(store);
+    },
+    async restore(backup) {
+      const reading = readBackup(backup);
+      if (!reading.ok) return reading;
+      restoring = true;
+      try {
+        await flush();
+        await store.replaceAll(reading.contents);
+      } catch (error) {
+        return { ok: false, message: RESTORE_FAILED[problemOf(error)] };
+      } finally {
+        restoring = false;
+      }
+      failed.clear();
+      newest.clear();
+      loading = undefined;
+      await load();
+      return {
+        ok: true,
+        drawingCount: reading.contents.studioDrawings.length,
+        paletteCount: reading.contents.customPalettes.length,
+      };
     },
   };
 }
+
+const RESTORE_FAILED: Record<StorageProblem, string> = {
+  unavailable: 'Browser storage is unavailable.',
+  full: 'Browser storage is too full to hold this backup.',
+};
 
 function problemOf(error: unknown): StorageProblem {
   return error instanceof StorageError ? error.problem : 'unavailable';

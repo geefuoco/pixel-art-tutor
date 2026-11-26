@@ -360,3 +360,240 @@ test('says so when the browser will not store drawings, and still lets you draw'
   await clickPixel(page, studioCanvas(page), 2, 2);
   await expect.poll(() => pixelAt(studioCanvas(page), 2, 2)).toEqual(RED);
 });
+
+test('back up drawings, then restore them after making changes, refusing a bad file', async ({
+  page,
+}) => {
+  await openStudio(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, studioCanvas(page), 3, 5);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download backup' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^pixel-art-tutor-backup-.*\.json$/);
+  const backup = await readFile((await download.path())!);
+
+  await page.getByRole('link', { name: 'Studio' }).click();
+  await expect(studioCanvas(page)).toBeVisible();
+  await page.keyboard.press('n');
+  const form = page.getByRole('form', { name: 'New drawing' });
+  await form.getByLabel('Width').fill('8');
+  await form.getByLabel('Height').fill('8');
+  await form.getByRole('button', { name: 'Create' }).click();
+  const small = page.getByRole('img', { name: 'Studio canvas, 8 by 8 pixels' });
+  const dot = await pixelPosition(small, 1, 1, { width: 8, height: 8 });
+  await page.mouse.click(dot.x, dot.y);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'broken.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(backup.toString().slice(0, 40)),
+  });
+  await expect(page.getByRole('alert')).toContainText('could not be read as a backup');
+  await expect(page.getByRole('alert')).toContainText('current data has not changed');
+
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: backup,
+  });
+  const confirm = page.getByRole('form', { name: 'Restore backup' });
+  await expect(confirm).toContainText('1 drawing in backup.json');
+  await confirm.getByRole('button', { name: 'Replace my drawings' }).click();
+  await expect(page.getByRole('status')).toContainText('Restored 1 drawing');
+  await expect(page.getByRole('alert')).toBeHidden();
+
+  await page.getByRole('link', { name: 'Open the Studio' }).click();
+  await expect(studioCanvas(page)).toHaveAccessibleName('Studio canvas, 16 by 16 pixels');
+  await expect.poll(() => pixelAt(studioCanvas(page), 3, 5)).toEqual(RED);
+  await page.keyboard.press('d');
+  await expect(page.getByRole('region', { name: 'Drawings' }).getByRole('button')).toHaveText([
+    /16x16/,
+    'Close',
+  ]);
+});
+
+test('make a custom palette in Settings, then start drawings from it and from a bundled one', async ({
+  page,
+}) => {
+  await page.goto('#/settings');
+  const palettes = page.getByRole('region', { name: 'Palettes' });
+  await expect(palettes.getByRole('listitem').filter({ hasText: 'PICO-8' })).toContainText(
+    'by Lexaloffle Games',
+  );
+
+  await palettes.getByRole('button', { name: 'New palette' }).click();
+  const editor = page.getByRole('form', { name: 'Edit palette' });
+  await editor.getByLabel('Name').fill('Moss');
+  await editor.getByLabel('Color 1', { exact: true }).fill('#334422');
+  await editor.getByLabel('New color').fill('#667744');
+  await editor.getByRole('button', { name: 'Add color' }).click();
+  await expect(editor).toContainText('2 of 32 colors');
+  await editor.getByRole('button', { name: 'Save palette' }).click();
+  await expect(editor).toBeHidden();
+
+  await page.reload();
+  const moss = page
+    .getByRole('region', { name: 'Palettes' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Moss' });
+  await expect(moss).toContainText('2 colors');
+
+  await page.getByRole('link', { name: 'Studio' }).click();
+  await expect(studioCanvas(page)).toBeVisible();
+  await page.keyboard.press('n');
+  const form = page.getByRole('form', { name: 'New drawing' });
+  await form.getByLabel('Palette').selectOption({ label: 'Moss' });
+  await form.getByRole('button', { name: 'Create' }).click();
+  const palette = page.getByRole('group', { name: 'Palette' });
+  await expect(palette.getByRole('button')).toHaveCount(2);
+  await palette.getByRole('button', { name: 'Color #667744' }).click();
+  await clickPixel(page, studioCanvas(page), 4, 4);
+  await expect.poll(() => pixelAt(studioCanvas(page), 4, 4)).toEqual([0x66, 0x77, 0x44, 255]);
+
+  await page.keyboard.press('n');
+  await expect(form.getByLabel('Palette').locator('option:checked')).toHaveText('Moss');
+  await form.getByLabel('Palette').selectOption({ label: 'PICO-8 by Lexaloffle Games' });
+  await form.getByRole('button', { name: 'Create' }).click();
+  await expect(palette.getByRole('button')).toHaveCount(16);
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await moss.getByRole('button', { name: 'Delete' }).click();
+  await moss.getByRole('button', { name: 'Delete Moss' }).click();
+  await expect(moss).toBeHidden();
+});
+
+test('check a Studio drawing for Mistakes, see them circled and read why', async ({ page }) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 3, 5);
+
+  await page.keyboard.press('c');
+  const panel = page.getByRole('region', { name: 'Check for Mistakes' });
+  const orphans = panel.getByRole('group').filter({ hasText: 'Orphan pixels: 1 pixel' });
+  await expect(orphans).toBeVisible();
+  const marks = page.locator('.pixel-marks');
+  const markedAt = (x: number, y: number) =>
+    marks.evaluate(
+      (c: HTMLCanvasElement, { x, y, size }) =>
+        Array.from(
+          c
+            .getContext('2d')!
+            .getImageData(((x + 0.1) * c.width) / size, ((y + 0.5) * c.height) / size, 1, 1).data,
+        )[3]! > 0,
+      { x, y, size: STUDIO_SIZE },
+    );
+  await expect.poll(() => markedAt(3, 5)).toBe(true);
+
+  await orphans.getByText('Orphan pixels').click();
+  await expect(orphans).toContainText('single pixel floating on its own');
+
+  await clickPixel(page, canvas, 4, 5);
+  await expect(panel).toContainText('No Mistakes found.');
+  await expect.poll(() => markedAt(3, 5)).toBe(false);
+});
+
+test('repeat a drawing in the Tiling Preview and check its edges for seams', async ({ page }) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  for (const x of [0, STUDIO_SIZE - 1]) {
+    const top = await pixelPosition(canvas, x, 0);
+    const bottom = await pixelPosition(canvas, x, STUDIO_SIZE - 1);
+    await page.mouse.move(top.x, top.y);
+    await page.mouse.down();
+    await page.mouse.move(bottom.x, bottom.y, { steps: 8 });
+    await page.mouse.up();
+  }
+
+  await page.keyboard.press('c');
+  const panel = page.getByRole('region', { name: 'Check for Mistakes' });
+  await expect(panel).toContainText('No Mistakes found.');
+
+  await page.keyboard.press('t');
+  const preview = page.getByRole('img', { name: /Tiling Preview/ });
+  const tiled = { width: STUDIO_SIZE * 3, height: STUDIO_SIZE * 3 };
+  await expect.poll(() => pixelAt(preview, STUDIO_SIZE, STUDIO_SIZE + 4, tiled)).toEqual(RED);
+  await expect.poll(() => pixelAt(preview, STUDIO_SIZE - 1, 4, tiled)).toEqual(RED);
+  await expect(panel.getByRole('group').filter({ hasText: 'Seams: 32 pixels' })).toBeVisible();
+
+  await panel.getByLabel('Seamless edges').selectOption({ label: 'Top-bottom' });
+  await expect(panel).toContainText('No Mistakes found.');
+});
+
+test('animate with Frames, onion skinning and a looping preview, kept after a reload', async ({
+  page,
+}) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  const frames = page.getByRole('region', { name: 'Frames' });
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 2, 2);
+
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await expect(canvas).toHaveAccessibleName('Studio canvas, 16 by 16 pixels, Frame 2 of 2');
+  const empty = await pixelAt(canvas, 2, 2);
+  expect(empty).not.toEqual(RED);
+  await page.keyboard.press('o');
+  await expect.poll(() => pixelAt(canvas, 2, 2)).not.toEqual(empty);
+  await clickPixel(page, canvas, 3, 2);
+
+  await page.keyboard.press(',');
+  await expect(canvas).toHaveAccessibleName('Studio canvas, 16 by 16 pixels, Frame 1 of 2');
+  await expect.poll(() => pixelAt(canvas, 2, 2)).toEqual(RED);
+  await page.keyboard.press('p');
+  await expect(
+    frames.getByRole('img', { name: 'Animation preview, 2 Frames at 8 FPS' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(frames.getByRole('button', { name: /^Frame \d$/ })).toHaveCount(2);
+  await page.keyboard.press('.');
+  await expect(canvas).toHaveAccessibleName(/Frame 2 of 2/);
+  await expect.poll(() => pixelAt(canvas, 3, 2)).toEqual(RED);
+  await expect.poll(() => pixelAt(canvas, 2, 2)).toEqual(empty);
+});
+
+test('export an animation as a sprite sheet PNG with an Aseprite-style JSON frame map', async ({
+  page,
+}) => {
+  await openStudio(page);
+  const canvas = studioCanvas(page);
+  await page.getByRole('button', { name: 'Color #e94560' }).click();
+  await clickPixel(page, canvas, 0, 0);
+  const frames = page.getByRole('region', { name: 'Frames' });
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await frames.getByRole('button', { name: 'Add Frame' }).click();
+  await clickPixel(page, canvas, 15, 15);
+
+  await page.getByRole('button', { name: 'Export PNG' }).click();
+  const form = page.getByRole('form', { name: 'Export PNG' });
+  await form.getByLabel('Frames').selectOption({ label: 'Sprite sheet, grid' });
+  await form.getByLabel('Scale').selectOption('2');
+  await expect(form).toContainText('all 3 Frames as a 64x64 PNG');
+
+  const [png] = await Promise.all([
+    page.waitForEvent('download'),
+    form.getByRole('button', { name: 'Export PNG', exact: true }).click(),
+  ]);
+  expect(png.suggestedFilename()).toBe('sprite-sheet-64x64.png');
+  const decoded = await decodedPixels(page, await readFile((await png.path())!), [
+    { x: 31, y: 63 },
+  ]);
+  expect([decoded.width, decoded.height]).toEqual([64, 64]);
+  expect(decoded.pixels).toEqual([RED]);
+
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    form.getByRole('button', { name: 'Export JSON' }).click(),
+  ]);
+  expect(json.suggestedFilename()).toBe('sprite-sheet-64x64.json');
+  const map = JSON.parse((await readFile((await json.path())!)).toString());
+  expect(map.meta.image).toBe('sprite-sheet-64x64.png');
+  expect(map.frames).toHaveLength(3);
+});

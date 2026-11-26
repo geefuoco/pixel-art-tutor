@@ -1,18 +1,29 @@
-import { routeHref, type Route } from './router';
+import { routeHref, type Page } from './router';
 
-export function Nav({ current }: { current: Route }) {
+const LINKS: { page: Page; label: string }[] = [
+  { page: 'lessons', label: 'Lessons' },
+  { page: 'daily', label: 'Daily Prompt' },
+  { page: 'studio', label: 'Studio' },
+  { page: 'gallery', label: 'Gallery' },
+  { page: 'settings', label: 'Settings' },
+];
+
+export function Nav({ current }: { current?: Page }) {
   return (
     <nav className="nav">
       <a className="brand" href={routeHref.home}>
         Pixel Art Tutor
       </a>
-      <a
-        className="nav-link"
-        href={routeHref.studio}
-        aria-current={current === 'studio' ? 'page' : undefined}
-      >
-        Studio
-      </a>
+      {LINKS.map(({ page, label }) => (
+        <a
+          key={page}
+          className="nav-link"
+          href={routeHref[page]}
+          aria-current={current === page ? 'page' : undefined}
+        >
+          {label}
+        </a>
+      ))}
     </nav>
   );
 }

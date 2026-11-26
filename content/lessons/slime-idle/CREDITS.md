@@ -1,0 +1,8 @@
+# Credits
+
+| File                                             | Author    | Source                                                                                                                                                                                                                                          | Licence                                                       |
+| ------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `reference.png`                                  | stealthix | [16x16 Animated Slimes](https://opengameart.org/node/94298) on OpenGameArt: the four front-facing idle Frames of `Slime_Medium_Green.png` from `Slimes.zip`, cropped from 32x32 to 16x16 and moved so every Frame stands on the same bottom row | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `examples/frame-1.png` to `examples/frame-4.png` | stealthix | The same four Frames, one image each                                                                                                                                                                                                            | CC0 1.0                                                       |
+
+The colors come from the Endesga 32 palette, which the artist used. Licence checked on the asset page on 2026-11-25.

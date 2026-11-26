@@ -1,5 +1,5 @@
 import { MAX_DRAWING_SIZE, TRANSPARENT, type Color, type Drawing } from './drawing';
-import { STUDIO_PLACEHOLDER_PALETTE } from './palettes';
+import { STUDIO_STARTER_PALETTE } from './palettes';
 
 export const MAX_EXPORT_SCALE = 16;
 
@@ -192,6 +192,13 @@ export interface RgbaImage {
   readonly data: ArrayLike<number>;
 }
 
+export function hasPartlyTransparentPixel(image: RgbaImage): boolean {
+  for (let i = 3; i < image.data.length; i += 4) {
+    if (image.data[i] !== 0 && image.data[i] !== 255) return true;
+  }
+  return false;
+}
+
 function hex(n: number): string {
   return n.toString(16).padStart(2, '0');
 }
@@ -219,7 +226,7 @@ export function drawingFromImage(image: RgbaImage): Drawing {
   return {
     width,
     height,
-    palette: palette.length > 0 ? palette : STUDIO_PLACEHOLDER_PALETTE,
+    palette: palette.length > 0 ? palette : STUDIO_STARTER_PALETTE,
     pixels,
   };
 }

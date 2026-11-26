@@ -18,6 +18,8 @@
 
 Test through the three seams in `docs/testing.md`. No React component unit tests.
 
+Before/after screenshots of the app, e.g. for a PR: `npm run screenshot -- --help`.
+
 ## Agent skills
 
 ### Issue tracker

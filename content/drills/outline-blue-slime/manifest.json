@@ -1,0 +1,16 @@
+{
+  "id": "outline-blue-slime",
+  "title": "Outline a blue slime",
+  "technique": "outline",
+  "instruction": "This slime has no outline, so it blurs into dark backgrounds. Draw a 1 pixel outline all the way round it in the darkest color. Where the edge curves, step diagonally so pixels touch only at their corners.",
+  "roles": {
+    "#2ce8f5": "highlight",
+    "#ffffff": "highlight",
+    "#0095e9": "base",
+    "#c0cbdc": "base",
+    "#262b44": "shadow",
+    "#124e89": "shadow",
+    "#181425": "outline"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

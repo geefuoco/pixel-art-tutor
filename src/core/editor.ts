@@ -1,8 +1,17 @@
+import {
+  applyFrameCommand,
+  assertFramePosition,
+  frameDrawing,
+  type Animation,
+  type FrameCommand,
+} from './animation';
 import { applyCommand, type Command, type Drawing } from './drawing';
 
 export type StepId = number;
 
 export interface EditorState {
+  readonly animation: Animation;
+  readonly frame: number;
   readonly drawing: Drawing;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -12,99 +21,188 @@ export interface Editor {
   getState(): EditorState;
   apply(command: Command, options?: { mergeWithLast?: boolean }): StepId;
   replace(step: StepId, command: Command): boolean;
+  applyToFrames(command: FrameCommand): void;
+  selectFrame(frame: number): void;
   undo(): void;
   redo(): void;
   subscribe(listener: () => void): () => void;
 }
 
-type Step = Map<number, { before: number; after: number }>;
+type PixelChanges = Map<number, { before: number; after: number }>;
 
-function withPixels(drawing: Drawing, step: Step, side: 'before' | 'after'): Drawing {
-  const pixels = drawing.pixels.slice();
-  for (const [i, change] of step) pixels[i] = change[side];
-  return { ...drawing, pixels };
+interface FrameLayout {
+  readonly frames: Animation['frames'];
+  readonly fps: number;
+  readonly frame: number;
 }
 
-export function createEditor(initial: Drawing): Editor {
-  let drawing = initial;
+type Step =
+  | { readonly kind: 'pixels'; readonly frame: number; readonly changes: PixelChanges }
+  | { readonly kind: 'frames'; readonly before: FrameLayout; readonly after: FrameLayout };
+
+function withPixels(pixels: readonly number[], changes: PixelChanges, side: 'before' | 'after') {
+  const next = pixels.slice();
+  for (const [i, change] of changes) next[i] = change[side];
+  return next;
+}
+
+function withFrame(animation: Animation, frame: number, pixels: readonly number[]): Animation {
+  const frames = animation.frames.slice();
+  frames[frame] = pixels;
+  return { ...animation, frames };
+}
+
+function frameAfter(command: FrameCommand, current: number, frameCount: number): number {
+  switch (command.type) {
+    case 'add-frame':
+      return command.at;
+    case 'remove-frame':
+      if (command.frame < current) return current - 1;
+      return Math.min(current, frameCount - 1);
+    case 'move-frame': {
+      if (command.from === current) return command.to;
+      const withoutMoved = current > command.from ? current - 1 : current;
+      return withoutMoved >= command.to ? withoutMoved + 1 : withoutMoved;
+    }
+    case 'set-fps':
+      return current;
+  }
+}
+
+export function createEditor(initial: Animation): Editor {
+  let animation = initial;
+  let frame = 0;
   const undoStack: Step[] = [];
   const redoStack: Step[] = [];
-  let openStep: { id: StepId; step: Step; recorded: boolean } | null = null;
+  let openStep: {
+    id: StepId;
+    frame: number;
+    changes: PixelChanges;
+    recorded: Step | null;
+  } | null = null;
   let nextId = 1;
-  let state: EditorState = { drawing, canUndo: false, canRedo: false };
+  let state = snapshot();
   const listeners = new Set<() => void>();
 
+  function snapshot(): EditorState {
+    return {
+      animation,
+      frame,
+      drawing: frameDrawing(animation, frame),
+      canUndo: undoStack.length > 0,
+      canRedo: redoStack.length > 0,
+    };
+  }
+
   function publish() {
-    state = { drawing, canUndo: undoStack.length > 0, canRedo: redoStack.length > 0 };
+    state = snapshot();
     for (const listener of listeners) listener();
   }
 
+  function push(step: Step) {
+    undoStack.push(step);
+    redoStack.length = 0;
+  }
+
   function record(open: NonNullable<typeof openStep>) {
-    if (!open.recorded && open.step.size > 0) {
-      undoStack.push(open.step);
-      redoStack.length = 0;
-      open.recorded = true;
-    } else if (open.recorded && open.step.size === 0) {
-      undoStack.pop();
-      open.recorded = false;
+    if (!open.recorded && open.changes.size > 0) {
+      open.recorded = { kind: 'pixels', frame: open.frame, changes: open.changes };
+      push(open.recorded);
+    } else if (open.recorded && open.changes.size === 0) {
+      undoStack.splice(undoStack.lastIndexOf(open.recorded), 1);
+      open.recorded = null;
     }
   }
 
-  function changesAnything(next: Drawing) {
-    return next.pixels.some((p, i) => p !== drawing.pixels[i]);
+  function changesAnything(before: Drawing, next: Drawing) {
+    return next.pixels.some((p, i) => p !== before.pixels[i]);
+  }
+
+  function layout(): FrameLayout {
+    return { frames: animation.frames, fps: animation.fps, frame };
+  }
+
+  function restore(to: FrameLayout) {
+    animation = { ...animation, frames: to.frames, fps: to.fps };
+    frame = to.frame;
+  }
+
+  function step(from: Step[], to: Step[], side: 'before' | 'after') {
+    openStep = null;
+    const taken = from.pop();
+    if (!taken) return;
+    to.push(taken);
+    if (taken.kind === 'frames') {
+      restore(taken[side]);
+    } else {
+      frame = taken.frame;
+      animation = withFrame(
+        animation,
+        frame,
+        withPixels(animation.frames[frame]!, taken.changes, side),
+      );
+    }
+    publish();
   }
 
   return {
     getState: () => state,
     apply(command, options) {
-      const next = applyCommand(drawing, command);
-      if (!options?.mergeWithLast || !openStep) {
-        openStep = { id: nextId++, step: new Map(), recorded: false };
+      const current = frameDrawing(animation, frame);
+      const next = applyCommand(current, command);
+      if (!options?.mergeWithLast || openStep?.frame !== frame) {
+        openStep = { id: nextId++, frame, changes: new Map(), recorded: null };
       }
       const open = openStep;
-      if (!changesAnything(next)) return open.id;
+      if (!changesAnything(current, next)) return open.id;
       next.pixels.forEach((after, i) => {
-        const before = drawing.pixels[i]!;
+        const before = current.pixels[i]!;
         if (after !== before)
-          open.step.set(i, { before: open.step.get(i)?.before ?? before, after });
+          open.changes.set(i, { before: open.changes.get(i)?.before ?? before, after });
       });
       record(open);
-      drawing = next;
+      animation = withFrame(animation, frame, next.pixels);
       publish();
       return open.id;
     },
-    replace(step, command) {
+    replace(id, command) {
       const open = openStep;
-      if (open?.id !== step) return false;
-      const base = withPixels(drawing, open.step, 'before');
+      if (open?.id !== id || open.frame !== frame) return false;
+      const base = {
+        ...state.drawing,
+        pixels: withPixels(state.drawing.pixels, open.changes, 'before'),
+      };
       const next = applyCommand(base, command);
-      if (!changesAnything(next)) return true;
-      open.step.clear();
+      if (!changesAnything(state.drawing, next)) return true;
+      open.changes.clear();
       next.pixels.forEach((after, i) => {
         const before = base.pixels[i]!;
-        if (after !== before) open.step.set(i, { before, after });
+        if (after !== before) open.changes.set(i, { before, after });
       });
       record(open);
-      drawing = next;
+      animation = withFrame(animation, frame, next.pixels);
       publish();
       return true;
     },
-    undo() {
+    applyToFrames(command) {
+      const next = applyFrameCommand(animation, command);
+      if (next === animation) return;
       openStep = null;
-      const step = undoStack.pop();
-      if (!step) return;
-      redoStack.push(step);
-      drawing = withPixels(drawing, step, 'before');
+      const before = layout();
+      animation = next;
+      frame = frameAfter(command, frame, next.frames.length);
+      push({ kind: 'frames', before, after: layout() });
       publish();
     },
-    redo() {
+    selectFrame(index) {
+      assertFramePosition(index, animation.frames.length);
+      if (index === frame) return;
       openStep = null;
-      const step = redoStack.pop();
-      if (!step) return;
-      undoStack.push(step);
-      drawing = withPixels(drawing, step, 'after');
+      frame = index;
       publish();
     },
+    undo: () => step(undoStack, redoStack, 'before'),
+    redo: () => step(redoStack, undoStack, 'after'),
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

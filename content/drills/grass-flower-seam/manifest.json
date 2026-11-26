@@ -1,0 +1,15 @@
+{
+  "id": "grass-flower-seam",
+  "title": "Fix a seam in a grass tile",
+  "technique": "tiling",
+  "instruction": "A flower in this grass tile runs off its right edge, so it is cut in half wherever the tile repeats. Fix the tile so it repeats left to right and top to bottom without a seam. Watch the Tiling Preview as you go.",
+  "roles": {
+    "#84c669": "base",
+    "#fdbe53": "base",
+    "#65a556": "shadow",
+    "#e38628": "shadow",
+    "#ffffff": "highlight"
+  },
+  "checks": ["seamless"],
+  "seamless": ["left-right", "top-bottom"]
+}
