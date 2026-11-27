@@ -1,0 +1,13 @@
+{
+  "id": "outline-coin",
+  "title": "Outline a coin",
+  "technique": "outline",
+  "instruction": "Outline this coin with a 1 pixel line in the darkest color. A small circle is built from runs: a few pixels straight across the top and bottom, a single diagonal step at each corner, and straight runs down the sides. Keep it symmetrical.",
+  "roles": {
+    "#393457": "outline",
+    "#f7e476": "base",
+    "#f99252": "shadow",
+    "#ffffff": "highlight"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

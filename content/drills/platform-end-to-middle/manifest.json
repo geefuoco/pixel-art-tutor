@@ -1,0 +1,19 @@
+{
+  "id": "platform-end-to-middle",
+  "title": "Turn a platform end into a middle tile",
+  "technique": "tiling",
+  "instruction": "This is the right end of a grassy platform: its outline turns down the right side. Turn it into a middle tile that repeats left to right, so the grass and dirt run on into the next copy. Keep the outline on top, where the platform meets the sky.",
+  "roles": {
+    "#1b141e": "outline",
+    "#cde042": "highlight",
+    "#68b229": "base",
+    "#257d2c": "shadow",
+    "#1b4e44": "shadow",
+    "#d08058": "base",
+    "#974e49": "shadow",
+    "#5a303f": "shadow",
+    "#fdf5f1": "highlight"
+  },
+  "checks": ["seamless"],
+  "seamless": ["left-right"]
+}

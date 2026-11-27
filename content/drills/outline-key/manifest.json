@@ -1,0 +1,12 @@
+{
+  "id": "outline-key",
+  "title": "Outline a key",
+  "technique": "outline",
+  "instruction": "Draw a 1 pixel outline round this key in the darkest color. The round bow on the left needs diagonal steps at its corners, and the teeth on the right need the outline to follow each notch.",
+  "roles": {
+    "#393457": "outline",
+    "#f7e476": "base",
+    "#f99252": "shadow"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

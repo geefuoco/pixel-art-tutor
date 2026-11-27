@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { backupWithPassedTraces } from './backup';
 
 function promptCanvas(page: Page) {
   return page.getByRole('img', { name: /daily prompt canvas/i });
@@ -81,37 +82,6 @@ test("draw today's Theme Prompt, check it, keep it through a reload, save it and
   await expect(page.getByRole('button', { name: 'Save to Gallery' })).toBeEnabled();
 });
 
-function backupWithPassedTrace(lessonId: string, finishedAt: string) {
-  return JSON.stringify({
-    format: 'pixel-art-tutor-backup',
-    version: 11,
-    studioDrawings: [],
-    customPalettes: [],
-    attempts: [
-      {
-        id: 'passed-trace',
-        lessonId,
-        mode: 'trace',
-        animation: {
-          width: 8,
-          height: 8,
-          palette: ['#000000'],
-          frames: [Array.from({ length: 64 }, () => -1)],
-          fps: 8,
-        },
-        score: 1,
-        hintFlashes: 0,
-        inGallery: true,
-        finishedAt: new Date(finishedAt).getTime(),
-      },
-    ],
-    inProgressAttempts: [],
-    progress: [{ lessonId, passedModes: ['trace'] }],
-    personalLessons: [],
-    promptDrawings: [],
-  });
-}
-
 test('replay a passed Lesson one Mode harder as a Review Drill, then get a Theme Prompt', async ({
   page,
 }) => {
@@ -120,7 +90,7 @@ test('replay a passed Lesson one Mode harder as a Review Drill, then get a Theme
   await page.getByLabel('Backup file').setInputFiles({
     name: 'backup.json',
     mimeType: 'application/json',
-    buffer: Buffer.from(backupWithPassedTrace('red-potion', '2026-10-01T12:00:00')),
+    buffer: Buffer.from(backupWithPassedTraces(['red-potion'], '2026-10-01T12:00:00')),
   });
   await page
     .getByRole('form', { name: 'Restore backup' })
@@ -149,7 +119,7 @@ test('draw a Technique Drill once its Lesson is passed, check it and keep it in 
   await page.getByLabel('Backup file').setInputFiles({
     name: 'backup.json',
     mimeType: 'application/json',
-    buffer: Buffer.from(backupWithPassedTrace('red-potion', '2026-10-01T12:00:00')),
+    buffer: Buffer.from(backupWithPassedTraces(['red-potion'], '2026-10-01T12:00:00')),
   });
   await page
     .getByRole('form', { name: 'Restore backup' })
@@ -158,11 +128,11 @@ test('draw a Technique Drill once its Lesson is passed, check it and keep it in 
   await expect(page.getByRole('status')).toContainText('Restored');
 
   await page.getByRole('link', { name: 'Daily Prompt', exact: true }).click();
-  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a blue slime');
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a key');
   const canvas = promptCanvas(page);
   await expect(canvas).toHaveAccessibleName(/16 by 16 pixels/);
-  const slime = await pixelAt(canvas, 16, 6, 8);
-  expect(slime[3]).toBe(255);
+  const key = await pixelAt(canvas, 16, 6, 8);
+  expect(key[3]).toBe(255);
 
   await page.getByRole('button', { name: 'Check drawing' }).click();
   const checks = page.getByRole('region', { name: 'The drill' });
@@ -171,11 +141,11 @@ test('draw a Technique Drill once its Lesson is passed, check it and keep it in 
   ).toHaveText(/^Not met/);
 
   await page.reload();
-  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a blue slime');
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a key');
   await page.getByRole('button', { name: 'Save to Gallery' }).click();
   await expect(page.getByRole('button', { name: 'Saved to the Gallery' })).toBeDisabled();
   await page.getByRole('link', { name: 'Gallery', exact: true }).first().click();
   await expect(
     page.getByRole('article', { name: /Daily Prompt, November 28, 2026/ }),
-  ).toContainText('Technique Drill: Outline a blue slime');
+  ).toContainText('Technique Drill: Outline a key');
 });

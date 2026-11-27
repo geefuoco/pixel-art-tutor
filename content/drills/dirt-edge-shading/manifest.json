@@ -1,0 +1,15 @@
+{
+  "id": "dirt-edge-shading",
+  "title": "Fix a dirt tile shaded like a block",
+  "technique": "tiling",
+  "instruction": "This dirt tile was shaded like a crate, with dark lines down its right side and along its bottom, so the ground turns into a grid. Make it repeat left to right and top to bottom without a seam. Watch the Tiling Preview as you go.",
+  "roles": {
+    "#d08058": "base",
+    "#974e49": "shadow",
+    "#5a303f": "shadow",
+    "#1b141e": "outline",
+    "#fdf5f1": "highlight"
+  },
+  "checks": ["seamless"],
+  "seamless": ["left-right", "top-bottom"]
+}

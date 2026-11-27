@@ -5,7 +5,7 @@
 - `reference.png`: the Reference Sprite, 8x8, 16x16 or 32x32, every pixel fully opaque or fully transparent. Its colors are the Lesson's fixed palette.
 - `manifest.json`: what the image can't say.
 - `examples/*.png`: Example Sprites the explanations show.
-- `CREDITS.md`: author, source and licence of every image. Art must be good-quality CC0.
+- `CREDITS.md`: author, source and licence of every image. Art must be good quality. Where the download has no credits or licence file, record the author and licence as Unknown.
 
 ```json
 {
@@ -93,7 +93,7 @@ Each drill lives in `drills/<id>/`:
 
 - `start.png`: the starting sprite, 8x8, 16x16 or 32x32, every pixel fully opaque or fully transparent. The learner draws on top of it.
 - `manifest.json`: what the image can't say.
-- `CREDITS.md`: author, source and licence. Art must be good-quality CC0.
+- `CREDITS.md`: author, source and licence. Art must be good quality. Where the download has no credits or licence file, record the author and licence as Unknown.
 
 ```json
 {

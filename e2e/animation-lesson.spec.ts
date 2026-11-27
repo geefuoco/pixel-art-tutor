@@ -1,24 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-
-const POTION = [
-  '...ab...',
-  '...cd...',
-  '...cd...',
-  '..cvvd..',
-  '.ivcvyd.',
-  '.ivvvyd.',
-  '.iyyyyd.',
-  '..dddd..',
-];
-const POTION_COLORS: Record<string, string> = {
-  a: '#dba463',
-  b: '#bb7547',
-  c: '#e3e6ff',
-  d: '#849be4',
-  i: '#b9bffb',
-  v: '#df3e23',
-  y: '#b4202a',
-};
+import { backupWithPassedTraces } from './backup';
 
 const SQUASH = [
   '................',
@@ -71,11 +52,19 @@ async function drawGrid(page: Page, rows: string[], colors: Record<string, strin
 }
 
 test('trace an animation Lesson one Frame at a time, key poses first', async ({ page }) => {
-  await page.goto('#/lessons/red-potion/trace');
-  await drawGrid(page, POTION, POTION_COLORS);
-  await page.getByRole('button', { name: '5. Highlight' }).click();
-  await page.getByRole('button', { name: 'Finish Lesson' }).click();
-  await expect(page.getByRole('region', { name: 'Result' })).toContainText('Lesson passed');
+  await page.goto('#/settings');
+  await page.getByLabel('Backup file').setInputFiles({
+    name: 'backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      backupWithPassedTraces(['red-potion', 'apple', 'purple-gem'], '2026-10-01T12:00:00'),
+    ),
+  });
+  await page
+    .getByRole('form', { name: 'Restore backup' })
+    .getByRole('button', { name: 'Replace my drawings' })
+    .click();
+  await expect(page.getByRole('status')).toContainText('Restored');
 
   await page.goto('#/lessons');
   await expect(page.getByRole('main')).toContainText('16x16, 8 colors, 4 Frames');

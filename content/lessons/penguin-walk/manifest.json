@@ -1,0 +1,36 @@
+{
+  "id": "penguin-walk",
+  "title": "Penguin walk cycle",
+  "roles": {
+    "#393457": "outline",
+    "#606c81": "base",
+    "#ffffff": "base",
+    "#f99252": "shadow",
+    "#f7e476": "highlight"
+  },
+  "animation": {
+    "fps": 6,
+    "steps": [
+      {
+        "frame": 1,
+        "pose": "key",
+        "explanation": "A walk cycle is a loop of steps. Its key poses are the moments when the feet are furthest apart. Penguins have short legs, so this one walks by rocking: it waddles from one foot to the other.\n\nIn the first key pose the penguin leans back, with one orange foot kicked up in front of its belly.\n\n![Frame 1: leaning back](examples/frame-1.png) ![Frame 3: tipping forward](examples/frame-3.png)\n\nEvery Frame stands on the bottom row of the canvas. Keep the feet on that ground line, or the penguin will float."
+      },
+      {
+        "frame": 3,
+        "pose": "key",
+        "explanation": "The second key pose is the opposite: the penguin tips forward, and the foot swings back underneath its body.\n\nThe head, eye and beak are almost the same as in Frame 1, just moved. Reusing shapes between Frames keeps a character looking like itself while it moves.\n\n![Frame 1](examples/frame-1.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 2,
+        "pose": "in-between",
+        "explanation": "Between the two leans the penguin passes through standing straight, with both feet flat on the ground. This passing pose is one pixel taller than the key poses: the body rises as it goes over its feet and sinks again as it leans. That small bob is what makes a walk feel like it has weight.\n\nTurn on **Onion skin** (O) to see Frames 1 and 3 behind this one.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 4,
+        "pose": "in-between",
+        "explanation": "Frame 4 carries the penguin from leaning forward back to leaning back, so it passes through the same upright pose again. It is exactly the same as Frame 2.\n\nRepeating a Frame is normal in game animation: four Frames give a smooth loop while you only draw three different poses. Press **Play preview** (P) to watch the waddle.\n\n![Frame 2](examples/frame-2.png) ![Frame 4](examples/frame-4.png)"
+      }
+    ]
+  }
+}
