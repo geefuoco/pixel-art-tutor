@@ -1,0 +1,17 @@
+{
+  "id": "shade-cherries",
+  "title": "Shade a pair of cherries",
+  "technique": "shading",
+  "instruction": "These two cherries are flat red. The light comes from the top left: put the dark red along the bottom of each cherry and down the sides where they meet, and a pale highlight on the upper left of each one.",
+  "roles": {
+    "#211f30": "outline",
+    "#a4cc42": "base",
+    "#72a11d": "base",
+    "#28860f": "base",
+    "#cc3048": "base",
+    "#9c1b4d": "shadow",
+    "#f18b72": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-left"
+}

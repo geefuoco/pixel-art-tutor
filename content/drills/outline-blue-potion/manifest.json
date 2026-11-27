@@ -1,0 +1,15 @@
+{
+  "id": "outline-blue-potion",
+  "title": "Outline a small potion",
+  "technique": "outline",
+  "instruction": "Outline this potion bottle in the darkest color, 1 pixel wide. It is only 7 pixels wide, so every outline pixel counts. Close the line round the whole bottle, and draw a row of outline across it wherever one part of the bottle meets the next.",
+  "roles": {
+    "#33323d": "outline",
+    "#7fd6e7": "base",
+    "#de9970": "base",
+    "#66a2d8": "shadow",
+    "#616fc5": "shadow",
+    "#cb6a61": "shadow"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "pineapple",
+  "title": "Pineapple",
+  "roles": {
+    "#211f30": "outline",
+    "#e68d41": "base",
+    "#72a11d": "base",
+    "#d2612f": "shadow",
+    "#28860f": "shadow",
+    "#076029": "shadow",
+    "#f2bc7e": "highlight",
+    "#a4cc42": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A pineapple is an oval body with a crown of leaves on top. Block both in one color, keeping the crown narrower than the body so the two parts read separately.\n\n![Silhouette](examples/silhouette.png) ![The finished pineapple](examples/finished.png)",
+    "outline": "One outline runs round the crown and the body, and pinches in where they meet, so the crown looks like it grows out of the top.\n\n![The outline on its own](examples/outline.png)",
+    "base": "Two base colors: orange for the body and green for the crown.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "The body is covered in short darker-orange strokes, 2 or 3 pixels long, at different heights. These are the scales. They are texture, not a shadow on one side, so they spread over the whole body. Toward the bottom they join up, and the bottom row is solid darker orange, so the body still gets darker away from the light.\n\nIn the crown, two darker greens split the leaves apart.\n\n![Flat](examples/flat.png) ![With shadow and texture](examples/shaded.png)",
+    "highlight": "A few pale orange pixels on the right of the body, and a light green pixel at the top of the crown. On a busy texture, keep the highlight small: a few pixels are enough to say which way the light comes from.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

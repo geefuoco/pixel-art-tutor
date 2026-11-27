@@ -1,0 +1,16 @@
+{
+  "id": "small-heart",
+  "title": "Small heart",
+  "roles": {
+    "#3f3851": "outline",
+    "#ef7272": "base",
+    "#c33365": "shadow",
+    "#e04656": "shadow"
+  },
+  "explanations": {
+    "silhouette": "An 8x8 canvas has room for one clear idea. A heart is two bumps on top and a point at the bottom. Block it in one flat color: 8 pixels wide and 7 tall, with a dip between the bumps.\n\n![Silhouette](examples/silhouette.png) ![The finished heart](examples/finished.png)",
+    "outline": "At this size the outline is almost half the drawing: 18 of its 40 pixels. Each bump is 2 pixels across the top, and the line dips one pixel into the middle between them. The sides run straight down for 3 pixels, then step in one pixel per row to the point.\n\nEach step is one pixel across and one down, so the diagonal pixels touch only at their corners.\n\n![The outline on its own](examples/outline.png)",
+    "base": "The base is the light coral. It covers the middle of the heart and the right bump, the parts that face the light. Most of it is already there from the silhouette.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "Two shadow colors, both deeper reds. The light comes from the top right. The darkest red sits on the left bump and at the bottom, the parts farthest from the light. The middle red runs down the lower right, between the dark and the light.\n\nTwo steps of shadow are enough to make a flat shape look round.\n\n![Flat](examples/flat.png) ![Shaded](examples/finished.png)"
+  }
+}

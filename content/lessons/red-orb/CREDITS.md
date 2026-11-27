@@ -1,0 +1,9 @@
+# Credits
+
+| File                                                                                          | Author                                                                 | Source                                                                                                                      | Licence                                            |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `reference.png`, `examples/finished.png`                                                      | ElvGames                                                               | `Free Dungeon - Fantasy Dreamland.zip`: `16x16/FD_Dungeon_Free.png`, the 8x8 sprite at x 324, y 260, placed on a 8x8 canvas | [ElvGames licence](https://elvgames.itch.io/terms) |
+| `examples/silhouette.png`, `examples/outline.png`, `examples/flat.png`, `examples/shaded.png` | Derived from the same sprite by removing colors, to show each Step     | Same file                                                                                                                   | ElvGames licence                                   |
+| `examples/one-color-outline.png`                                                              | Derived from the same sprite, with every edge pixel in the darkest red | Same file                                                                                                                   | ElvGames licence                                   |
+
+Licence from the pack's `License.txt`: free for personal and commercial use with credit to ElvGames. It may not be used to train generative AI, used in crypto or NFT projects, or resold.

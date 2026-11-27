@@ -1,0 +1,47 @@
+{
+  "id": "fox-run",
+  "title": "Fox run cycle",
+  "roles": {
+    "#322c43": "outline",
+    "#b5422d": "base",
+    "#f0b989": "base",
+    "#a36f4e": "shadow",
+    "#e87838": "highlight",
+    "#ffffff": "highlight"
+  },
+  "animation": {
+    "fps": 10,
+    "steps": [
+      {
+        "frame": 2,
+        "pose": "key",
+        "explanation": "A run differs from a walk in one way: there are moments when no foot touches the ground. This fox runs in 6 Frames, and its key poses are the two leaps, one for each foot.\n\nIn Frame 2 the fox is in the air, stretched out with its legs reaching forward and back. Its feet are a pixel off the bottom row.\n\n![Frame 2](examples/frame-2.png) ![Frame 5](examples/frame-5.png)"
+      },
+      {
+        "frame": 5,
+        "pose": "key",
+        "explanation": "Frame 5 is the second leap, for the other foot. It is also in the air, but the body tips up instead of stretching out. Two leaps that differ a little keep the run from looking mechanical.\n\n![Frame 2](examples/frame-2.png) ![Frame 5](examples/frame-5.png)"
+      },
+      {
+        "frame": 1,
+        "pose": "in-between",
+        "explanation": "Frame 1 comes just before the first stride. The fox is gathered up, body round and legs tucked under it, ready to push off.\n\nTurn on **Onion skin** (O) to see the Frames on either side.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png)"
+      },
+      {
+        "frame": 3,
+        "pose": "in-between",
+        "explanation": "Frame 3 lands the first leap: the feet are back on the bottom row and the legs pull in under the body.\n\n![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png) ![Frame 4](examples/frame-4.png)"
+      },
+      {
+        "frame": 4,
+        "pose": "in-between",
+        "explanation": "Frame 4 gathers the fox up for the second stride. Compare it with Frame 1: the same bunched pose, with the legs the other way round.\n\n![Frame 1](examples/frame-1.png) ![Frame 4](examples/frame-4.png)"
+      },
+      {
+        "frame": 6,
+        "pose": "in-between",
+        "explanation": "Frame 6 brings the fox back from the second stride to Frame 1, closing the loop. Press **Play preview** (P) to watch it run. At 10 Frames a second, 6 Frames make a quick, light stride.\n\n![Frame 5](examples/frame-5.png) ![Frame 6](examples/frame-6.png) ![Frame 1](examples/frame-1.png)"
+      }
+    ]
+  }
+}

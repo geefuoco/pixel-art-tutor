@@ -1,0 +1,15 @@
+{
+  "id": "dungeon-slab-seam",
+  "title": "Fix a slab that slipped",
+  "technique": "tiling",
+  "instruction": "The right edge of this stone slab has slipped down, so its rim no longer lines up with the left edge and the floor breaks at every seam. Make it repeat left to right and top to bottom without a seam. Watch the Tiling Preview as you go.",
+  "roles": {
+    "#332323": "outline",
+    "#664133": "shadow",
+    "#664747": "shadow",
+    "#b27c7c": "base",
+    "#bf9999": "highlight"
+  },
+  "checks": ["seamless"],
+  "seamless": ["left-right", "top-bottom"]
+}

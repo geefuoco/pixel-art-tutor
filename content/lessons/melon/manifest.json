@@ -1,0 +1,21 @@
+{
+  "id": "melon",
+  "title": "Watermelon slice",
+  "roles": {
+    "#211f30": "outline",
+    "#ea71bd": "base",
+    "#28860f": "base",
+    "#f89cc0": "base",
+    "#ba3faf": "shadow",
+    "#fbcdd6": "highlight",
+    "#a4cc42": "highlight",
+    "#72a11d": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A watermelon slice is a half circle with its flat side up. It is only 18 pixels wide, so on this 32x32 canvas there is room all round it. Block the whole half circle in the pink.\n\n![Silhouette](examples/silhouette.png) ![The finished slice](examples/finished.png)",
+    "outline": "The outline runs straight across the top and curves round the bottom: long runs where the curve is flattest, shorter ones as it turns, the same staircase as a circle.\n\nThe seeds are drawn in the outline color too. Reusing the darkest color for small details keeps the palette small and makes them stand out against the pink.\n\n![The outline and seeds](examples/outline.png)",
+    "base": "Three base colors for three layers: pink for the flesh, a pale pink band just inside the rind, and green for the rind. Each layer follows the curve of the one outside it, so the bands read as the inside of a round fruit.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "A deeper magenta shades the bottom of the flesh, where it curves down toward the rind. It is a band that follows the curve, not a dark spot.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "The rind has a lighter green along its upper sides, and the two top corners, where the cut meets the rind, catch the light in pale pink and pale green. Small light accents like these make the slice look fresh and wet.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

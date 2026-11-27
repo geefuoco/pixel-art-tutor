@@ -1,0 +1,8 @@
+# Credits
+
+| File                                                                                          | Author                                                             | Source                                                                                                                  | Licence                                                       |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `reference.png`, `examples/finished.png`                                                      | RottingPixels, repackaged by Brackeys                              | `brackeys_platformer_assets.zip`: `sprites/world_tileset.png`, the 8x14 sprite at x 20, y 114, placed on a 16x16 canvas | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `examples/silhouette.png`, `examples/outline.png`, `examples/flat.png`, `examples/shaded.png` | Derived from the same sprite by removing colors, to show each Step | Same file                                                                                                               | CC0 1.0                                                       |
+
+Licence from the pack's `LICENSE & CREDITS.txt`. The sprite comes from RottingPixels' [Four Seasons Platformer Tileset](https://rottingpixels.itch.io/four-seasons-platformer-tileset-16x16free).

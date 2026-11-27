@@ -1,0 +1,18 @@
+{
+  "id": "blue-diamond",
+  "title": "Blue diamond",
+  "roles": {
+    "#33323d": "outline",
+    "#66a2d8": "base",
+    "#4e6ec5": "shadow",
+    "#7fd6e7": "highlight",
+    "#ffffff": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A cut diamond has a flat top, a wide band across the middle, and sides that slope in to a point at the bottom. Block it in the mid blue.\n\n![Silhouette](examples/silhouette.png) ![The finished diamond](examples/finished.png)",
+    "outline": "Follow this outline round and you will find it stops. Along part of the top and down the upper right, there is no dark line: the edge is drawn in the diamond's own blues. The light hits that side, so the edge is the brightest part of the gem, and a dark line there would dull it.\n\nLeaving the outline off the lit side is a common way to make a shiny object glow.\n\n![The outline on its own](examples/outline.png) ![The finished diamond](examples/finished.png)",
+    "base": "The mid blue is the base: the big front facet in the middle. It is already there from the silhouette.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "The facets on the left face away from the light at the top right, so they take one darker blue: a column 3 pixels wide down the left side, narrowing toward the point. Each facet is one flat color with a hard edge where it meets the next.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "Two highlight colors: a pale cyan for the facets on the right, and white for the brightest strips along the top and the upper right. Light facets next to dark ones, with hard edges between them, are what make a gem sparkle.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

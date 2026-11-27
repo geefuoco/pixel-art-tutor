@@ -1,0 +1,55 @@
+{
+  "id": "coin-spin",
+  "title": "Spinning coin",
+  "roles": {
+    "#393457": "outline",
+    "#f7e476": "base",
+    "#f99252": "shadow",
+    "#ffffff": "highlight"
+  },
+  "animation": {
+    "fps": 10,
+    "steps": [
+      {
+        "frame": 1,
+        "pose": "key",
+        "explanation": "A spinning coin is a flat circle turning in place. Its key poses are the two extremes: face on, and edge on.\n\nIn Frame 1 the coin faces you: a full circle with a ring stamped inside it and a white highlight on its left half.\n\n![Frame 1](examples/frame-1.png) ![Frame 5](examples/frame-5.png)"
+      },
+      {
+        "frame": 5,
+        "pose": "key",
+        "explanation": "In Frame 5 the coin is edge on: a strip 5 pixels wide, outline included. Nothing is left of the face. The shading still follows the light: pale at the top, darker below.\n\n![Frame 1](examples/frame-1.png) ![Frame 5](examples/frame-5.png)"
+      },
+      {
+        "frame": 2,
+        "pose": "in-between",
+        "explanation": "Frames 2 to 4 turn the coin from face on to edge on. Frame 2 is still 12 pixels wide, then the coin narrows to 10 and 8 pixels before the strip in Frame 5. As it turns, its far side shows as a band of darker orange down the right.\n\nTurn on **Onion skin** (O) to see the Frames on either side.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 3,
+        "pose": "in-between",
+        "explanation": "Frame 3 is a little narrower than Frame 2, and the dark band down the right is a little wider.\n\n![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png) ![Frame 4](examples/frame-4.png)"
+      },
+      {
+        "frame": 4,
+        "pose": "in-between",
+        "explanation": "Frame 4 is the last step before the edge: the face is now a thin oval.\n\n![Frame 3](examples/frame-3.png) ![Frame 4](examples/frame-4.png) ![Frame 5](examples/frame-5.png)"
+      },
+      {
+        "frame": 6,
+        "pose": "in-between",
+        "explanation": "Frames 6 to 8 turn the coin back to face on, and they are close to Frames 4, 3 and 2 flipped left to right. The light now catches the left edge instead, which is what shows the coin is still turning the same way and has not just bounced back.\n\n![Frame 4](examples/frame-4.png) ![Frame 6](examples/frame-6.png)"
+      },
+      {
+        "frame": 7,
+        "pose": "in-between",
+        "explanation": "Frame 7 matches Frame 3, flipped.\n\n![Frame 3](examples/frame-3.png) ![Frame 7](examples/frame-7.png)"
+      },
+      {
+        "frame": 8,
+        "pose": "in-between",
+        "explanation": "Frame 8 matches Frame 2, flipped, and leads back into Frame 1. Press **Play preview** (P) to watch it spin. Reusing flipped Frames halves the drawing and keeps both halves of the turn even.\n\n![Frame 2](examples/frame-2.png) ![Frame 8](examples/frame-8.png)"
+      }
+    ]
+  }
+}

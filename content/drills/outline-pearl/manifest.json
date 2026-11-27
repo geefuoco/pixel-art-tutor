@@ -1,0 +1,12 @@
+{
+  "id": "outline-pearl",
+  "title": "Outline a pearl",
+  "technique": "outline",
+  "instruction": "This pearl is 5 pixels across. Draw a 1 pixel outline round it in the darkest color. At this size a circle is 3 pixels across the top and bottom and 3 down each side, with one diagonal step at each corner.",
+  "roles": {
+    "#33323d": "outline",
+    "#bcbcbc": "base",
+    "#e6e6e6": "highlight"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

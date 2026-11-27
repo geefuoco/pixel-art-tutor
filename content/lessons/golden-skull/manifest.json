@@ -1,0 +1,19 @@
+{
+  "id": "golden-skull",
+  "title": "Golden skull",
+  "roles": {
+    "#33323d": "outline",
+    "#daab76": "base",
+    "#d88571": "shadow",
+    "#c25f62": "shadow",
+    "#f7ec9b": "highlight",
+    "#ffffff": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A skull reads from three things: a round dome, two big eye sockets and a row of teeth. Start with the whole outer shape in the gold: a dome 16 pixels wide at its widest, narrowing to the jaw, with gaps between the teeth along the bottom.\n\n![Silhouette](examples/silhouette.png) ![The finished skull](examples/finished.png)",
+    "outline": "The outline does more than go round the edge. Inside the skull it rings each eye socket, marks where the cheekbones meet the jaw, and separates the teeth. Outline-colored lines inside a sprite split it into parts the eye reads separately.\n\n![The outline on its own](examples/outline.png)",
+    "base": "The base is a warm gold. It covers the forehead, the cheekbones and the jaw: the parts of the skull that face you. Most of it is already there from the silhouette.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "Two shadow colors. A dusky rose shades the left side of the skull, away from the light at the top right, and the nose between the eyes. The inside of each eye socket takes a deeper red.\n\nThe deeper color makes the sockets look hollow: a hole is darker than any surface that is only turned away from the light.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "The light catches the top right of the dome: a few pale yellow pixels, with one white pixel where it is brightest. Gold looks like metal because its highlight is much paler than its base and sits right next to it, with no soft step in between.\n\n![With shadow](examples/shaded.png) ![With the highlight](examples/finished.png)"
+  }
+}

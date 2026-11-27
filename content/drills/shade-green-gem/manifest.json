@@ -1,0 +1,16 @@
+{
+  "id": "shade-green-gem",
+  "title": "Shade a green gem",
+  "technique": "shading",
+  "instruction": "This gem is flat green. The light comes from the top right: put the darker greens on the facets down the left side and along the bottom, and the pale green and white on the facets at the top and right. Keep each facet one flat color.",
+  "roles": {
+    "#33323d": "outline",
+    "#5acd5e": "base",
+    "#339771": "shadow",
+    "#216e70": "shadow",
+    "#a8ec8c": "highlight",
+    "#ffffff": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-right"
+}

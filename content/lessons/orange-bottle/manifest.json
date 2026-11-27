@@ -1,0 +1,17 @@
+{
+  "id": "orange-bottle",
+  "title": "Orange bottle",
+  "roles": {
+    "#231c19": "outline",
+    "#f99c0b": "base",
+    "#fa5f00": "shadow",
+    "#ffd233": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A bottle is three blocks stacked: a wide lip at the top, a neck 2 pixels wide, and a body 8 pixels wide. Block all three in the orange, centered on the canvas.\n\n![Silhouette](examples/silhouette.png) ![The finished bottle](examples/finished.png)",
+    "outline": "A near-black outline goes all the way round, across the top of the lip too. Look at the shoulders: from the neck to the full width of the body the line steps out twice, one pixel over and one pixel down each time. Steps like that make a 45 degree slope, the cleanest diagonal there is.\n\n![The outline on its own](examples/outline.png)",
+    "base": "The base is the orange of the liquid. One color covers the glass and what is in it. At this size a bottle reads as a bottle from its shape, so there is no need to draw the glass separately.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "The bottom of the bottle turns away from the light, so it takes the deep red-orange: a full row along the bottom that climbs up both sides and is a little wider on the right.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "The yellow highlight runs down the left side of the body in one line, catches the rim of the lip, and runs up the neck. A long thin highlight that follows the edge is how pixel art shows glass: a hard reflection down the side that faces the light.\n\n![With shadow](examples/shaded.png) ![With the highlight](examples/finished.png)"
+  }
+}

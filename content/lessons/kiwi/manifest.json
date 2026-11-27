@@ -1,0 +1,21 @@
+{
+  "id": "kiwi",
+  "title": "Kiwi",
+  "roles": {
+    "#211f30": "outline",
+    "#a7975f": "base",
+    "#72a11d": "base",
+    "#8b6f4c": "shadow",
+    "#28860f": "shadow",
+    "#ffffff": "highlight",
+    "#a4cc42": "highlight",
+    "#c8c395": "highlight"
+  },
+  "explanations": {
+    "silhouette": "This kiwi is a circle 14 pixels across. Circles get harder as they grow, so take your time: block it in the light brown and check that the edge steps the same way on all four sides.\n\n![Silhouette](examples/silhouette.png) ![The finished kiwi](examples/finished.png)",
+    "outline": "A circle in pixels is built from runs that shrink toward the diagonals and grow toward the flat sides. Here that is 4 pixels across the top, then runs of 2, then single steps, then a straight run of 4 down each side. The same pattern repeats in every quarter.\n\nA few outline pixels inside mark the edge of the green patch on the upper left.\n\n![The outline on its own](examples/outline.png)",
+    "base": "Two base colors for two materials: light brown for the fuzzy skin and green for the patch on the upper left.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "The light comes from the top left. The brown darkens down the right side and across the bottom, in a band that is thickest at the bottom, where the fruit turns furthest from the light. The green takes a darker green along its lower edge.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "A white spot in the green is the shine. A lighter green along the top of the patch and pale pixels where the green meets the brown give it a rim that catches the light.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

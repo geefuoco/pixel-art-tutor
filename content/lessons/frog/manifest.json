@@ -1,0 +1,21 @@
+{
+  "id": "frog",
+  "title": "Frog",
+  "roles": {
+    "#322c43": "outline",
+    "#258533": "base",
+    "#cc9f61": "base",
+    "#f7e3b0": "base",
+    "#1c4b3a": "shadow",
+    "#8a5e34": "shadow",
+    "#79d63f": "highlight",
+    "#ffffff": "highlight"
+  },
+  "explanations": {
+    "silhouette": "This frog is 26 pixels wide: a squat round body, two big eyes bulging from the top of its head, and legs folded at its sides. On a 32x32 canvas there is room for a whole character, so get the big shape right first. Block it all in the green.\n\n![Silhouette](examples/silhouette.png) ![The finished frog](examples/finished.png)",
+    "outline": "The near-black outline only runs along the bottom and the lower right of the frog, the parts in shadow against the ground. Along the top, the edge is drawn in the frog's dark green instead, which you add in the Shadow Step. A dark outline on the shadow side with a colored edge on the lit side keeps a bright character from looking cut out with scissors.\n\nThe pupils use the outline color too.\n\n![The outline on its own](examples/outline.png) ![The finished frog](examples/finished.png)",
+    "base": "Three base colors: green for the skin, tan for the belly, and cream for the eyes and the line of the mouth.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "Two shadows, one for each material. Dark green shades the frog's back and folded leg and runs along its top edge. Brown shades both sides of the belly, so the belly looks round and soft in the middle.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "Small highlights finish it: white in each eye, which makes the frog look alive, and bright green on its feet.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

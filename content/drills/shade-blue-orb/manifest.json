@@ -1,0 +1,18 @@
+{
+  "id": "shade-blue-orb",
+  "title": "Shade a blue orb",
+  "technique": "shading",
+  "instruction": "This orb is one flat blue inside its dark rim. The light comes from the top right: wrap the darker blues round the lower left in bands that follow the curve, and put a small pale highlight near the top right, inside the edge.",
+  "roles": {
+    "#002766": "outline",
+    "#00307f": "outline",
+    "#001d4c": "outline",
+    "#0086f0": "base",
+    "#0071cc": "shadow",
+    "#004fcc": "shadow",
+    "#0038ff": "shadow",
+    "#00b8ff": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-right"
+}
