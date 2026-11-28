@@ -277,15 +277,23 @@ describe('checking a tileset Lesson', () => {
 });
 
 describe('the Guide for a Step', () => {
-  const B = 1;
-  const S = 2;
-
   it('shows the whole target on a blank canvas', () => {
-    expect(stepGuide(LESSON, BASE, BLANK)).toEqual(LESSON.steps[BASE]!.target);
+    expect(stepGuide(LESSON, BASE, BLANK)).toEqual(
+      sprite([
+        '........',
+        '........',
+        '...BB...',
+        '..BB....',
+        '........',
+        '........',
+        '........',
+        '........',
+      ]).pixels,
+    );
   });
 
   it('leaves out base pixels the Silhouette Step already blocked in', () => {
-    expect(stepGuide(LESSON, BASE, BLOCKED_IN)).toEqual(Array(64).fill(-1));
+    expect(stepGuide(LESSON, BASE, BLOCKED_IN)).toEqual(BLANK.pixels);
     expect(stepGuide(LESSON, SHADOW, BLOCKED_IN)).toEqual(
       sprite([
         '........',
@@ -301,10 +309,17 @@ describe('the Guide for a Step', () => {
   });
 
   it('keeps a pixel drawn in the wrong color, and drops one once it is drawn right', () => {
-    const pixels = BLANK.pixels.slice();
-    pixels[2 * 8 + 5] = S;
-    pixels[3 * 8 + 4] = B;
-    expect(stepGuide(LESSON, SHADOW, { ...BLANK, pixels })).toEqual(
+    const drawing = sprite([
+      '........',
+      '........',
+      '.....S..',
+      '....B...',
+      '........',
+      '........',
+      '........',
+      '........',
+    ]);
+    expect(stepGuide(LESSON, SHADOW, drawing)).toEqual(
       sprite([
         '........',
         '........',
@@ -319,10 +334,27 @@ describe('the Guide for a Step', () => {
   });
 
   it('drops a silhouette pixel already drawn in its final color, as Check counts it right', () => {
-    const pixels = BLANK.pixels.slice();
-    pixels[1 * 8 + 2] = 0;
-    const guide = stepGuide(LESSON, SILHOUETTE, { ...BLANK, pixels });
-    expect(guide[1 * 8 + 2]).toBe(-1);
-    expect(guide[1 * 8 + 3]).toBe(B);
+    const drawing = sprite([
+      '........',
+      '..O.....',
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+      '........',
+    ]);
+    expect(stepGuide(LESSON, SILHOUETTE, drawing)).toEqual(
+      sprite([
+        '........',
+        '...BBB..',
+        '.BBBBBB.',
+        '.BBBBBB.',
+        '..BBBB..',
+        '........',
+        '........',
+        '........',
+      ]).pixels,
+    );
   });
 });

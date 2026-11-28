@@ -52,7 +52,7 @@ The Mode in which the learner gets each Step's explanation and the palette, and 
 The Mode in which the learner draws from the Reference Sprite shown beside the canvas, with no Steps enforced.
 
 **Guide**:
-The faint overlay showing the exact pixels for the current Step.
+The faint overlay showing the exact pixels still left to draw for the current Step. A pixel already drawn right has no Guide.
 _Avoid_: Overlay, ghost
 
 **Pass**:
