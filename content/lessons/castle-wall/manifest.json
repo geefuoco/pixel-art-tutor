@@ -1,0 +1,28 @@
+{
+  "id": "castle-wall",
+  "title": "Castle wall tiles",
+  "roles": {
+    "#3f3851": "base",
+    "#ae444e": "shadow",
+    "#cd7363": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Wall",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "A castle wall for a background: dark stone with a few lit bricks picked out. The dark color fills most of the tile, and that is the point. A background should stay quiet so the characters in front of it read clearly.\n\nEach brick is a pale block with darker red corners, which rounds it off without an outline.\n\n![One tile, repeated](examples/one-repeated.png)\n\nRepeated on its own, the bricks form the same group every 16 pixels."
+      },
+      {
+        "name": "Wall, second variant",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "A second tile with the bricks in other places. It shares the background and the colors with the first, so the two can sit side by side in any order."
+      },
+      {
+        "name": "Wall, third variant",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "With a third tile you can mix all three so no pattern shows. Three plain variants are usually enough to hide the grid on a large background.\n\n![The three tiles mixed](examples/mixed.png)"
+      }
+    ]
+  }
+}

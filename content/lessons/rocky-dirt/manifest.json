@@ -1,0 +1,29 @@
+{
+  "id": "rocky-dirt",
+  "title": "Rocky dirt tiles",
+  "roles": {
+    "#693f55": "shadow",
+    "#964b4c": "base",
+    "#b36950": "base",
+    "#de9a60": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Rocky dirt",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "Rocky dirt is noise: lumps of light and dark scattered so the eye reads a texture, not shapes. The lumps here are clusters of a few pixels in the lighter browns on a dark ground. They do not run off one edge without carrying on from the opposite edge, so copies join without a seam.\n\n![Rocky dirt, repeated](examples/fill-repeated.png)\n\nRepeated 9 times, though, the same lumps line up in rows and columns, and the eye finds the grid. The next two tiles fix that."
+      },
+      {
+        "name": "Sparse dirt",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "A variant tile uses the same colors with fewer lumps. Mixed in among the first tile, it breaks up the grid: the eye stops finding the same shape every 16 pixels."
+      },
+      {
+        "name": "Boulder",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "The third tile has a big boulder in the lightest browns. Use a tile like this rarely: one landmark among plain tiles makes the ground look natural, but used everywhere it becomes the new repeating pattern.\n\n![The three tiles mixed](examples/mixed.png)"
+      }
+    ]
+  }
+}

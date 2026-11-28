@@ -1,0 +1,19 @@
+{
+  "id": "cherry",
+  "title": "Cherry",
+  "roles": {
+    "#322c43": "outline",
+    "#ba3655": "base",
+    "#258533": "base",
+    "#693f55": "shadow",
+    "#f29698": "highlight",
+    "#b4de5b": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A cherry is a round fruit hanging from a thin stem, with a leaf. Block in all three as one shape: the fruit at the bottom left, the stem rising to the right, and the leaf out at the top right.\n\n![Silhouette](examples/silhouette.png) ![The finished cherry](examples/finished.png)",
+    "outline": "The outline is not one closed ring. Round the bottom and right of the fruit it is the near-black, but on the upper left there is none: that edge is drawn in the dark wine red, which you add in the Shadow Step. The stem is outline color alone, 1 or 2 pixels wide, with no fill inside.\n\n![The outline on its own](examples/outline.png)",
+    "base": "Cherry red for the fruit and green for the leaf.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "The light comes from the right, so the left of the cherry is in shadow: a dark wine red that covers about a third of it and also forms its upper left edge. Drawing the edge in the shadow color, instead of the outline, softens the shape on that side and makes it look round.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "A pink highlight, 2 by 2 pixels, sits on the right of the cherry, a little in from the edge. The leaf gets a light green line down its middle: the vein, catching the light.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

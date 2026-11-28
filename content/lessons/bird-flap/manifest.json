@@ -1,0 +1,35 @@
+{
+  "id": "bird-flap",
+  "title": "Bird flap",
+  "roles": {
+    "#393457": "outline",
+    "#cb4d68": "base",
+    "#f99252": "base",
+    "#822452": "shadow"
+  },
+  "animation": {
+    "fps": 8,
+    "steps": [
+      {
+        "frame": 2,
+        "pose": "key",
+        "explanation": "A flying loop is a wing going up and coming down. Its key poses are the two ends of the beat. In Frame 2 the wing is at the top, raised high and spread wide above the body.\n\n![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 3,
+        "pose": "key",
+        "explanation": "Frame 3 is the bottom of the beat: the wing sweeps down below the body and the tips point at the ground. This is the push that keeps the bird in the air, so it is the biggest change of shape in the loop.\n\n![Frame 2](examples/frame-2.png) ![Frame 3](examples/frame-3.png)"
+      },
+      {
+        "frame": 4,
+        "pose": "in-between",
+        "explanation": "Frame 4 brings the wing back up from the bottom. It lies flat along the body, partway between down and up.\n\nTurn on **Onion skin** (O) to see the Frames on either side.\n\n![Frame 3](examples/frame-3.png) ![Frame 4](examples/frame-4.png)"
+      },
+      {
+        "frame": 1,
+        "pose": "in-between",
+        "explanation": "Frame 1 lifts the wing from flat to the top: it is raised, but not yet spread. Press **Play preview** (P) to watch it fly. With only two in-betweens, the beat is quick and snappy, like a small bird.\n\n![Frame 1](examples/frame-1.png) ![Frame 2](examples/frame-2.png)"
+      }
+    ]
+  }
+}

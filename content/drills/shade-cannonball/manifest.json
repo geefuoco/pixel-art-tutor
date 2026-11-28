@@ -1,0 +1,14 @@
+{
+  "id": "shade-cannonball",
+  "title": "Shade a cannonball",
+  "technique": "shading",
+  "instruction": "This cannonball is one flat purple-grey. The light comes from the top left: shade the lower right with the darker purple in a crescent that is widest at the bottom right, and add a few pale pixels near the top left for the shine.",
+  "roles": {
+    "#33323d": "outline",
+    "#7b7bab": "base",
+    "#68538a": "shadow",
+    "#94a2bd": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-left"
+}

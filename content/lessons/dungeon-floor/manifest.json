@@ -1,0 +1,30 @@
+{
+  "id": "dungeon-floor",
+  "title": "Dungeon floor tiles",
+  "roles": {
+    "#332323": "outline",
+    "#664133": "shadow",
+    "#664747": "shadow",
+    "#b27c7c": "base",
+    "#bf9999": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Slab",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "A floor of stone slabs. Unlike grass or dirt, a slab floor is meant to show its tiles: each slab has a dark rim round its edge, so the floor reads as a grid of separate stones. Here the seam is part of the design, and it still has to match: the rim on the right fits against the rim on the left of the next copy.\n\nThe rim is lit like a raised edge, with paler flecks down the sides and the darkest color along the bottom.\n\n![Slabs, repeated](examples/plain-repeated.png)"
+      },
+      {
+        "name": "Worn slab",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "The worn slab is the same stone with a few pits: single darker pixels with paler ones beside them. Small marks like these make the floor look used without changing its shape."
+      },
+      {
+        "name": "Cracked slab",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "The cracked slab has thin cracks in it. A crack is a dark line with a pale pixel beside it: dark for the gap, pale for the broken edge catching the light, the same trick as the rim. Mix the three slabs and the floor looks old and walked on.\n\n![The three slabs mixed](examples/mixed.png)"
+      }
+    ]
+  }
+}

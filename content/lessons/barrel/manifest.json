@@ -1,0 +1,19 @@
+{
+  "id": "barrel",
+  "title": "Barrel",
+  "roles": {
+    "#33323d": "outline",
+    "#b77f6b": "base",
+    "#94a2bd": "base",
+    "#a05858": "shadow",
+    "#7474a5": "shadow",
+    "#cae1ed": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A barrel seen from the front is a rectangle that bulges slightly in the middle, with the lid showing as a band at the top. Block it in the wood color.\n\n![Silhouette](examples/silhouette.png) ![The finished barrel](examples/finished.png)",
+    "outline": "Here the outline color does a lot of work inside the shape. It draws both edges of the two metal hoops, the rim of the lid and the gaps between the planks. Without these lines the barrel would be one flat block. With them, it reads as planks held together by hoops.\n\n![The outline on its own](examples/outline.png)",
+    "base": "Two materials, two base colors: warm brown for the wooden planks and blue-grey for the metal hoops.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "Each material gets its own darker color. The planks have darker brown strips along their edges, so each one looks slightly rounded. The hoops darken along their bottom edge and at both ends, where they wrap round out of sight.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "Only the metal gets a highlight: a few pale pixels on each hoop, right of center. Wood is matte, so it has none, and that difference is what makes the hoops look like metal.\n\n![With shadow](examples/shaded.png) ![With the highlights](examples/finished.png)"
+  }
+}

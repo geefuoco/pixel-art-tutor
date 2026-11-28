@@ -57,7 +57,25 @@ test('trace an animation Lesson one Frame at a time, key poses first', async ({ 
     name: 'backup.json',
     mimeType: 'application/json',
     buffer: Buffer.from(
-      backupWithPassedTraces(['red-potion', 'apple', 'purple-gem'], '2026-10-01T12:00:00'),
+      backupWithPassedTraces(
+        [
+          'red-potion',
+          'small-heart',
+          'red-orb',
+          'apple',
+          'orange-bottle',
+          'golden-skull',
+          'purple-gem',
+          'blue-diamond',
+          'kiwi',
+          'melon',
+          'pineapple',
+          'cherry',
+          'barrel',
+          'frog',
+        ],
+        '2026-10-01T12:00:00',
+      ),
     ),
   });
   await page

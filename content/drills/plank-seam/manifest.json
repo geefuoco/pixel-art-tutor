@@ -1,0 +1,15 @@
+{
+  "id": "plank-seam",
+  "title": "Fix a plank wall that slipped",
+  "technique": "tiling",
+  "instruction": "The ends of the planks along the right edge of this tile slipped down, so the dark lines between the planks no longer meet the ones on the left. Make it repeat left to right and top to bottom without a seam. Watch the Tiling Preview as you go.",
+  "roles": {
+    "#33323d": "outline",
+    "#a97562": "base",
+    "#984b4b": "shadow",
+    "#6c5c68": "shadow",
+    "#b69977": "highlight"
+  },
+  "checks": ["seamless"],
+  "seamless": ["left-right", "top-bottom"]
+}

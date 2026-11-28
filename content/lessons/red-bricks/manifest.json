@@ -1,0 +1,24 @@
+{
+  "id": "red-bricks",
+  "title": "Red brick wall",
+  "roles": {
+    "#211f30": "outline",
+    "#9c1b4d": "shadow",
+    "#e44a4a": "base",
+    "#f18b72": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Brick top",
+        "seamless": ["left-right"],
+        "explanation": "A brick wall is built in courses: rows of bricks where each row's joints sit in a different place from the row below, so they never line up. That staggered pattern is what makes a wall read as bricks and not as a grid.\n\nThis tile ends the wall at the top: a dark outline along the top row, where the wall meets the sky, and a pale row just under it, where the light hits the top of the bricks. It repeats left to right.\n\n![Brick top, repeated](examples/top-repeated.png)"
+      },
+      {
+        "name": "Brick wall",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "The wall tile repeats in both directions. Follow the joints down the tile: each course has its upright joint in a different place, and the joints in the bottom course line up with the top course of the next copy, so the pattern carries on across the seam.\n\nThe mortar uses two dark colors: plum for the lines, and the darkest color where the lines meet, which makes each joint look deeper.\n\n![Wall, repeated](examples/fill-repeated.png) ![The top tile above the wall](examples/wall.png)"
+      }
+    ]
+  }
+}

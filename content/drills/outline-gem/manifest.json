@@ -1,0 +1,13 @@
+{
+  "id": "outline-gem",
+  "title": "Outline a green gem",
+  "technique": "outline",
+  "instruction": "This gem has lost its outline. Draw a 1 pixel outline round it in the darkest color: flat across the top, stepping out at the upper corners, then down the two sloping sides to the point. Keep each diagonal step 1 pixel across and 1 down.",
+  "roles": {
+    "#393457": "outline",
+    "#16db7f": "base",
+    "#1e8875": "shadow",
+    "#6df7c1": "highlight"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

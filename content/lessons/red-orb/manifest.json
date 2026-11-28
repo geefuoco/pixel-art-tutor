@@ -1,0 +1,20 @@
+{
+  "id": "red-orb",
+  "title": "Red orb",
+  "roles": {
+    "#330600": "outline",
+    "#4c0a00": "outline",
+    "#660d00": "shadow",
+    "#7f0004": "shadow",
+    "#b20006": "shadow",
+    "#ff0009": "base",
+    "#ff7f84": "highlight"
+  },
+  "explanations": {
+    "silhouette": "An orb is the simplest round shape. At 8x8 a circle is a square with its corners cut away: 4 pixels across the top and bottom rows, 6 across the next ones in, and the full 8 in the middle. Block it in the bright red.\n\n![Silhouette](examples/silhouette.png) ![The finished orb](examples/finished.png)",
+    "outline": "This orb has no black ring round it. Its darkest reds trace only the left side, the bottom and two of the corners, the edges away from the light. Along the top and right, the edge is drawn in a shadow red instead, which you add in the Shadow Step.\n\nThis is a **selective outline**: the edge takes a darker shade of the color next to it, darkest where the shape turns away from the light. It separates the orb from the background without a hard line.\n\n![The outline colors on their own](examples/outline.png) ![The finished orb](examples/finished.png) ![The same orb with one outline color all round](examples/one-color-outline.png)\n\nOn the right, the same orb with one dark color all the way round looks flatter and heavier.",
+    "base": "The base is the bright red: the part of the orb that faces the light. It is already there from the silhouette.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "A sphere darkens as it turns away from the light. Here that takes three reds, in bands that follow the curve: a darker red down the middle left, a deeper one outside it, and the deepest red along the edge of the lower left and the top and right.\n\nThe bands wrap round the orb like a crescent, thickest at the lower left. That curve is what makes it read as a ball and not a disc.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "Three pale pink pixels near the top right are the highlight, where the light reflects straight back at you. On a shiny sphere the highlight is small, sits inside the lit side rather than on the edge, and is the only near-white color.\n\n![With shadow](examples/shaded.png) ![With the highlight](examples/finished.png)"
+  }
+}

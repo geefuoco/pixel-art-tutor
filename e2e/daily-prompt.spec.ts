@@ -128,11 +128,11 @@ test('draw a Technique Drill once its Lesson is passed, check it and keep it in 
   await expect(page.getByRole('status')).toContainText('Restored');
 
   await page.getByRole('link', { name: 'Daily Prompt', exact: true }).click();
-  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a key');
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a pearl');
   const canvas = promptCanvas(page);
-  await expect(canvas).toHaveAccessibleName(/16 by 16 pixels/);
-  const key = await pixelAt(canvas, 16, 6, 8);
-  expect(key[3]).toBe(255);
+  await expect(canvas).toHaveAccessibleName(/8 by 8 pixels/);
+  const pearl = await pixelAt(canvas, 8, 3, 3);
+  expect(pearl[3]).toBe(255);
 
   await page.getByRole('button', { name: 'Check drawing' }).click();
   const checks = page.getByRole('region', { name: 'The drill' });
@@ -141,11 +141,11 @@ test('draw a Technique Drill once its Lesson is passed, check it and keep it in 
   ).toHaveText(/^Not met/);
 
   await page.reload();
-  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a key');
+  await expect(promptHeading(page)).toHaveText('Technique Drill: Outline a pearl');
   await page.getByRole('button', { name: 'Save to Gallery' }).click();
   await expect(page.getByRole('button', { name: 'Saved to the Gallery' })).toBeDisabled();
   await page.getByRole('link', { name: 'Gallery', exact: true }).first().click();
   await expect(
     page.getByRole('article', { name: /Daily Prompt, November 28, 2026/ }),
-  ).toContainText('Technique Drill: Outline a key');
+  ).toContainText('Technique Drill: Outline a pearl');
 });

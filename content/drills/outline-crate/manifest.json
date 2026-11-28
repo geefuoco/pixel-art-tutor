@@ -1,0 +1,12 @@
+{
+  "id": "outline-crate",
+  "title": "Outline a crate",
+  "technique": "outline",
+  "instruction": "Give this wooden crate a 1 pixel outline in the darkest color. A box is all straight lines, so the outline is long straight runs with square corners. The middle band is one pixel narrower on each side, so the outline steps in there and back out.",
+  "roles": {
+    "#393457": "outline",
+    "#bd9b84": "base",
+    "#785f56": "shadow"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}
