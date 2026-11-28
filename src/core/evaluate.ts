@@ -54,6 +54,15 @@ export function checkStep(lesson: Lesson, stepIndex: number, drawing: Drawing): 
   return { missing, extra };
 }
 
+export function stepGuide(lesson: Lesson, stepIndex: number, drawing: Drawing): readonly number[] {
+  const leftToDraw = new Set(
+    checkStep(lesson, stepIndex, drawing).missing.map(({ x, y }) => y * lesson.size + x),
+  );
+  return lesson.steps[stepIndex]!.target.map((color, i) =>
+    leftToDraw.has(i) ? color : TRANSPARENT,
+  );
+}
+
 export function scoreLessonAttempt(lesson: Lesson, attempt: Animation): number {
   let compared = 0;
   let correct = 0;

@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, CircleCheck, Eye, Layers, Lightbulb, Play } 
 import { onionSkins } from '../core/animation';
 import { useState, useSyncExternalStore } from 'react';
 import type { Drawing } from '../core/drawing';
-import { checkStep, passScore, type StepCheck } from '../core/evaluate';
+import { checkStep, passScore, stepGuide, type StepCheck } from '../core/evaluate';
 import {
   frameOfStep,
   hasSeveralFrames,
@@ -276,7 +276,9 @@ function LessonSession({
             </>
           }
           marks={{
-            guide: (mode === 'trace' ? showGuide : flashing) ? step.target : null,
+            guide: (mode === 'trace' ? showGuide : flashing)
+              ? stepGuide(lesson, stepIndex, drawing)
+              : null,
             missing: check?.missing ?? [],
             extra: check?.extra ?? [],
             mistakes: freshCheck?.mistakes.flatMap((m) => m.pixels) ?? [],
