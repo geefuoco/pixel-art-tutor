@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { stillAnimation, type Animation } from './animation';
-import { checkStep, passesMode, scoreLessonAttempt } from './evaluate';
+import { checkStep, passesMode, scoreLessonAttempt, stepGuide } from './evaluate';
 import { createAnimationLesson, createLesson, createTilesetLesson, type Role } from './lesson';
 import { spriteOf } from './test-grids';
 
@@ -212,6 +212,31 @@ describe('checking and scoring an animation Lesson', () => {
     expect(checkStep(ANIMATED, LOW_FRAME_STEP, blockedIn).missing).toHaveLength(12);
   });
 
+  it('drops pixels of a Frame already drawn right from its Guide', () => {
+    const outlined = sprite([
+      '........',
+      '........',
+      '..OOOO..',
+      '.O....O.',
+      '.O....O.',
+      '..OOOO..',
+      '........',
+      '........',
+    ]);
+    expect(stepGuide(ANIMATED, LOW_FRAME_STEP, outlined)).toEqual(
+      sprite([
+        '........',
+        '........',
+        '........',
+        '..BBBB..',
+        '..BBBB..',
+        '........',
+        '........',
+        '........',
+      ]).pixels,
+    );
+  });
+
   it('scores every Frame together against the Reference Sprite', () => {
     expect(scoreLessonAttempt(ANIMATED, BOBBING)).toBe(1);
     const onlyFirstFrame = { ...BOBBING, frames: [BOBBING.frames[0]!, BLANK.pixels] };
@@ -248,5 +273,56 @@ describe('checking a tileset Lesson', () => {
       missing: [{ x: 9, y: 3 }],
       extra: Array.from({ length: 32 }, (_, i) => ({ x: i % 16, y: Math.floor(i / 16) })),
     });
+  });
+});
+
+describe('the Guide for a Step', () => {
+  const B = 1;
+  const S = 2;
+
+  it('shows the whole target on a blank canvas', () => {
+    expect(stepGuide(LESSON, BASE, BLANK)).toEqual(LESSON.steps[BASE]!.target);
+  });
+
+  it('leaves out base pixels the Silhouette Step already blocked in', () => {
+    expect(stepGuide(LESSON, BASE, BLOCKED_IN)).toEqual(Array(64).fill(-1));
+    expect(stepGuide(LESSON, SHADOW, BLOCKED_IN)).toEqual(
+      sprite([
+        '........',
+        '........',
+        '.....S..',
+        '....SS..',
+        '........',
+        '........',
+        '........',
+        '........',
+      ]).pixels,
+    );
+  });
+
+  it('keeps a pixel drawn in the wrong color, and drops one once it is drawn right', () => {
+    const pixels = BLANK.pixels.slice();
+    pixels[2 * 8 + 5] = S;
+    pixels[3 * 8 + 4] = B;
+    expect(stepGuide(LESSON, SHADOW, { ...BLANK, pixels })).toEqual(
+      sprite([
+        '........',
+        '........',
+        '........',
+        '....SS..',
+        '........',
+        '........',
+        '........',
+        '........',
+      ]).pixels,
+    );
+  });
+
+  it('drops a silhouette pixel already drawn in its final color, as Check counts it right', () => {
+    const pixels = BLANK.pixels.slice();
+    pixels[1 * 8 + 2] = 0;
+    const guide = stepGuide(LESSON, SILHOUETTE, { ...BLANK, pixels });
+    expect(guide[1 * 8 + 2]).toBe(-1);
+    expect(guide[1 * 8 + 3]).toBe(B);
   });
 });
