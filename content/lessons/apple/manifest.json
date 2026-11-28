@@ -1,0 +1,18 @@
+{
+  "id": "apple",
+  "title": "Apple",
+  "roles": {
+    "#393457": "outline",
+    "#1e8875": "base",
+    "#cb4d68": "base",
+    "#6a3771": "shadow",
+    "#ffffff": "highlight"
+  },
+  "explanations": {
+    "silhouette": "At 16x16 there is room for a shape with more than one idea in it. This apple is a round body with a dip at the top, a stem leaning to the right and a leaf on the left. Block it all in one flat color first.\n\n![Silhouette in one flat color](examples/silhouette.png) ![The finished apple](examples/finished.png)\n\nIf the silhouette already reads as an apple, the outline and shading only have to confirm it.",
+    "outline": "A curve in pixels is a staircase. Read each edge as runs: straight pieces of 1, 2, 3 or more pixels. A clean curve keeps its runs steady, or lets them grow or shrink one step at a time as the curve turns.\n\n![Clean outline](examples/outline.png) ![A jaggy on the right side](examples/jaggy.png) ![A double on the bottom left](examples/doubles.png)\n\nThe middle apple has a **jaggy**: one pixel on the right side sticks out, breaking a straight run of 4 into pieces. The last one has a **double**: an extra pixel in the corner of a diagonal step, which makes the line look thick there. Keep the line 1 pixel wide and let diagonal pixels touch only at their corners.",
+    "base": "Two materials, two base colors: red for the apple and teal for the leaf. The red is already down from the silhouette, so add the leaf inside its outline.\n\n![Outline and base colors](examples/flat.png)",
+    "shadow": "The light comes from the top right, so the shadow wraps round the bottom left: a band 1 to 2 pixels wide inside the outline, thickest at the bottom.\n\nThe shadow is not a darker red. It shifts toward purple, the same family as the outline, which keeps the palette small and makes the shadow feel cool.\n\n![Flat](examples/flat.png) ![With shadow](examples/shaded.png)",
+    "highlight": "A small white cross on the upper right is where the light hits hardest. Five pixels are enough. A highlight is the brightest color on the sprite, and it only works if there is very little of it.\n\n![With shadow](examples/shaded.png) ![With the highlight](examples/finished.png)"
+  }
+}

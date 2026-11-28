@@ -1,0 +1,9 @@
+# Credits
+
+| File                                                                             | Author                                                                           | Source                                                                                                                      | Licence                                                       |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `reference.png`                                                                  | GrafxKid                                                                         | `Seasonal Tilesets.zip`: `1 - Grassland/Terrain (16 x 16).png`, the tiles at x 96, y 48 and x 64, y 64, placed side by side | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `examples/top-repeated.png`, `examples/dirt-repeated.png`, `examples/ground.png` | GrafxKid                                                                         | The same tiles, repeated                                                                                                    | CC0 1.0                                                       |
+| `examples/dirt-outlined-repeated.png`                                            | GrafxKid, with a dark line drawn down both sides of the dirt tile to show a seam | The same dirt tile, repeated                                                                                                | CC0 1.0                                                       |
+
+Licence from the pack's `LICENSE.txt`.

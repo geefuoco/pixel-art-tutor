@@ -1,0 +1,20 @@
+{
+  "id": "shade-strawberry",
+  "title": "Shade a strawberry",
+  "technique": "shading",
+  "instruction": "This strawberry is flat red. The light comes from above: add the darker reds on the sides and bottom that face away from it, and a few pale highlight pixels near the top.",
+  "roles": {
+    "#211f30": "outline",
+    "#a4cc42": "base",
+    "#72a11d": "base",
+    "#28860f": "base",
+    "#e44a4a": "base",
+    "#f7ec8a": "base",
+    "#e1ca33": "base",
+    "#cc3048": "shadow",
+    "#9c1b4d": "shadow",
+    "#f18b72": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "above"
+}

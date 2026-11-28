@@ -1,0 +1,13 @@
+{
+  "id": "outline-heart",
+  "title": "Outline a heart",
+  "technique": "outline",
+  "instruction": "Give this heart a 1 pixel outline in the darkest color. Its two bumps and its point are all curves and diagonals: step diagonally where the edge turns, so pixels touch only at their corners.",
+  "roles": {
+    "#393457": "outline",
+    "#cb4d68": "base",
+    "#ffffff": "highlight",
+    "#6a3771": "shadow"
+  },
+  "checks": ["closed-outline", "clean-outline"]
+}

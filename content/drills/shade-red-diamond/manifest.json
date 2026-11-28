@@ -1,0 +1,16 @@
+{
+  "id": "shade-red-diamond",
+  "title": "Shade a red diamond",
+  "technique": "shading",
+  "instruction": "This diamond is flat red. The light comes from the top right: give the facets on the left and bottom the darker reds, and put the pale highlight on the facets at the top right. Keep each facet one flat color.",
+  "roles": {
+    "#33323d": "outline",
+    "#d05454": "base",
+    "#b9405c": "shadow",
+    "#9b3473": "shadow",
+    "#e19368": "highlight",
+    "#ffffff": "highlight"
+  },
+  "checks": ["shadow-away-from-light", "highlight-toward-light"],
+  "light": "top-right"
+}

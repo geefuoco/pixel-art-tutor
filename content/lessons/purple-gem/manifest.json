@@ -1,0 +1,17 @@
+{
+  "id": "purple-gem",
+  "title": "Purple gem",
+  "roles": {
+    "#4c2562": "outline",
+    "#e6aff0": "base",
+    "#bb58cc": "shadow",
+    "#fcfcfc": "highlight"
+  },
+  "explanations": {
+    "silhouette": "A cut gem is a flat-topped crown over a point. Block in the whole shape in the light pink first: a wide top band, then sides that narrow to a single pixel at the bottom.\n\n![Silhouette](examples/silhouette.png) ![The finished gem](examples/finished.png)",
+    "outline": "The dark purple does two jobs. It runs all the way round the gem, and it also draws the line where the top band meets the lower facets. Lines inside a sprite in the outline color split it into parts the eye reads separately.\n\nThe lower right side is a clean diagonal, one pixel per row, so the point looks sharp. On the lower left the dark purple thickens to 2 and 3 pixels: that side faces away from the light, so the outline also works as its deepest shadow.\n\n![The outline color on its own](examples/outline.png)",
+    "base": "The light pink is the base: the color of a facet that faces the light without catching it directly. Most of it is already there from the silhouette.\n\n![Outline and base](examples/flat.png)",
+    "shadow": "A gem is made of flat faces, so each facet gets **one** flat color. There are no gradients and no soft edges. The lower left facets turn away from the light and go mid purple. The lower right ones stay pink.\n\nNeighboring facets alternate light and dark like this, and the alternation is what makes them read as cut faces. Shading in rings that follow the outline, dark at the edge and light in the middle, turns the gem into a soft lump instead:\n\n![Facet shading](examples/shaded.png) ![Pillow shading in rings](examples/pillow.png)",
+    "highlight": "The top band faces up toward the light, so it carries the white highlights: two strokes that follow the slant of the facets, one on each side. Keep them short. On a shiny material the highlight is small and sharp, and it sits right next to a dark facet for the most contrast.\n\n![With shadow](examples/shaded.png) ![With highlights](examples/finished.png)"
+  }
+}

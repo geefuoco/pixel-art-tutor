@@ -1,0 +1,29 @@
+{
+  "id": "grassy-dirt",
+  "title": "Grassy dirt tiles",
+  "roles": {
+    "#1b141e": "outline",
+    "#cde042": "highlight",
+    "#68b229": "base",
+    "#257d2c": "shadow",
+    "#1b4e44": "shadow",
+    "#d08058": "base",
+    "#974e49": "shadow",
+    "#5a303f": "shadow",
+    "#fdf5f1": "highlight"
+  },
+  "tileset": {
+    "tiles": [
+      {
+        "name": "Grass top",
+        "seamless": ["left-right"],
+        "explanation": "This tile is the top edge of a platform: grass over dirt. It repeats left to right, so its left and right columns have to carry on from each other. The grass pattern here repeats every 4 pixels, and 16 divides evenly by 4, so the copies line up.\n\n![Grass top, repeated](examples/top-repeated.png)\n\nThe top row is a dark outline. That breaks the rule from the last tileset on purpose: an outline belongs on the edges that face open air. The top of a platform meets the sky, so it gets one. The sides join more copies of the tile, so they do not.\n\nThe bottom half is plain dirt, so a Dirt tile fits underneath."
+      },
+      {
+        "name": "Dirt",
+        "seamless": ["left-right", "top-bottom"],
+        "explanation": "The fill tile is what most of the ground is made of, repeated in both directions. Its job is to look like one continuous material, so the stars and specks are scattered unevenly and none of them touch an edge.\n\n![Dirt, repeated](examples/dirt-repeated.png) ![Dirt with an outline on its sides](examples/dirt-outlined-repeated.png)\n\nOn the right, the same tile has an outline down both sides, and the ground turns into a row of columns. Put the two tiles together and the grass top sits on dirt that runs on as far as the level needs:\n\n![A patch of ground](examples/ground.png)"
+      }
+    ]
+  }
+}
